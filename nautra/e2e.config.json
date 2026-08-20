@@ -1,0 +1,25 @@
+{
+  "name": "nautra",
+  "start": "npm run dev",
+  "url": "http://localhost:3100",
+  "readyPath": "/",
+  "flows": [
+    {
+      "name": "punch-flow",
+      "steps": "船内: 打刻者選択→作業種別タップで開始打刻→終了打刻→直前打刻の確認表示"
+    },
+    {
+      "name": "labor-check",
+      "steps": "船内「本日」: 日/週ゲージと休息チェックの2段階アラート（黄/赤）表示"
+    },
+    {
+      "name": "approve-remand",
+      "steps": "船内「承認」: 船長が日次承認／差戻し→履歴画面で差戻し再入力"
+    },
+    {
+      "name": "offline-sync",
+      "steps": "同期画面: 擬似オフラインON→打刻（未同期件数が増える）→OFF→手動同期→陸上ダッシュボードに反映"
+    }
+  ],
+  "playwrightTest": ""
+}

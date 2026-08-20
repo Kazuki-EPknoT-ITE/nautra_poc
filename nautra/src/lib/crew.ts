@@ -1,0 +1,33 @@
+/**
+ * デモ用の船員・船舶マスタ（PoC）。
+ * 本番ではアプリ内マスタが正本（crew_members / vessels。要件定義書 12.2）となり、
+ * 陸上画面 S-04 の単一経路で更新・Pull でマスタ配信される。
+ */
+export const DEMO_TENANT_ID = "tenant-demo";
+
+export const DEMO_VESSEL = {
+  id: "vessel-001",
+  name: "第一のーとら丸",
+} as const;
+
+export type CrewRole = "captain" | "crew";
+
+export interface CrewMember {
+  id: string;
+  name: string;
+  position: string;
+  role: CrewRole;
+  /** アバター表示用イニシャル（顔写真リスト選択方式の代替。基本設計書 11.3） */
+  initial: string;
+}
+
+export const CREW_MEMBERS: CrewMember[] = [
+  { id: "crew-kato", name: "加藤 大和", position: "船長", role: "captain", initial: "加" },
+  { id: "crew-sato", name: "佐藤 海斗", position: "航海士", role: "crew", initial: "佐" },
+  { id: "crew-suzuki", name: "鈴木 港", position: "機関長", role: "crew", initial: "鈴" },
+  { id: "crew-tanaka", name: "田中 凪", position: "甲板部員", role: "crew", initial: "田" },
+];
+
+export function crewById(id: string): CrewMember | undefined {
+  return CREW_MEMBERS.find((c) => c.id === id);
+}
