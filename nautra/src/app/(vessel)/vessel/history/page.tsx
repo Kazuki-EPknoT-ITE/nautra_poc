@@ -142,7 +142,9 @@ export default function HistoryPage() {
       <CrewPicker selected={crew} onSelect={selectCrew} />
 
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold">打刻履歴（{crew.name}）</h1>
+        <h1 className="text-xl font-bold">
+          <span className="mr-2 text-foreground-400">01</span>打刻履歴（{crew.name}）
+        </h1>
         <Button color="primary" variant="bordered" onPress={afterModal.onOpen} className="min-h-12">
           後から打刻
         </Button>

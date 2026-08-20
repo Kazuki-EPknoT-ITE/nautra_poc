@@ -20,7 +20,7 @@ export default function LandingPage() {
           >
             <span className="text-2xl font-bold">{t.vesselApp}</span>
             <span className="text-foreground-500">
-              {DEMO_VESSEL.name} — 打刻・履歴・本日の労働/休息・船内承認・同期状態
+              {DEMO_VESSEL.name} — 機能メニュー（01 打刻 / 02 記録簿・承認 / 06 オフライン同期 ほか）
             </span>
           </Link>
           <Link

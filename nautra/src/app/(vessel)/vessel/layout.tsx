@@ -11,9 +11,9 @@ import { ensureInitialSync, isOfflineSim, syncNow } from "@/lib/vessel-sync";
 import { Chip, ClientOnly } from "@/ui";
 
 const NAV_ITEMS = [
-  { href: "/vessel", label: "打刻" },
-  { href: "/vessel/history", label: "履歴" },
-  { href: "/vessel/today", label: "本日" },
+  { href: "/vessel", label: "ホーム" },
+  { href: "/vessel/punch", label: "打刻" },
+  { href: "/vessel/ledger", label: "記録簿" },
   { href: "/vessel/approve", label: "承認" },
   { href: "/vessel/sync", label: "同期" },
 ];

@@ -42,8 +42,14 @@ export default function TodayPage() {
 
   return (
     <div className="flex flex-col gap-4">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h1 className="text-xl font-bold">
+          <span className="mr-2 text-foreground-400">02</span>労務管理記録簿 ─ 本日の集計
+        </h1>
+        <p className="text-xs text-foreground-400">第16号の5書式の帳票出力は陸上側で対応予定</p>
+      </div>
       <CrewPicker selected={crew} onSelect={selectCrew} />
-      <h1 className="text-xl font-bold">本日の労働・休息（{crew.name}）</h1>
+      <p className="text-foreground-500">対象船員: {crew.name}（{crew.position}）</p>
 
       <Card shadow="none" className="bg-content1">
         <CardHeader className="flex items-center justify-between">

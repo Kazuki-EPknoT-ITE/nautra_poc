@@ -31,7 +31,9 @@ export default function SyncPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <h1 className="text-xl font-bold">同期状態</h1>
+      <h1 className="text-xl font-bold">
+        <span className="mr-2 text-foreground-400">06</span>オフライン蓄積・同期
+      </h1>
 
       <div className="grid grid-cols-2 gap-3">
         <Card shadow="none" className="bg-content1">
