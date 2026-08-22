@@ -16,8 +16,10 @@ const recordBase = {
   id: z.string(),
   tenantId: z.string(),
   vesselId: z.string(),
-  /** 記録対象の日時（端末時刻・ISO 8601） */
+  /** 記録対象の日時（端末時刻・ISO 8601。後から入力では過去日時になり得る） */
   occurredAt: z.string(),
+  /** 記録を作成した端末時刻（証跡。後入力・訂正の「いつ記録したか」。基本設計書 8.2） */
+  recordedAt: z.string().optional(),
   /** 記録者（共用端末では選択方式） */
   recordedBy: z.string(),
   deviceId: z.string(),
@@ -56,13 +58,15 @@ export type VoyageLogPayload = z.infer<typeof voyageLogPayloadSchema>;
 export const CHECKLIST_TEMPLATE_IDS = ["pre_departure", "safety_patrol"] as const;
 export type ChecklistTemplateId = (typeof CHECKLIST_TEMPLATE_IDS)[number];
 
-export const checklistItemResultSchema = z.object({
-  key: z.string(),
-  label: z.string(),
-  group: z.string(),
-  result: z.enum(["ok", "ng", "na"]),
-  note: z.string().optional(),
-});
+export const checklistItemResultSchema = z
+  .object({
+    key: z.string(),
+    label: z.string(),
+    group: z.string(),
+    result: z.enum(["ok", "ng", "na"]),
+    note: z.string().optional(),
+  })
+  .passthrough(); // ネストした未知フィールドも往復保全（8.6）
 export type ChecklistItemResult = z.infer<typeof checklistItemResultSchema>;
 
 export const checklistResultPayloadSchema = z
@@ -112,6 +116,9 @@ export const alcoholCheckPayloadSchema = z
     checkedBy: z.string(),
     /** 判定に用いた基準値（証跡として保持） */
     limitMgPerL: z.number(),
+    /** 判定に適用した安全ルール版（基本設計書 5.3(6) applied_rule_version） */
+    appliedRuleSetId: z.string(),
+    appliedRuleVersion: z.string(),
   })
   .passthrough();
 export type AlcoholCheckPayload = z.infer<typeof alcoholCheckPayloadSchema>;
@@ -255,4 +262,29 @@ export function latestBySupersedes<T extends { id: string; supersedesId?: string
     out.push(it);
   }
   return out;
+}
+
+/** supersedes の分岐（同一原本を複数レコードが無効化 = 自動解決不能な競合） */
+export interface SupersedeConflict<T> {
+  supersedesId: string;
+  candidates: T[];
+}
+
+/**
+ * 自動解決不能な競合の検出（基本設計書 8.3「自動解決不能は双方の値を保持し要確認として提示」）。
+ * 同一の原本IDを 2件以上が無効化している場合、その全候補を返す。破棄しない。
+ */
+export function findSupersedeConflicts<T extends { id: string; supersedesId?: string }>(
+  items: T[],
+): SupersedeConflict<T>[] {
+  const byTarget = new Map<string, T[]>();
+  const seen = new Set<string>();
+  for (const it of items) {
+    if (!it.supersedesId || seen.has(it.id)) continue;
+    seen.add(it.id);
+    byTarget.set(it.supersedesId, [...(byTarget.get(it.supersedesId) ?? []), it]);
+  }
+  return [...byTarget.entries()]
+    .filter(([, c]) => c.length > 1)
+    .map(([supersedesId, candidates]) => ({ supersedesId, candidates }));
 }

@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { t } from "@/i18n/ja";
 import { fmtDateTime } from "@/lib/format";
-import { useSyncBadge } from "@/lib/vessel-hooks";
+import { useLocalConflictCount, useSyncBadge } from "@/lib/vessel-hooks";
 import { vesselDb } from "@/lib/vessel-db";
 import { setOfflineSim, syncNow, type SyncResult } from "@/lib/vessel-sync";
 import { Button, Card, CardBody, CardHeader, Chip, Divider, Switch } from "@/ui";
@@ -15,8 +15,16 @@ import { GroupHeader } from "../_components/group-header";
  * （基本設計書 8.4 / 8.6）。擬似オフライントグルで通信断→復帰→自動回復を検証できる。
  */
 export default function SyncPage() {
-  const { pendingCount, offlineSim, lastSyncAt, lastSyncError, pullCursor, serverQuarantineCount } =
-    useSyncBadge();
+  const {
+    pendingCount,
+    offlineSim,
+    lastSyncAt,
+    lastSyncError,
+    pullCursor,
+    serverQuarantineCount,
+    localQuarantineCount,
+  } = useSyncBadge();
+  const conflictCount = useLocalConflictCount();
   const [result, setResult] = useState<SyncResult | null>(null);
   const [syncing, setSyncing] = useState(false);
 
@@ -55,13 +63,16 @@ export default function SyncPage() {
             </p>
           </CardBody>
         </Card>
-        <Card shadow="none" className="bg-content1">
+        <Card shadow="none" className={conflictCount > 0 ? "border border-danger bg-content1" : "bg-content1"}>
           <CardBody>
-            <p className="text-sm text-foreground-500">競合</p>
+            <p className="text-sm text-foreground-500">競合（要確認）</p>
             <p className="tabular-nums text-3xl font-bold">
-              0<span className="ml-1 text-base font-normal">件</span>
+              {conflictCount}
+              <span className="ml-1 text-base font-normal">件</span>
             </p>
-            <p className="text-xs text-foreground-400">一次記録は追記型のため構造的に競合しない</p>
+            <p className="text-xs text-foreground-400">
+              打刻は追記型で構造的に競合しない。同一記録への複数の訂正・変更（分岐）は双方保持して要確認
+            </p>
           </CardBody>
         </Card>
         <Card shadow="none" className="bg-content1">
@@ -81,12 +92,14 @@ export default function SyncPage() {
         </Card>
         <Card shadow="none" className="bg-content1">
           <CardBody>
-            <p className="text-sm text-foreground-500">隔離（未知種別・陸上側）</p>
+            <p className="text-sm text-foreground-500">隔離（未知種別）</p>
             <p className="tabular-nums text-3xl font-bold">
-              {serverQuarantineCount}
+              {serverQuarantineCount + localQuarantineCount}
               <span className="ml-1 text-base font-normal">件</span>
             </p>
-            <p className="text-xs text-foreground-400">サーバ未対応の種別は破棄せず隔離され、更新後に再処理される</p>
+            <p className="text-xs text-foreground-400">
+              陸上側 {serverQuarantineCount} / 端末側 {localQuarantineCount}。未対応の種別は破棄せず隔離し、更新後に再処理
+            </p>
           </CardBody>
         </Card>
         <Card shadow="none" className="bg-content1">

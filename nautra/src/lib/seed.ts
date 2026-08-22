@@ -38,7 +38,7 @@ import type {
  */
 
 /** デモデータ版。上げるとストアが作り直される（PoC の .data/store.json のみ） */
-export const SEED_VERSION = 2;
+export const SEED_VERSION = 3;
 
 const SEED_DEVICE = "seed-shore-device";
 
@@ -330,6 +330,8 @@ function inspectionSeed(today: string): SyncEvent[] {
           result: "pass",
           checkedBy,
           limitMgPerL: limit,
+          appliedRuleSetId: DEFAULT_SAFETY_RULE_SET.id,
+          appliedRuleVersion: DEFAULT_SAFETY_RULE_SET.version,
         },
         SEED_DEVICE,
       ),

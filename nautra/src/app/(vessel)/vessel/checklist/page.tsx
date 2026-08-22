@@ -8,7 +8,8 @@ import { CREW_MEMBERS, personName } from "@/lib/crew";
 import { fmtDateTime, fromLocalInputValue, parseOptionalNumber, toLocalInputValue } from "@/lib/format";
 import { appendRecord, newRecordBase } from "@/lib/vessel-actions";
 import { useRecords, useSelectedCrew } from "@/lib/vessel-hooks";
-import { DEFAULT_SAFETY_RULE_SET, judgeAlcohol } from "@/rules/safety-rules";
+import { judgeAlcohol } from "@/domain/safety/alcohol";
+import { DEFAULT_SAFETY_RULE_SET } from "@/rules/safety-rules";
 import {
   CHECKLIST_TEMPLATE_IDS,
   DRILL_TYPES,
@@ -184,6 +185,8 @@ export default function ChecklistPage() {
         result,
         checkedBy: crew.id,
         limitMgPerL: limit,
+        appliedRuleSetId: DEFAULT_SAFETY_RULE_SET.id,
+        appliedRuleVersion: DEFAULT_SAFETY_RULE_SET.version,
       });
       setDone(`${personName(subjectId)} のアルコール検知を記録しました（${t.alcoholResult[result]}）`);
       alcoholModal.onClose();

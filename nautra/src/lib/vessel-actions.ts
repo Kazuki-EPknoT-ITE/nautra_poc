@@ -3,6 +3,7 @@ import { DEMO_TENANT_ID, DEMO_VESSEL } from "@/lib/crew";
 import {
   makeIdempotencyKey,
   makeRecordEvent,
+  SYNC_ENTITY_REGISTRY,
   SYNC_SCHEMA_VERSION,
   type ApprovalPayload,
   type SyncEvent,
@@ -159,6 +160,7 @@ export async function newRecordBase(
     tenantId: DEMO_TENANT_ID,
     vesselId: DEMO_VESSEL.id,
     occurredAt: occurredAt.toISOString(),
+    recordedAt: new Date().toISOString(), // 記録作成時刻（端末時計。後入力・訂正の証跡）
     recordedBy,
     deviceId,
     supersedesId,
@@ -173,6 +175,8 @@ export async function appendRecord<K extends RecordKind>(
   kind: K,
   payload: RecordPayloadByKind[K],
 ): Promise<RecordPayloadByKind[K]> {
+  // 入力時にスキーマ検証し、陸上で隔離される不正イベントを端末側で早期検出する（8.6）
+  SYNC_ENTITY_REGISTRY[kind].payload.parse(payload);
   const row = { ...payload, kind } as VesselRecordRow;
   await vesselDb.transaction("rw", vesselDb.records, vesselDb.outbox, async () => {
     await vesselDb.records.add(row);

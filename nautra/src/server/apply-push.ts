@@ -1,4 +1,4 @@
-import { knownSyncEventSchema, type SyncEvent } from "@/sync-protocol/events";
+import { checkOriginPolicy, knownSyncEventSchema, type SyncEvent } from "@/sync-protocol/events";
 
 /**
  * 同期 Push の適用ロジック（純関数寄り・ファイルI/O 非依存でテスト可能）。
@@ -74,6 +74,19 @@ export function applyPush(
     const event = parsed.data;
     if (seen.has(event.idempotencyKey)) {
       duplicates.push(event.idempotencyKey);
+      continue;
+    }
+    // 競合ポリシー／発生元の適用（8.3）: 陸上正本の種別を船内端末から受けた場合は隔離（破棄しない）
+    const policyViolation = checkOriginPolicy(event.kind, event.deviceId);
+    if (policyViolation) {
+      state.version += 1;
+      state.quarantine.push({
+        raw,
+        reason: policyViolation,
+        serverSeq: state.version,
+        serverReceivedAt: receivedAt,
+      });
+      quarantined.push(event.eventId);
       continue;
     }
     seen.add(event.idempotencyKey);

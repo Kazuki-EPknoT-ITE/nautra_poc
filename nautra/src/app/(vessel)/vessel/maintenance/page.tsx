@@ -11,6 +11,7 @@ import {
   parseOptionalNumber,
   toLocalInputValue,
 } from "@/lib/format";
+import { latestByEquipment, openMaintenanceIssues } from "@/lib/maintenance-status";
 import { appendRecord, newRecordBase } from "@/lib/vessel-actions";
 import { useRecords, useSelectedCrew } from "@/lib/vessel-hooks";
 import {
@@ -66,11 +67,9 @@ export default function MaintenancePage() {
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
 
-  const latestByEquipment = useMemo(() => {
-    const map = new Map<EquipmentKind, MaintenanceRecordPayload>();
-    for (const r of records) if (!map.has(r.equipment)) map.set(r.equipment, r); // records は新しい順
-    return map;
-  }, [records]);
+  // 機器ごとの最新状態・要対応はメニューのバッジと同じ導出関数を使う（二重実装しない）
+  const latestMap = useMemo(() => latestByEquipment(records), [records]);
+  const openIssues = useMemo(() => openMaintenanceIssues(records), [records]);
 
   function open(eq: EquipmentKind) {
     setEquipment(eq);
@@ -110,8 +109,6 @@ export default function MaintenancePage() {
     }
   }
 
-  const openIssues = records.filter((r) => r.condition !== "good" && latestByEquipment.get(r.equipment)?.id === r.id);
-
   return (
     <div className="flex flex-col gap-4">
       <GroupHeader
@@ -130,7 +127,7 @@ export default function MaintenancePage() {
 
       <section aria-label="機器別の最新状態" className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         {EQUIPMENT_KINDS.map((eq) => {
-          const latest = latestByEquipment.get(eq);
+          const latest = latestMap.get(eq);
           const style = latest ? COND_STYLE[latest.condition] : null;
           return (
             <button

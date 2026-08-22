@@ -13,7 +13,7 @@ import {
   parseOptionalNumber,
   toLocalInputValue,
 } from "@/lib/format";
-import { appendRecord, newRecordBase } from "@/lib/vessel-actions";
+import { appendRecord, assertNotFuture, newRecordBase } from "@/lib/vessel-actions";
 import { useRecords, useSelectedCrew } from "@/lib/vessel-hooks";
 import { WORK_REPORT_TYPES, type WorkReportPayload, type WorkReportType } from "@/sync-protocol/records";
 import {
@@ -167,6 +167,7 @@ export default function WorkPage() {
       const needsEnd = form.reportType !== "handover";
       const end = needsEnd ? fromLocalInputValue(form.endedAt) : null;
       if (needsEnd && end && end.getTime() < start.getTime()) throw new Error("終了は開始より後にしてください");
+      if (end) assertNotFuture(end); // 終了日時にも未来ガード（誤操作防止。基本設計書 6.3）
       if (form.reportType === "cargo" && !form.port.trim()) throw new Error("港名を入力してください");
       if (form.reportType === "handover" && !form.handoverItems.trim()) throw new Error("引継事項を入力してください");
       const b = await newRecordBase(crew.id, start);
@@ -234,7 +235,9 @@ export default function WorkPage() {
             </p>
           </div>
           <p className="max-w-sm text-xs text-foreground-500">
-            荷役待ち等の待機は労働時間に算入されます。待機の見える化は荷主・オペレーターとの取引環境改善協議のエビデンスになります（要件定義書 3.3.3）。
+            作業報告（待機記録）ベースの集計です。労働時間への算入は 01 の打刻（スタンバイ）が正であり、
+            労務管理記録簿の集計とは別系統です。待機の見える化は荷主・オペレーターとの取引環境改善協議の
+            エビデンスになります（要件定義書 3.3.3）。
           </p>
         </CardBody>
       </Card>

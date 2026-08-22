@@ -74,6 +74,22 @@ export default function ShoreShiftsPage() {
 
       <ShiftChangeForm options={options} />
 
+      {week.conflicts.length > 0 ? (
+        <section aria-label="競合（要確認）" className="rounded-large border border-danger bg-content1 p-4">
+          <h2 className="mb-2 font-bold text-danger">競合（要確認） {week.conflicts.length}件</h2>
+          <p className="mb-2 text-sm text-foreground-500">
+            同一のシフトに対して複数の変更が配信されています。自動では解決せず双方を保持しています（基本設計書 8.3）。
+          </p>
+          <ul className="flex flex-col gap-1 text-sm">
+            {week.conflicts.map((c) => (
+              <li key={c.supersedesId}>
+                原本 {c.supersedesId}: {c.candidates.map((p) => `${p.from}–${p.to}（${fmtDateTime(p.publishedAt)}）`).join(" / ")}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
       <section aria-label="配信済みの変更" className="rounded-large border border-default-200 bg-content1 p-4">
         <h2 className="mb-2 font-bold">配信済みの変更（新しい順）</h2>
         {week.changes.length === 0 ? (

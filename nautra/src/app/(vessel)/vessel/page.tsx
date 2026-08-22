@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { cn } from "@/lib/cn";
+import { openMaintenanceIssues } from "@/lib/maintenance-status";
 import { useRecords, useShiftPlans, useSyncBadge } from "@/lib/vessel-hooks";
 import { Chip, Divider } from "@/ui";
 
@@ -123,7 +124,8 @@ export default function VesselMenuPage() {
   const { pendingCount, offlineSim } = useSyncBadge();
   const { unread } = useShiftPlans();
   const maintenance = useRecords("maintenance_record");
-  const openDefects = maintenance.filter((m) => m.condition === "defect").length;
+  // 機器ごとの最新状態が不良のものだけを数える（保守画面のボードと同じ導出。二重実装しない）
+  const openDefects = openMaintenanceIssues(maintenance).filter((m) => m.condition === "defect").length;
 
   const badges: Record<string, string | undefined> = {
     "04": unread.length > 0 ? `変更通知 ${unread.length}件` : undefined,

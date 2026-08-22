@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { applyPush, createEmptyStoreState } from "@/server/apply-push";
 import {
+  checkOriginPolicy,
   isRecordKind,
   knownSyncEventSchema,
   makeRecordEvent,
@@ -8,6 +9,7 @@ import {
   SYNC_KINDS,
 } from "../events";
 import {
+  findSupersedeConflicts,
   latestBySupersedes,
   RECORD_KINDS,
   type ShiftPlanPayload,
@@ -107,5 +109,67 @@ describe("latestBySupersedes（追記専用レコードからの有効最新の�
     const input = [a, b, c];
     expect(latestBySupersedes(input).map((p) => p.id)).toEqual(["c"]);
     expect(input).toHaveLength(3); // 非破壊
+  });
+
+  it("同一原本を2件が無効化する分岐は、双方を保持したまま『競合（要確認）』として検出される", () => {
+    const a = plan("a", "12:00");
+    const b = plan("b", "13:00", "a");
+    const c = plan("c", "14:00", "a"); // 分岐
+    const conflicts = findSupersedeConflicts([a, b, c]);
+    expect(conflicts).toHaveLength(1);
+    expect(conflicts[0].supersedesId).toBe("a");
+    expect(conflicts[0].candidates.map((p) => p.id).sort()).toEqual(["b", "c"]);
+    // 双方保持: latestBySupersedes はどちらも落とさない
+    expect(latestBySupersedes([a, b, c]).map((p) => p.id).sort()).toEqual(["b", "c"]);
+    // 分岐のない連鎖は競合なし
+    expect(findSupersedeConflicts([a, b])).toHaveLength(0);
+  });
+});
+
+describe("競合ポリシー／発生元の適用（基本設計書 8.3: 計画は陸上優先）", () => {
+  const plan: ShiftPlanPayload = {
+    ...base("s-shore"),
+    planType: "watch",
+    crewMemberId: "crew-sato",
+    date: "2026-08-22",
+    shiftType: "cargo_watch",
+    from: "12:00",
+    to: "18:00",
+    publishedAt: "2026-08-20T00:00:00.000Z",
+    publishedBy: "shore-yamamoto",
+  };
+
+  it("陸上正本の種別（shift_plan）は陸上端末からのみ受理し、船内端末からの Push は隔離する（破棄しない）", () => {
+    expect(checkOriginPolicy("shift_plan", "shore-planner-device")).toBeNull();
+    expect(checkOriginPolicy("shift_plan", "seed-shore-device")).toBeNull();
+    expect(checkOriginPolicy("shift_plan", "dev-01abc")).toMatch(/shore-authoritative/);
+    expect(checkOriginPolicy("voyage_log", "dev-01abc")).toBeNull(); // 船内発の一次記録は受理
+
+    const state = createEmptyStoreState("store-test", 1);
+    const fromVessel = makeRecordEvent("shift_plan", { ...plan, id: "s-vessel" }, "dev-01abc");
+    const fromShore = makeRecordEvent("shift_plan", plan, "shore-planner-device");
+    const r = applyPush(state, "dev-01abc", [fromVessel, fromShore], new Date("2026-08-21T00:00:00Z"));
+    expect(r.quarantined).toEqual(["s-vessel"]);
+    expect(r.accepted).toEqual(["shore-planner-device:s-shore"]);
+    expect(state.quarantine[0].reason).toMatch(/origin policy/);
+    expect(state.quarantine[0].raw).toEqual(fromVessel); // 原文保持
+  });
+
+  it("チェックリスト項目（ネスト）の未知フィールドもサーバ保存時に保持される", () => {
+    const state = createEmptyStoreState("store-test", 1);
+    const ev = makeRecordEvent(
+      "checklist_result",
+      {
+        ...base("chk-1"),
+        templateId: "pre_departure",
+        templateVersion: "2026-04.1",
+        items: [{ key: "k", label: "l", group: "g", result: "ok", photoId: "p-1" } as never],
+        overall: "pass",
+      },
+      "dev-1",
+    );
+    applyPush(state, "dev-1", [ev], new Date("2026-08-21T00:00:00Z"));
+    const stored = state.events[0].event.payload as { items: Record<string, unknown>[] };
+    expect(stored.items[0].photoId).toBe("p-1");
   });
 });

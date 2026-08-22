@@ -4,7 +4,7 @@ import type { TimeRecord } from "@/domain/labor-law/types";
 import { ulid } from "@/lib/ids";
 import { makeSeedEvents, SEED_VERSION, todayYmd } from "@/lib/seed";
 import type { ApprovalPayload } from "@/sync-protocol/events";
-import type { RecordKind, RecordPayloadByKind } from "@/sync-protocol/records";
+import { findSupersedeConflicts, type RecordKind, type RecordPayloadByKind } from "@/sync-protocol/records";
 import {
   applyPush,
   createEmptyStoreState,
@@ -114,6 +114,18 @@ export function getEventCountsByKind(): Record<string, number> {
   return counts;
 }
 
+/** 自動解決不能な競合（supersedes 分岐）の件数。種別ごとに算出し合計する（8.3 / 8.4） */
+export function getConflictCount(): number {
+  const byKind = new Map<string, { id: string; supersedesId?: string }[]>();
+  for (const e of getStore().events) {
+    const p = e.event.payload as { id: string; supersedesId?: string };
+    byKind.set(e.event.kind, [...(byKind.get(e.event.kind) ?? []), p]);
+  }
+  let n = 0;
+  for (const list of byKind.values()) n += findSupersedeConflicts(list).length;
+  return n;
+}
+
 export function getSyncStats() {
   const state = getStore();
   const last = state.events[state.events.length - 1];
@@ -122,6 +134,7 @@ export function getSyncStats() {
     serverVersion: state.version,
     eventCount: state.events.length,
     quarantineCount: state.quarantine.length,
+    conflictCount: getConflictCount(),
     lastReceivedAt: last?.serverReceivedAt ?? null,
   };
 }

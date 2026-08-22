@@ -120,6 +120,27 @@ export const SYNC_ENTITY_REGISTRY = {
 export type SyncKind = keyof typeof SYNC_ENTITY_REGISTRY;
 export const SYNC_KINDS = Object.keys(SYNC_ENTITY_REGISTRY) as SyncKind[];
 
+/**
+ * 陸上側の端末ID規約（PoC）。本番は sync_devices の role（vessel/shore）で判定する。
+ * 陸上発（origin=shore）のエンティティ = 計画・マスタは陸上端末からのみ受理する（8.3 陸上優先）。
+ */
+export function isShoreDevice(deviceId: string): boolean {
+  return deviceId.startsWith("shore-") || deviceId.startsWith("seed-shore-");
+}
+
+/**
+ * 競合ポリシー／発生元の適用（純関数）。受理可能なら null、違反なら理由文字列を返す。
+ * 違反イベントは破棄せず隔離（sync_conflicts / sync_quarantine 相当）して「要確認」にする。
+ */
+export function checkOriginPolicy(kind: string, deviceId: string): string | null {
+  const def = (SYNC_ENTITY_REGISTRY as Record<string, { origin: "vessel" | "shore" | "both" }>)[kind];
+  if (!def) return null; // 未知種別は別経路（未知種別隔離）で扱う
+  if (def.origin === "shore" && !isShoreDevice(deviceId)) {
+    return `origin policy: ${kind} is shore-authoritative (received from ${deviceId})`;
+  }
+  return null;
+}
+
 export const timeRecordEventSchema = eventSchemaFor("time_record", timeRecordPayloadSchema);
 export const approvalEventSchema = eventSchemaFor("approval", approvalPayloadSchema);
 export const voyageLogEventSchema = eventSchemaFor("voyage_log", RECORD_PAYLOAD_SCHEMAS.voyage_log);

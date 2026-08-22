@@ -4,7 +4,12 @@ import { useEffect, useMemo, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import type { TimeRecord } from "@/domain/labor-law/types";
 import type { ApprovalPayload } from "@/sync-protocol/events";
-import { latestBySupersedes, type RecordKind, type ShiftPlanPayload } from "@/sync-protocol/records";
+import {
+  findSupersedeConflicts,
+  latestBySupersedes,
+  type RecordKind,
+  type ShiftPlanPayload,
+} from "@/sync-protocol/records";
 import { CREW_MEMBERS, crewById, type CrewMember } from "./crew";
 import { setSelectedCrewId } from "./vessel-actions";
 import { getMeta, vesselDb, type VesselRecordRow } from "./vessel-db";
@@ -61,8 +66,22 @@ export function useShiftPlans() {
       .sort((a, b) => b.publishedAt.localeCompare(a.publishedAt));
     const unread = changes.filter((c) => !ackAt || c.publishedAt > ackAt);
     const byId = new Map(all.map((p) => [p.id, p]));
-    return { all, watches, stations, changes, unread, byId, ackAt };
+    // 自動解決不能な競合（同一原本を複数の変更が置き換えた分岐）。双方保持し「要確認」として提示（8.3）
+    const conflicts = findSupersedeConflicts(all);
+    return { all, watches, stations, changes, unread, byId, ackAt, conflicts };
   }, [all, ackAt]);
+}
+
+/** 端末内の競合件数（supersedes 分岐）= 船内記録・シフト計画の全種別を対象に算出 */
+export function useLocalConflictCount(): number {
+  const rows = useLiveQuery(() => vesselDb.records.toArray(), [], [] as VesselRecordRow[]) ?? [];
+  return useMemo(() => {
+    const byKind = new Map<string, VesselRecordRow[]>();
+    for (const r of rows) byKind.set(r.kind, [...(byKind.get(r.kind) ?? []), r]);
+    let n = 0;
+    for (const list of byKind.values()) n += findSupersedeConflicts(list).length;
+    return n;
+  }, [rows]);
 }
 
 export interface SyncBadge {
@@ -73,6 +92,8 @@ export interface SyncBadge {
   pullCursor: string | undefined;
   /** 陸上側で隔離されている未知種別の件数（Pull 応答で受領。8.6） */
   serverQuarantineCount: number;
+  /** 端末側で隔離した未対応種別の件数（アプリ更新後に再処理。8.6） */
+  localQuarantineCount: number;
 }
 
 /** 未同期件数・最終同期・擬似オフライン状態（V-09 / ヘッダ常時表示。基本設計書 8.4） */
@@ -87,7 +108,16 @@ export function useSyncBadge(): SyncBadge {
   const pullCursor = useLiveQuery(() => getMeta("pullCursor"), [], undefined);
   const serverQuarantineCount =
     useLiveQuery(async () => Number((await getMeta("serverQuarantineCount")) ?? "0"), [], 0) ?? 0;
-  return { pendingCount, offlineSim, lastSyncAt, lastSyncError, pullCursor, serverQuarantineCount };
+  const localQuarantineCount = useLiveQuery(() => vesselDb.quarantine.count(), [], 0) ?? 0;
+  return {
+    pendingCount,
+    offlineSim,
+    lastSyncAt,
+    lastSyncError,
+    pullCursor,
+    serverQuarantineCount,
+    localQuarantineCount,
+  };
 }
 
 /** 現在時刻（経過表示用に intervalMs ごとに更新） */

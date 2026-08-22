@@ -1,13 +1,14 @@
 import type { TimeRecord } from "@/domain/labor-law/types";
 import {
   isRecordKind,
+  SYNC_KINDS,
   SYNC_SCHEMA_VERSION,
   syncPushResponseSchema,
   type ApprovalPayload,
   type SyncEvent,
 } from "@/sync-protocol/events";
 import type { AnyRecordPayload } from "@/sync-protocol/records";
-import { getMeta, setMeta, vesselDb, type VesselRecordRow } from "./vessel-db";
+import { getMeta, setMeta, vesselDb, type ReplicaArchiveRow, type VesselRecordRow } from "./vessel-db";
 
 /**
  * 船内→陸上 Push / 陸上→船内 Pull の同期クライアント（基本設計書 8.1）。
@@ -16,7 +17,8 @@ import { getMeta, setMeta, vesselDb, type VesselRecordRow } from "./vessel-db";
  * - 再開可能: バッチごとに ACK を確認して消し込む（チェックポイント）。
  *   途中失敗時は残りが outbox に保持され、次回同期で再開される
  * - 擬似オフライン: 通信断デモ用のトグル（meta.offlineSim）
- * - 種別非依存: Pull 受信はエンティティレジストリの種別をそのまま汎用テーブルへ適用する
+ * - 種別非依存: Pull 受信はエンティティレジストリの種別をそのまま汎用テーブルへ適用する。
+ *   端末側で未対応の種別は破棄せずローカル隔離し、件数を表示する（8.6）
  */
 
 const BATCH_SIZE = 500;
@@ -61,6 +63,7 @@ async function pushOutbox(): Promise<number> {
       .filter((b) => acked.has(b.event.idempotencyKey) || outcome.quarantined.includes(b.eventId))
       .map((b) => b.eventId);
     if (outcome.quarantined.length > 0) {
+      // 陸上で隔離された（未対応種別・ポリシー違反）件数を端末側でも把握できるようにする
       const prev = Number((await getMeta("quarantinedByServer")) ?? "0");
       await setMeta("quarantinedByServer", String(prev + outcome.quarantined.length));
     }
@@ -74,26 +77,41 @@ async function pushOutbox(): Promise<number> {
 /**
  * 受信イベントのローカル適用。一次記録は追記のみ: 同一IDが既にあれば書き換えず読み飛ばす
  * （再受信は冪等。自端末発の記録が Pull で戻ってきても内容は同一）。
+ * レジストリ外の種別は破棄せずローカル隔離する（旧版端末 × 新サーバ。8.6）。
  */
-async function applyPulledEvent(event: SyncEvent): Promise<void> {
-  if (event.kind === "time_record") {
+async function applyPulledEvent(event: SyncEvent, receivedAt: string): Promise<void> {
+  const kind = (event as { kind: string }).kind;
+  if (kind === "time_record") {
     const payload = event.payload as TimeRecord;
     if (!(await vesselDb.timeRecords.get(payload.id))) await vesselDb.timeRecords.add(payload);
-  } else if (event.kind === "approval") {
+  } else if (kind === "approval") {
     const payload = event.payload as ApprovalPayload;
     if (!(await vesselDb.approvals.get(payload.id))) await vesselDb.approvals.add(payload);
-  } else if (isRecordKind(event.kind)) {
+  } else if (isRecordKind(kind)) {
     const payload = event.payload as AnyRecordPayload;
     if (!(await vesselDb.records.get(payload.id))) {
-      await vesselDb.records.add({ ...payload, kind: event.kind } as VesselRecordRow);
+      await vesselDb.records.add({ ...payload, kind } as VesselRecordRow);
+    }
+  } else if (!(SYNC_KINDS as string[]).includes(kind)) {
+    const eventId = String((event as { eventId?: unknown }).eventId ?? "(unknown)");
+    const exists = await vesselDb.quarantine.where("eventId").equals(eventId).count();
+    if (exists === 0) {
+      await vesselDb.quarantine.add({
+        kind,
+        eventId,
+        raw: event,
+        reason: "unknown event kind on this device (app update required)",
+        receivedAt,
+      });
     }
   }
-  // レジストリ外の種別はクライアントでも適用しない（サーバ側で隔離済みのため通常は到達しない）
 }
 
 /**
- * 陸上ストアが作り直された（storeId が変わった）場合、ローカルの受信レプリカを破棄して
- * カーソル 0 から取り直す。未送信の outbox は保持する（端末側の記録は失わない。8.6）。
+ * 陸上ストアが作り直された（storeId が変わった）場合、ローカルの受信レプリカを退避して
+ * カーソル 0 から取り直す。
+ * - 退避先 replicaArchive に全行を保持する（一次記録を消さない。要件定義書 12.5 / ガードレール②）
+ * - 未送信の outbox はそのまま保持する（端末側の記録は失わない。8.6）
  * PoC のデモデータ再生成に対応するための措置で、本番ではストアの再作成は想定しない。
  */
 async function resetReplicaIfStoreChanged(
@@ -106,12 +124,23 @@ async function resetReplicaIfStoreChanged(
   // 既知IDと不一致、または出所不明のレプリカ（旧版端末: ID未保存だがカーソルが進んでいる）
   const mustReset = known !== undefined || cursor > 0;
   if (mustReset) {
+    const archivedAt = new Date().toISOString();
+    const fromStore = known ?? "(unknown)";
     await vesselDb.transaction(
       "rw",
       vesselDb.timeRecords,
       vesselDb.approvals,
       vesselDb.records,
+      vesselDb.replicaArchive,
       async () => {
+        const rows: ReplicaArchiveRow[] = [];
+        for (const r of await vesselDb.timeRecords.toArray())
+          rows.push({ storeId: fromStore, table: "timeRecords", id: r.id, row: r, archivedAt });
+        for (const r of await vesselDb.approvals.toArray())
+          rows.push({ storeId: fromStore, table: "approvals", id: r.id, row: r, archivedAt });
+        for (const r of await vesselDb.records.toArray())
+          rows.push({ storeId: fromStore, table: "records", id: r.id, row: r, archivedAt });
+        if (rows.length > 0) await vesselDb.replicaArchive.bulkAdd(rows); // 退避（破棄しない）
         await vesselDb.timeRecords.clear();
         await vesselDb.approvals.clear();
         await vesselDb.records.clear();
@@ -131,7 +160,7 @@ async function pullSince(): Promise<number> {
     const res = await fetch(`/api/v1/sync/pull?since=${cursor}`);
     if (!res.ok) throw new Error(`pull failed: HTTP ${res.status}`);
     const data = (await res.json()) as {
-      events: { event: SyncEvent; serverSeq: number }[];
+      events: { event: SyncEvent; serverSeq: number; serverReceivedAt?: string }[];
       nextCursor: number;
       hasMore: boolean;
       serverVersion?: number;
@@ -142,14 +171,9 @@ async function pullSince(): Promise<number> {
       cursor = 0;
       continue; // ストア変更: 先頭から取り直す
     }
-    if (typeof data.serverVersion === "number" && data.serverVersion < cursor) {
-      // サーバ側のバージョンがカーソルより小さい = ストアが巻き戻っている。先頭から再取得
-      cursor = 0;
-      await setMeta("pullCursor", "0");
-      continue;
-    }
+    const receivedAt = new Date().toISOString();
     for (const stored of data.events) {
-      await applyPulledEvent(stored.event);
+      await applyPulledEvent(stored.event, receivedAt);
       pulled += 1;
     }
     cursor = data.nextCursor;
@@ -163,12 +187,23 @@ async function pullSince(): Promise<number> {
 }
 
 let syncInFlight: Promise<SyncResult> | null = null;
+let rerunRequested = false;
 
-/** 同期を実行する。多重起動は合流させる（同時 Push による二重送信を防ぐ。冪等キーで二重適用はされない） */
+/**
+ * 同期を実行する。実行中の再要求は合流させ（同時 Push による二重送信を防ぐ）、
+ * 終了後に 1 回だけ再走して実行中に追記された記録の滞留を減らす。
+ */
 export function syncNow(): Promise<SyncResult> {
-  if (syncInFlight) return syncInFlight;
+  if (syncInFlight) {
+    rerunRequested = true;
+    return syncInFlight;
+  }
   syncInFlight = runSync().finally(() => {
     syncInFlight = null;
+    if (rerunRequested) {
+      rerunRequested = false;
+      void syncNow();
+    }
   });
   return syncInFlight;
 }

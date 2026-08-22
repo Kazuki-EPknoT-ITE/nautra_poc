@@ -51,7 +51,10 @@ export default function ShoreDashboardPage() {
           </span>
         </span>
         <span>
-          隔離（未知種別） <span className="tabular-nums font-bold">{d.sync.quarantineCount}</span> 件
+          隔離（未知種別・ポリシー違反） <span className="tabular-nums font-bold">{d.sync.quarantineCount}</span> 件
+        </span>
+        <span className={d.sync.conflictCount > 0 ? "text-danger" : undefined}>
+          競合（要確認） <span className="tabular-nums font-bold">{d.sync.conflictCount}</span> 件
         </span>
         <span>
           サーバ版 <span className="tabular-nums font-bold">v{d.sync.serverVersion}</span>

@@ -51,7 +51,13 @@
 
 - DB: Supabase PostgreSQL → JSON ファイル（`.data/store.json`）＋ IndexedDB
   - デモデータ版（`SEED_VERSION`）が上がるとストアを作り直す（旧ファイルは退避）。
-    船内端末は Pull 応答の `storeId` 変化を検知してレプリカを取り直す（未送信 outbox は保持）
+    船内端末は Pull 応答の `storeId` 変化を検知してレプリカを取り直す。旧レプリカは削除せず
+    `replicaArchive` に退避し、未送信 outbox は保持する（一次記録を失わない）
+- 競合ポリシーの適用: レジストリの `origin=shore`（シフト計画）を船内端末から Push した場合は
+  サーバで隔離（`checkOriginPolicy`）。supersedes の分岐は `findSupersedeConflicts` で双方保持のまま
+  「競合（要確認）」として V-09 / S-01 に件数表示（自動解決しない）
+- 端末側の未知種別は `quarantine` テーブルへローカル隔離（破棄しない）。同期クライアントの
+  IndexedDB 単体テスト・fast-check プロパティテストは未実装（要 fake-indexeddb 導入）
 - 認証・RBAC・RLS・テナント分離: 未実装（デモ用固定テナント。打刻者・記録者は選択方式）
 - Service Worker（Serwist）/ PWA: 未実装（擬似オフライントグルで通信断を再現）
 - 帳票生成（第16号の5書式）・Cloud Run Jobs・fast-check プロパティテスト: 未実装
