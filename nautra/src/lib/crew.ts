@@ -31,3 +31,19 @@ export const CREW_MEMBERS: CrewMember[] = [
 export function crewById(id: string): CrewMember | undefined {
   return CREW_MEMBERS.find((c) => c.id === id);
 }
+
+/** 陸上スタッフ（シフト作成・配信者。S-10 の操作者） */
+export const SHORE_PLANNER_ID = "shore-yamamoto";
+export const SHORE_STAFF = [
+  { id: SHORE_PLANNER_ID, name: "山本 陸", position: "運航管理（陸上）" },
+] as const;
+
+/** ID → 表示名（船員・陸上スタッフ双方。未知IDはそのまま返す） */
+export function personName(id: string | undefined): string {
+  if (!id) return "—";
+  const crew = crewById(id);
+  if (crew) return crew.name;
+  const staff = SHORE_STAFF.find((s) => s.id === id);
+  if (staff) return staff.name;
+  return id;
+}

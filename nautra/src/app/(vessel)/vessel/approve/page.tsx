@@ -28,6 +28,8 @@ import {
   useDisclosure,
 } from "@/ui";
 
+import { GroupHeader } from "../_components/group-header";
+
 const CAPTAIN = CREW_MEMBERS.find((c) => c.role === "captain")!;
 
 interface DayRow {
@@ -122,9 +124,7 @@ export default function ApprovePage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <h1 className="text-xl font-bold">
-        <span className="mr-2 text-foreground-400">02</span>労務管理記録簿 ─ 船内承認（{CAPTAIN.name} {CAPTAIN.position}）
-      </h1>
+      <GroupHeader group="02" subtitle={`船内承認（${CAPTAIN.name} ${CAPTAIN.position}）`} />
       <p className="text-sm text-foreground-500">
         承認者は打刻を修正できません。誤りがある場合は本人へ差戻し、本人が再入力します。
       </p>

@@ -2,23 +2,35 @@
 
 import { useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
+import { t } from "@/i18n/ja";
 import { fmtDateTime } from "@/lib/format";
 import { useSyncBadge } from "@/lib/vessel-hooks";
 import { vesselDb } from "@/lib/vessel-db";
 import { setOfflineSim, syncNow, type SyncResult } from "@/lib/vessel-sync";
 import { Button, Card, CardBody, CardHeader, Chip, Divider, Switch } from "@/ui";
+import { GroupHeader } from "../_components/group-header";
 
 /**
- * V-09 同期状態。未同期件数・最終同期日時・競合件数の常時可視化と手動同期
- * （基本設計書 8.4）。擬似オフライントグルで通信断→復帰→自動回復を検証できる。
+ * V-09 同期状態。未同期件数・最終同期日時・競合件数・隔離件数の常時可視化と手動同期
+ * （基本設計書 8.4 / 8.6）。擬似オフライントグルで通信断→復帰→自動回復を検証できる。
  */
 export default function SyncPage() {
-  const { pendingCount, offlineSim, lastSyncAt, lastSyncError, pullCursor } = useSyncBadge();
+  const { pendingCount, offlineSim, lastSyncAt, lastSyncError, pullCursor, serverQuarantineCount } =
+    useSyncBadge();
   const [result, setResult] = useState<SyncResult | null>(null);
   const [syncing, setSyncing] = useState(false);
 
   const outboxPreview =
     useLiveQuery(() => vesselDb.outbox.orderBy("queuedAt").limit(10).toArray(), [], []) ?? [];
+  const localCounts = useLiveQuery(
+    async () => ({
+      timeRecords: await vesselDb.timeRecords.count(),
+      approvals: await vesselDb.approvals.count(),
+      records: await vesselDb.records.count(),
+    }),
+    [],
+    { timeRecords: 0, approvals: 0, records: 0 },
+  ) ?? { timeRecords: 0, approvals: 0, records: 0 };
 
   async function manualSync() {
     setSyncing(true);
@@ -31,9 +43,7 @@ export default function SyncPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <h1 className="text-xl font-bold">
-        <span className="mr-2 text-foreground-400">06</span>オフライン蓄積・同期
-      </h1>
+      <GroupHeader group="06" />
 
       <div className="grid grid-cols-2 gap-3">
         <Card shadow="none" className="bg-content1">
@@ -51,7 +61,7 @@ export default function SyncPage() {
             <p className="tabular-nums text-3xl font-bold">
               0<span className="ml-1 text-base font-normal">件</span>
             </p>
-            <p className="text-xs text-foreground-400">打刻は追記型のため構造的に競合しない</p>
+            <p className="text-xs text-foreground-400">一次記録は追記型のため構造的に競合しない</p>
           </CardBody>
         </Card>
         <Card shadow="none" className="bg-content1">
@@ -69,6 +79,27 @@ export default function SyncPage() {
             <p className="text-xs text-foreground-400">切断後もこの続きから再開（再開可能）</p>
           </CardBody>
         </Card>
+        <Card shadow="none" className="bg-content1">
+          <CardBody>
+            <p className="text-sm text-foreground-500">隔離（未知種別・陸上側）</p>
+            <p className="tabular-nums text-3xl font-bold">
+              {serverQuarantineCount}
+              <span className="ml-1 text-base font-normal">件</span>
+            </p>
+            <p className="text-xs text-foreground-400">サーバ未対応の種別は破棄せず隔離され、更新後に再処理される</p>
+          </CardBody>
+        </Card>
+        <Card shadow="none" className="bg-content1">
+          <CardBody>
+            <p className="text-sm text-foreground-500">端末内の記録（IndexedDB）</p>
+            <p className="tabular-nums text-sm">
+              打刻 <span className="font-bold">{localCounts.timeRecords}</span> / 承認{" "}
+              <span className="font-bold">{localCounts.approvals}</span> / 船内記録・シフト{" "}
+              <span className="font-bold">{localCounts.records}</span>
+            </p>
+            <p className="text-xs text-foreground-400">通信断でもここに蓄積され、復帰時に転送される</p>
+          </CardBody>
+        </Card>
       </div>
 
       <Card shadow="none" className="bg-content1">
@@ -80,7 +111,7 @@ export default function SyncPage() {
             onValueChange={(v) => void setOfflineSim(v)}
             color="warning"
           >
-            擬似オフライン（通信断をシミュレート。打刻は端末に蓄積されます）
+            擬似オフライン（通信断をシミュレート。記録は端末に蓄積されます）
           </Switch>
           <Button
             color="primary"
@@ -120,7 +151,7 @@ export default function SyncPage() {
             <ul className="flex flex-col gap-1 text-sm">
               {outboxPreview.map((o) => (
                 <li key={o.eventId} className="tabular-nums">
-                  {fmtDateTime(o.queuedAt)} — {o.event.kind} ({o.eventId.slice(0, 12)}…)
+                  {fmtDateTime(o.queuedAt)} — {t.syncKind[o.event.kind] ?? o.event.kind} ({o.eventId.slice(0, 12)}…)
                 </li>
               ))}
             </ul>

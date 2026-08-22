@@ -58,6 +58,17 @@ export default function ShoreDashboardPage() {
         </span>
       </section>
 
+      <section aria-label="船内記録の受信状況（種別別）" className="rounded-large border border-default-200 bg-content1 px-4 py-3">
+        <p className="mb-2 text-sm font-semibold">船内記録の受信状況（種別別・累計）</p>
+        <div className="flex flex-wrap gap-2 text-sm">
+          {Object.entries(t.syncKind).map(([kind, label]) => (
+            <span key={kind} className="rounded-small bg-default-100 px-2 py-1">
+              {label} <span className="tabular-nums font-bold">{d.countsByKind[kind] ?? 0}</span>
+            </span>
+          ))}
+        </div>
+      </section>
+
       <section aria-label="船員別の遵守状況（直近7日）" className="overflow-x-auto rounded-large border border-default-200 bg-content1">
         <table className="w-full min-w-[720px] text-sm">
           <thead>

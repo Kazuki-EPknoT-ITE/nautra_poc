@@ -1,8 +1,10 @@
 import fs from "node:fs";
 import path from "node:path";
 import type { TimeRecord } from "@/domain/labor-law/types";
+import { ulid } from "@/lib/ids";
+import { makeSeedEvents, SEED_VERSION, todayYmd } from "@/lib/seed";
 import type { ApprovalPayload } from "@/sync-protocol/events";
-import { makeSeedEvents, todayYmd } from "@/lib/seed";
+import type { RecordKind, RecordPayloadByKind } from "@/sync-protocol/records";
 import {
   applyPush,
   createEmptyStoreState,
@@ -32,17 +34,27 @@ function save(state: StoreState): void {
   fs.writeFileSync(STORE_FILE, JSON.stringify(state), "utf8");
 }
 
+function createSeededState(): StoreState {
+  const state = createEmptyStoreState(`store-${ulid().toLowerCase()}`, SEED_VERSION);
+  applyPush(state, "seed-shore-device", makeSeedEvents(todayYmd()), new Date());
+  return state;
+}
+
 function load(): StoreState {
   if (fs.existsSync(STORE_FILE)) {
     try {
-      return JSON.parse(fs.readFileSync(STORE_FILE, "utf8")) as StoreState;
+      const loaded = JSON.parse(fs.readFileSync(STORE_FILE, "utf8")) as Partial<StoreState>;
+      if (loaded.seedVersion === SEED_VERSION && loaded.storeId && Array.isArray(loaded.events)) {
+        return loaded as StoreState;
+      }
+      // デモデータ版が古い（PoC）: 旧ストアは退避して作り直す（データは破棄しない）
+      fs.renameSync(STORE_FILE, `${STORE_FILE}.seed-v${loaded.seedVersion ?? 0}-${Date.now()}`);
     } catch {
       // 壊れたファイルは退避して作り直す（デモ用フェイルセーフ。データは破棄しない）
       fs.renameSync(STORE_FILE, `${STORE_FILE}.corrupt-${Date.now()}`);
     }
   }
-  const state = createEmptyStoreState();
-  applyPush(state, "seed-shore-device", makeSeedEvents(todayYmd()), new Date());
+  const state = createSeededState();
   save(state);
   return state;
 }
@@ -88,10 +100,25 @@ export function getApprovalEvents(): ApprovalWithSeq[] {
     .map((e) => ({ payload: e.event.payload as ApprovalPayload, serverSeq: e.serverSeq }));
 }
 
+/** 船内記録（種別指定）のペイロード一覧（受信順） */
+export function getRecordsOfKind<K extends RecordKind>(kind: K): RecordPayloadByKind[K][] {
+  return getStore()
+    .events.filter((e) => e.event.kind === kind)
+    .map((e) => e.event.payload as RecordPayloadByKind[K]);
+}
+
+/** 種別ごとの受信件数（S-01 受信状況） */
+export function getEventCountsByKind(): Record<string, number> {
+  const counts: Record<string, number> = {};
+  for (const e of getStore().events) counts[e.event.kind] = (counts[e.event.kind] ?? 0) + 1;
+  return counts;
+}
+
 export function getSyncStats() {
   const state = getStore();
   const last = state.events[state.events.length - 1];
   return {
+    storeId: state.storeId,
     serverVersion: state.version,
     eventCount: state.events.length,
     quarantineCount: state.quarantine.length,

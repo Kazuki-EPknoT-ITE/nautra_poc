@@ -33,3 +33,23 @@ export function fmtDateLabel(ymd: string): string {
   const date = new Date(y, m - 1, d);
   return `${m}/${d}(${WEEKDAYS[date.getDay()]})`;
 }
+
+/** Date → <input type="datetime-local"> 用 "YYYY-MM-DDTHH:MM"（ローカル） */
+export function toLocalInputValue(d: Date): string {
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
+/** "YYYY-MM-DDTHH:MM"（ローカル） → Date。不正なら null */
+export function fromLocalInputValue(v: string): Date | null {
+  if (!v) return null;
+  const d = new Date(v);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+/** 数値入力 → number | undefined（空・不正は undefined） */
+export function parseOptionalNumber(v: string): number | undefined {
+  if (v.trim() === "") return undefined;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : undefined;
+}

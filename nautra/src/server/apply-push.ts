@@ -21,14 +21,18 @@ export interface QuarantinedEvent {
 }
 
 export interface StoreState {
+  /** ストア識別子（作り直し検知用。端末はこれが変わるとレプリカを取り直す） */
+  storeId: string;
+  /** 投入済みデモデータの版（PoC: 版が上がるとストアを作り直す） */
+  seedVersion: number;
   /** バージョンカーソル（Pull の since に対応） */
   version: number;
   events: StoredEvent[];
   quarantine: QuarantinedEvent[];
 }
 
-export function createEmptyStoreState(): StoreState {
-  return { version: 0, events: [], quarantine: [] };
+export function createEmptyStoreState(storeId = "store-local", seedVersion = 0): StoreState {
+  return { storeId, seedVersion, version: 0, events: [], quarantine: [] };
 }
 
 export interface ApplyPushResult {

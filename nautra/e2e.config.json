@@ -6,7 +6,7 @@
   "flows": [
     {
       "name": "menu",
-      "steps": "船内ホーム(/vessel): 01〜06 の機能カード表示。01「打刻する」→ /vessel/punch へ遷移（2タップ打刻）"
+      "steps": "船内ホーム(/vessel): 01〜06 の機能カード表示（全カード利用可・04 に変更通知バッジ・05 に不良バッジ）。下部ナビ 7項目"
     },
     {
       "name": "punch-flow",
@@ -21,8 +21,24 @@
       "steps": "承認(/vessel/approve): 船長が日次承認／差戻し→履歴画面(/vessel/history)で差戻し再入力"
     },
     {
+      "name": "logbook",
+      "steps": "航海日誌(/vessel/logbook): シード4件の日別表示→「出港」を記入→一覧先頭に表示→訂正記録を追記→元が訂正済表示"
+    },
+    {
+      "name": "checklist",
+      "steps": "点検(/vessel/checklist): 出港前点検を実施（全項目判定→記録）→履歴に合格チップ。アルコール検知 0.20 → 不適合"
+    },
+    {
+      "name": "shift",
+      "steps": "シフト(/vessel/shift): 週間当直表・配置表・変更通知1件(未読)→確認済み→バッジ消滅。陸上(/shore/shifts)で変更配信→船内同期→通知1件"
+    },
+    {
+      "name": "work-maintenance",
+      "steps": "作業記録(/vessel/work): 待機時間集計・荷役記録追加。保守(/vessel/maintenance): 機器ボード（要注意/不良）・点検記録追加"
+    },
+    {
       "name": "offline-sync",
-      "steps": "同期(/vessel/sync): 擬似オフラインON→打刻（未同期件数が増える）→OFF→手動同期→陸上ダッシュボードに反映"
+      "steps": "同期(/vessel/sync): 擬似オフラインON→記録（未同期件数が増える）→OFF→手動同期→陸上ダッシュボードの種別別受信件数に反映"
     }
   ],
   "playwrightTest": ""

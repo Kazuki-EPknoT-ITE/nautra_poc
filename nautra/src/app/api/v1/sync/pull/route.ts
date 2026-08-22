@@ -7,6 +7,7 @@ export const dynamic = "force-dynamic";
  * GET /api/v1/sync/pull?since=<version> — 陸上→船内の差分配信
  * （バージョンカーソル方式。基本設計書 7.2 / 8.1）。
  * 端末はカーソルを保存し、次回はその続きから再開する（再開可能）。
+ * 応答には隔離件数（8.6: 同期状態画面に表示）とストア識別子（作り直し検知）を含める。
  */
 export async function GET(req: Request) {
   const url = new URL(req.url);
@@ -29,5 +30,7 @@ export async function GET(req: Request) {
     nextCursor: batch.length > 0 ? batch[batch.length - 1].serverSeq : since,
     serverVersion: stats.serverVersion,
     hasMore: batch.length > 0 && batch[batch.length - 1].serverSeq < stats.serverVersion,
+    quarantineCount: stats.quarantineCount,
+    storeId: stats.storeId,
   });
 }

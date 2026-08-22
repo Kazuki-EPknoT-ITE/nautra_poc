@@ -3,7 +3,7 @@ import type { CheckLevel, DailyLaborSummary, LaborCheck } from "@/domain/labor-l
 import { CREW_MEMBERS, type CrewMember } from "@/lib/crew";
 import { DEFAULT_LABOR_RULE_SET } from "@/rules/default-rule-set";
 import { resolveApproval, type ApprovalPayload } from "@/sync-protocol/events";
-import { getApprovalEvents, getSyncStats, getTimeRecords } from "./store";
+import { getApprovalEvents, getEventCountsByKind, getSyncStats, getTimeRecords } from "./store";
 
 /**
  * 陸上ダッシュボード用のドメインサービス（apps/web/server/labor 相当）。
@@ -31,6 +31,8 @@ export interface ShoreDashboard {
     remandedDays: number;
   };
   sync: ReturnType<typeof getSyncStats>;
+  /** 受信イベント種別ごとの件数（船内記録の受信状況） */
+  countsByKind: Record<string, number>;
   levelByCrewToday: Record<string, CheckLevel>;
 }
 
@@ -96,6 +98,7 @@ export function buildShoreDashboard(now = new Date()): ShoreDashboard {
     rows,
     totals: { violationDays, cautionDays, pendingApprovals, remandedDays },
     sync: getSyncStats(),
+    countsByKind: getEventCountsByKind(),
     levelByCrewToday,
   };
 }

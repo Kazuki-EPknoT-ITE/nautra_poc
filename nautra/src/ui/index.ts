@@ -4,11 +4,16 @@
  * HeroUI の直接 import は src/ui 配下に限定する（ライブラリ差替え時の影響封じ込め。3.3）。
  */
 export {
+  Accordion,
+  AccordionItem,
   Avatar,
+  Badge,
   Button,
   Card,
   CardBody,
   CardHeader,
+  Checkbox,
+  CheckboxGroup,
   Chip,
   Divider,
   Input,
@@ -18,16 +23,20 @@ export {
   ModalFooter,
   ModalHeader,
   Progress,
+  Radio,
+  RadioGroup,
   Select,
   SelectItem,
   Spinner,
   Switch,
+  Tab,
   Table,
   TableBody,
   TableCell,
   TableColumn,
   TableHeader,
   TableRow,
+  Tabs,
   Textarea,
   Tooltip,
   useDisclosure,
@@ -38,3 +47,4 @@ export { ClientOnly } from "./client-only";
 export { StatusChip } from "./status-chip";
 export { LimitGauge } from "./limit-gauge";
 export { PunchButton } from "./punch-button";
+export { TriStateToggle } from "./tri-state-toggle";

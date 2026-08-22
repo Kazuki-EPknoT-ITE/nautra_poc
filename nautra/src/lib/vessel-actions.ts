@@ -2,12 +2,14 @@ import type { EntryType, PunchAction, TimeRecord, WorkCategory } from "@/domain/
 import { DEMO_TENANT_ID, DEMO_VESSEL } from "@/lib/crew";
 import {
   makeIdempotencyKey,
+  makeRecordEvent,
   SYNC_SCHEMA_VERSION,
   type ApprovalPayload,
   type SyncEvent,
 } from "@/sync-protocol/events";
+import type { RecordKind, RecordPayloadByKind } from "@/sync-protocol/records";
 import { ulid } from "./ids";
-import { getMeta, setMeta, vesselDb } from "./vessel-db";
+import { getMeta, setMeta, vesselDb, type VesselRecordRow } from "./vessel-db";
 import { isOfflineSim, syncNow } from "./vessel-sync";
 
 /**
@@ -54,6 +56,13 @@ async function trySyncInBackground(): Promise<void> {
   void syncNow();
 }
 
+/** 未来日時ガード（誤操作防止。基本設計書 6.3）。1分の時計ずれは許容 */
+export function assertNotFuture(d: Date, now = new Date()): void {
+  if (d.getTime() > now.getTime() + 60_000) {
+    throw new Error("未来の日時は記録できません");
+  }
+}
+
 export interface PunchInput {
   crewMemberId: string;
   workCategory: WorkCategory;
@@ -68,7 +77,6 @@ export interface PunchInput {
 export async function recordPunch(input: PunchInput): Promise<TimeRecord> {
   const now = new Date();
   const occurredAt = input.occurredAt ?? now;
-  // 未来日時ガード（誤操作防止。基本設計書 6.3）
   if (occurredAt.getTime() > now.getTime() + 60_000) {
     throw new Error("未来の日時では打刻できません");
   }
@@ -134,6 +142,53 @@ export async function recordApproval(input: ApprovalInput): Promise<ApprovalPayl
   });
   void trySyncInBackground();
   return payload;
+}
+
+/* ───────────── 船内記録（航海日誌・点検・操練・作業・保守）の汎用追記 ───────────── */
+
+/** 全記録種別に共通する列を組み立てる（ID 採番・テナント/船舶・記録者・端末） */
+export async function newRecordBase(
+  recordedBy: string,
+  occurredAt: Date = new Date(),
+  supersedesId?: string,
+) {
+  assertNotFuture(occurredAt);
+  const deviceId = await ensureDeviceId();
+  return {
+    id: ulid(),
+    tenantId: DEMO_TENANT_ID,
+    vesselId: DEMO_VESSEL.id,
+    occurredAt: occurredAt.toISOString(),
+    recordedBy,
+    deviceId,
+    supersedesId,
+  };
+}
+
+/**
+ * 船内記録の追記（種別非依存）。ローカル汎用テーブルへ追記 → outbox → 可能なら同期。
+ * 種別ごとの個別実装を持たない（エンティティレジストリ方式。基本設計書 8.6）。
+ */
+export async function appendRecord<K extends RecordKind>(
+  kind: K,
+  payload: RecordPayloadByKind[K],
+): Promise<RecordPayloadByKind[K]> {
+  const row = { ...payload, kind } as VesselRecordRow;
+  await vesselDb.transaction("rw", vesselDb.records, vesselDb.outbox, async () => {
+    await vesselDb.records.add(row);
+    await vesselDb.outbox.add({
+      eventId: payload.id,
+      event: makeRecordEvent(kind, payload, payload.deviceId),
+      queuedAt: new Date().toISOString(),
+    });
+  });
+  void trySyncInBackground();
+  return payload;
+}
+
+/** シフト変更通知を確認済みにする（端末状態。通知自体は記録として保持） */
+export async function acknowledgeShiftChanges(until: Date = new Date()): Promise<void> {
+  await setMeta("shiftAckAt", until.toISOString());
 }
 
 export async function getSelectedCrewId(): Promise<string | undefined> {

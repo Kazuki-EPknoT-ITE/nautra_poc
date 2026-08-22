@@ -25,6 +25,7 @@ import {
   useDisclosure,
 } from "@/ui";
 import { CrewPicker } from "../_components/crew-picker";
+import { GroupHeader } from "../_components/group-header";
 
 function parseLocal(dateStr: string, timeStr: string): Date {
   const d = startOfLocalDay(dateStr);
@@ -141,14 +142,15 @@ export default function HistoryPage() {
     <div className="flex flex-col gap-4">
       <CrewPicker selected={crew} onSelect={selectCrew} />
 
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold">
-          <span className="mr-2 text-foreground-400">01</span>打刻履歴（{crew.name}）
-        </h1>
-        <Button color="primary" variant="bordered" onPress={afterModal.onOpen} className="min-h-12">
-          後から打刻
-        </Button>
-      </div>
+      <GroupHeader
+        group="01"
+        subtitle={`打刻履歴（${crew.name}）`}
+        right={
+          <Button color="primary" variant="bordered" onPress={afterModal.onOpen} className="min-h-12">
+            後から打刻
+          </Button>
+        }
+      />
 
       <div className="flex flex-col gap-2">
         {sorted.length === 0 ? (

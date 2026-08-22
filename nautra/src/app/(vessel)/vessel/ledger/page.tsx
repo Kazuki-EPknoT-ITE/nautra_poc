@@ -13,6 +13,7 @@ import { useCrewRecords, useNowTick, useSelectedCrew } from "@/lib/vessel-hooks"
 import { DEFAULT_LABOR_RULE_SET } from "@/rules/default-rule-set";
 import { Card, CardBody, CardHeader, Divider, LimitGauge, StatusChip } from "@/ui";
 import { CrewPicker } from "../_components/crew-picker";
+import { GroupHeader } from "../_components/group-header";
 
 /**
  * V-03 本日の労働・休息。日/週/4週の集計と上限ゲージ、休息チェック
@@ -42,12 +43,11 @@ export default function TodayPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h1 className="text-xl font-bold">
-          <span className="mr-2 text-foreground-400">02</span>労務管理記録簿 ─ 本日の集計
-        </h1>
-        <p className="text-xs text-foreground-400">第16号の5書式の帳票出力は陸上側で対応予定</p>
-      </div>
+      <GroupHeader
+        group="02"
+        subtitle="本日の集計"
+        right={<p className="text-xs text-foreground-400">第16号の5書式の帳票出力は陸上側で対応予定</p>}
+      />
       <CrewPicker selected={crew} onSelect={selectCrew} />
       <p className="text-foreground-500">対象船員: {crew.name}（{crew.position}）</p>
 

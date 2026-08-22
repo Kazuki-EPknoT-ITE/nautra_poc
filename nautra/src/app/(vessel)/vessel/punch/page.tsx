@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useMemo, useState } from "react";
 import { buildIntervals } from "@/domain/labor-law/intervals";
 import { WORK_CATEGORIES, type WorkCategory } from "@/domain/labor-law/types";
@@ -10,6 +9,7 @@ import { recordPunch } from "@/lib/vessel-actions";
 import { useCrewRecords, useNowTick, useSelectedCrew } from "@/lib/vessel-hooks";
 import { Card, CardBody, PunchButton } from "@/ui";
 import { CrewPicker } from "../_components/crew-picker";
+import { GroupHeader } from "../_components/group-header";
 
 /**
  * V-01 ホーム（打刻）。作業種別大ボタン + 開始/終了打刻。
@@ -51,14 +51,7 @@ export default function VesselHomePage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between gap-2">
-        <h1 className="text-xl font-bold">
-          <span className="mr-2 text-foreground-400">01</span>労働時間・打刻
-        </h1>
-        <Link href="/vessel/history" className="text-primary underline-offset-2 hover:underline">
-          履歴・後から打刻 →
-        </Link>
-      </div>
+      <GroupHeader group="01" />
 
       <CrewPicker selected={crew} onSelect={selectCrew} />
 
