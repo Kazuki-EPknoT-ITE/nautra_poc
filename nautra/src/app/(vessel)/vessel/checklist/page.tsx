@@ -211,7 +211,7 @@ export default function ChecklistPage() {
     <div className="flex flex-col gap-4">
       <GroupHeader group="03" subtitle="点検・操練・検知" />
       <CrewPicker selected={crew} onSelect={selectCrew} />
-      <p className="text-sm text-foreground-400">実施者: {crew.name}（{crew.position}）</p>
+      <p className="text-sm text-foreground-600">実施者: {crew.name}（{crew.position}）</p>
 
       <div className="grid grid-cols-2 gap-2">
         {CHECKLIST_TEMPLATE_IDS.map((id) => (
@@ -250,11 +250,11 @@ export default function ChecklistPage() {
       ) : null}
 
       <section aria-label="点検・操練・検知の履歴" className="flex flex-col gap-2">
-        <h2 className="text-base font-bold text-foreground-400">履歴（新しい順）</h2>
+        <h2 className="text-base font-bold text-foreground-600">履歴（新しい順）</h2>
         {history.length === 0 ? (
           <Card shadow="none" className="glass-tile">
             <CardBody>
-              <p className="text-foreground-400">記録がありません。</p>
+              <p className="text-foreground-600">記録がありません。</p>
             </CardBody>
           </Card>
         ) : null}
@@ -270,10 +270,10 @@ export default function ChecklistPage() {
                     操練
                   </Chip>
                   <span className="font-semibold">{t.drillType[h.r.drillType]}</span>
-                  <span className="text-sm text-foreground-400">
+                  <span className="text-sm text-foreground-600">
                     指揮 {personName(h.r.leader)} / 参加 {h.r.participants.length}名 / {h.r.durationMinutes}分
                   </span>
-                  {h.r.remarks ? <p className="w-full text-sm text-foreground-400">{h.r.remarks}</p> : null}
+                  {h.r.remarks ? <p className="w-full text-sm text-foreground-600">{h.r.remarks}</p> : null}
                 </div>
               ) : (
                 <div className="flex flex-wrap items-center gap-2">
@@ -286,7 +286,7 @@ export default function ChecklistPage() {
                   <Chip size="sm" variant="flat" color={h.r.result === "pass" ? "success" : "danger"} radius="sm">
                     {h.r.result === "pass" ? "✓" : "✕"} {t.alcoholResult[h.r.result]}
                   </Chip>
-                  <span className="ml-auto text-sm text-foreground-400">
+                  <span className="ml-auto text-sm text-foreground-600">
                     確認者 {personName(h.r.checkedBy)} / 基準 {h.r.limitMgPerL} mg/L
                   </span>
                 </div>
@@ -301,11 +301,11 @@ export default function ChecklistPage() {
         <ModalContent>
           <ModalHeader className="flex flex-col gap-1">
             <span>{template.name}</span>
-            <span className="text-sm font-normal text-foreground-400">{template.description}（テンプレート版 {template.version}）</span>
+            <span className="text-sm font-normal text-foreground-600">{template.description}（テンプレート版 {template.version}）</span>
           </ModalHeader>
           <ModalBody className="flex flex-col gap-4">
             <div className="flex items-center justify-between">
-              <span className="text-sm text-foreground-400">未判定 {unanswered} / {template.items.length} 件</span>
+              <span className="text-sm text-foreground-600">未判定 {unanswered} / {template.items.length} 件</span>
               <Button
                 size="sm"
                 variant="bordered"
@@ -377,7 +377,7 @@ export default function ChecklistPage() {
                 </Checkbox>
               ))}
             </CheckboxGroup>
-            <p className="text-sm text-foreground-400">指揮者: {crew.name}</p>
+            <p className="text-sm text-foreground-600">指揮者: {crew.name}</p>
             <Textarea label="実施内容・所見" value={drillRemarks} onValueChange={setDrillRemarks} minRows={2} />
             {drillError ? <p className="text-danger">✕ {drillError}</p> : null}
           </ModalBody>
@@ -428,11 +428,11 @@ export default function ChecklistPage() {
             </RadioGroup>
             <div className={cn("rounded-medium p-3", previewResult === "fail" ? "bg-danger/15 text-danger" : "glass-inset")}>
               判定: {previewResult ? t.alcoholResult[previewResult] : "—"}
-              <span className="ml-2 text-sm text-foreground-400">
+              <span className="ml-2 text-sm text-foreground-600">
                 （基準値 {limit} mg/L 以上で乗務不可。安全ルール版 {DEFAULT_SAFETY_RULE_SET.version}）
               </span>
             </div>
-            <p className="text-sm text-foreground-400">確認者: {crew.name}</p>
+            <p className="text-sm text-foreground-600">確認者: {crew.name}</p>
             {alcoholError ? <p className="text-danger">✕ {alcoholError}</p> : null}
           </ModalBody>
           <ModalFooter>
@@ -465,7 +465,7 @@ function ChecklistRow({ r }: { r: ChecklistResultPayload }) {
             <Chip size="sm" variant="flat" color={r.overall === "pass" ? "success" : "danger"} radius="sm">
               {r.overall === "pass" ? "✓" : "✕"} {t.overall[r.overall]}
             </Chip>
-            <span className="text-sm text-foreground-400">
+            <span className="text-sm text-foreground-600">
               実施 {personName(r.recordedBy)} / 不良 {ngItems.length}件 / 全 {r.items.length}項目
             </span>
           </div>
@@ -477,12 +477,12 @@ function ChecklistRow({ r }: { r: ChecklistResultPayload }) {
               <span
                 className={cn(
                   "w-12 shrink-0 font-bold",
-                  it.result === "ok" ? "text-success" : it.result === "ng" ? "text-danger" : "text-foreground-400",
+                  it.result === "ok" ? "text-success" : it.result === "ng" ? "text-danger" : "text-foreground-600",
                 )}
               >
                 {it.result === "ok" ? "✓" : it.result === "ng" ? "✕" : "–"} {t.checkResult[it.result]}
               </span>
-              <span className="text-foreground-400">[{it.group}]</span>
+              <span className="text-foreground-600">[{it.group}]</span>
               <span>{it.label}</span>
               {it.note ? <span className="text-danger">— {it.note}</span> : null}
             </div>

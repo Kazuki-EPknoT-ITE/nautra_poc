@@ -56,13 +56,13 @@ export default function VesselHomePage() {
       <CrewPicker selected={crew} onSelect={selectCrew} />
 
       <div className="flex items-baseline justify-between">
-        <p className="text-foreground-400">
+        <p className="text-foreground-600">
           {now.getMonth() + 1}/{now.getDate()}{" "}
           <span className="tabular-nums text-2xl font-bold text-foreground">
             {String(now.getHours()).padStart(2, "0")}:{String(now.getMinutes()).padStart(2, "0")}
           </span>
         </p>
-        <p className="text-foreground-400">{crew.name}（{crew.position}）</p>
+        <p className="text-foreground-600">{crew.name}（{crew.position}）</p>
       </div>
 
       {openInterval ? (
@@ -70,7 +70,7 @@ export default function VesselHomePage() {
           <CardBody className="flex flex-col gap-3">
             <p className="text-xl">
               <span className="font-bold">{t.workCategory[openInterval.workCategory]}</span> 作業中
-              <span className="ml-3 tabular-nums text-foreground-400">
+              <span className="ml-3 tabular-nums text-foreground-600">
                 {fmtTime(openInterval.startAt.toISOString())}〜（経過 {fmtMinutes(elapsed)}）
               </span>
             </p>
@@ -82,7 +82,7 @@ export default function VesselHomePage() {
           </CardBody>
         </Card>
       ) : (
-        <p className="text-foreground-400">作業を選んで押すだけで開始打刻されます。</p>
+        <p className="text-foreground-600">作業を選んで押すだけで開始打刻されます。</p>
       )}
 
       <div className="grid grid-cols-2 gap-3">
@@ -125,18 +125,18 @@ export default function VesselHomePage() {
 
       <Card shadow="none" className="glass-tile">
         <CardBody className="flex flex-col gap-1">
-          <p className="text-sm text-foreground-400">直前の打刻（常時表示・誤操作確認用）</p>
+          <p className="text-sm text-foreground-600">直前の打刻（常時表示・誤操作確認用）</p>
           {lastRecord ? (
             <p>
               <span className="font-semibold">{t.workCategory[lastRecord.workCategory]}</span>{" "}
               {t.action[lastRecord.action]}{" "}
               <span className="tabular-nums">{fmtTime(lastRecord.occurredAt)}</span>
-              <span className="ml-2 text-sm text-foreground-400">
+              <span className="ml-2 text-sm text-foreground-600">
                 （{t.entryType[lastRecord.entryType]}）
               </span>
             </p>
           ) : (
-            <p className="text-foreground-400">まだ打刻がありません。</p>
+            <p className="text-foreground-600">まだ打刻がありません。</p>
           )}
         </CardBody>
       </Card>

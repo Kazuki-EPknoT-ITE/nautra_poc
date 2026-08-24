@@ -44,7 +44,7 @@ export function CrewPicker({
                 {active ? <span aria-hidden="true">✓ </span> : null}
                 {c.name.split(" ")[0]}
               </span>
-              <span className="text-xs text-foreground-400">{c.position}</span>
+              <span className="text-xs text-foreground-600">{c.position}</span>
             </button>
           );
         })}

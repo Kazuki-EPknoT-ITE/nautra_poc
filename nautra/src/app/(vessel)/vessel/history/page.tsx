@@ -158,7 +158,7 @@ export default function HistoryPage() {
         {sorted.length === 0 ? (
           <Card shadow="none" className="glass-tile">
             <CardBody>
-              <p className="text-foreground-400">
+              <p className="text-foreground-600">
                 打刻がありません。ホーム画面から打刻するか、「後から打刻」で入力してください。
               </p>
             </CardBody>
@@ -244,7 +244,7 @@ export default function HistoryPage() {
               <Input type="time" label="終了" value={afterTo} onValueChange={setAfterTo} />
             </div>
             {formError ? <p className="text-danger">✕ {formError}</p> : null}
-            <p className="text-sm text-foreground-400">
+            <p className="text-sm text-foreground-600">
               未来の日時は入力できません（日付誤り防止ガード）。
             </p>
           </ModalBody>
@@ -265,7 +265,7 @@ export default function HistoryPage() {
           <ModalHeader>差戻し再入力</ModalHeader>
           <ModalBody className="flex flex-col gap-3">
             {resubmitTarget ? (
-              <p className="text-sm text-foreground-400">
+              <p className="text-sm text-foreground-600">
                 対象: {t.workCategory[resubmitTarget.workCategory]}{" "}
                 {t.action[resubmitTarget.action]}（{fmtDateTime(resubmitTarget.occurredAt)}）。
                 正しい日時で再入力すると、元の打刻は「訂正済」となり集計から除外されます

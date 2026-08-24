@@ -108,12 +108,12 @@ export default function ShiftPage() {
       <Card shadow="none" className="glass-tile">
         <CardHeader className="flex items-center justify-between">
           <span className="font-bold">本日の当直 ─ {crew.name}</span>
-          <span className="text-sm text-foreground-400">{fmtDateLabel(today)}</span>
+          <span className="text-sm text-foreground-600">{fmtDateLabel(today)}</span>
         </CardHeader>
         <Divider />
         <CardBody className="flex flex-col gap-2">
           {myToday.length === 0 ? (
-            <p className="text-foreground-400">本日の当直予定はありません。</p>
+            <p className="text-foreground-600">本日の当直予定はありません。</p>
           ) : (
             myToday.map(({ plan, matched, started }) => (
               <div key={plan.id} className="glass-inset flex flex-wrap items-center gap-2 p-3">
@@ -135,15 +135,15 @@ export default function ShiftPage() {
                       ✓ {matched.map((iv) => `${fmtTime(iv.startAt.toISOString())}–${iv.endAt ? fmtTime(iv.endAt.toISOString()) : "作業中"}`).join(", ")}
                     </span>
                   ) : started ? (
-                    <span className="font-semibold text-warning">⚠ 未打刻</span>
+                    <span className="font-semibold text-warning-700">⚠ 未打刻</span>
                   ) : (
-                    <span className="text-foreground-400">開始前</span>
+                    <span className="text-foreground-600">開始前</span>
                   )}
                 </span>
               </div>
             ))
           )}
-          <p className="text-xs text-foreground-400">
+          <p className="text-xs text-foreground-600">
             計画は陸上の配信値、実績は船内の打刻（01）です。両者は別レコードとして保持され、計画を実績で上書きしません。
           </p>
         </CardBody>
@@ -158,7 +158,7 @@ export default function ShiftPage() {
               {unread.length}件を確認済みにする
             </Button>
           ) : (
-            <span className="text-sm text-foreground-400">
+            <span className="text-sm text-foreground-600">
               未読なし{ackAt ? `（確認 ${fmtDateTime(ackAt)}）` : ""}
             </span>
           )}
@@ -166,7 +166,7 @@ export default function ShiftPage() {
         <Divider />
         <CardBody className="flex flex-col gap-2">
           {changes.length === 0 ? (
-            <p className="text-foreground-400">変更通知はありません。</p>
+            <p className="text-foreground-600">変更通知はありません。</p>
           ) : (
             changes.slice(0, 10).map((c) => {
               const prev = c.supersedesId ? byId.get(c.supersedesId) : undefined;
@@ -184,7 +184,7 @@ export default function ShiftPage() {
                     <span className="tabular-nums">
                       {prev?.from && prev?.to ? (
                         <>
-                          <span className="line-through text-foreground-400">
+                          <span className="line-through text-foreground-600">
                             {prev.shiftType ? t.shiftType[prev.shiftType] : ""} {prev.from}–{prev.to}
                           </span>{" "}
                           →{" "}
@@ -194,11 +194,11 @@ export default function ShiftPage() {
                         {c.shiftType ? t.shiftType[c.shiftType] : ""} {c.from}–{c.to}
                       </span>
                     </span>
-                    <span className="ml-auto text-xs text-foreground-400">
+                    <span className="ml-auto text-xs text-foreground-600">
                       配信 {fmtDateTime(c.publishedAt)} / {personName(c.publishedBy)}
                     </span>
                   </div>
-                  {c.changeNote ? <p className="text-sm text-foreground-400">{c.changeNote}</p> : null}
+                  {c.changeNote ? <p className="text-sm text-foreground-600">{c.changeNote}</p> : null}
                 </div>
               );
             })
@@ -213,7 +213,7 @@ export default function ShiftPage() {
         <CardBody className="overflow-x-auto p-0">
           <table className="w-full min-w-[720px] text-sm">
             <thead>
-              <tr className="border-b border-[var(--glass-border)] text-left text-foreground-400">
+              <tr className="border-b border-[var(--glass-border)] text-left text-foreground-600">
                 <th className="px-3 py-2 font-medium">船員</th>
                 {days.map((d) => (
                   <th
@@ -231,7 +231,7 @@ export default function ShiftPage() {
                 <tr key={c.id} className={cn("border-b border-[var(--glass-border)] last:border-b-0", c.id === crew.id && "bg-content2/60")}>
                   <td className="px-3 py-2">
                     <p className="font-semibold">{c.name}</p>
-                    <p className="text-xs text-foreground-400">{c.position}</p>
+                    <p className="text-xs text-foreground-600">{c.position}</p>
                   </td>
                   {days.map((d) => {
                     const cell = table.get(`${c.id}|${d}`) ?? [];
@@ -250,7 +250,7 @@ export default function ShiftPage() {
                                   p.shiftType === "engine_watch" && "bg-content3 text-foreground",
                                   p.shiftType === "cargo_watch" && "bg-foreground/10 text-foreground",
                                   p.shiftType === "port_watch" && "bg-content3 text-foreground",
-                                  p.shiftType === "off" && "bg-content3 text-foreground-400",
+                                  p.shiftType === "off" && "bg-content3 text-foreground-600",
                                   changedIds.has(p.id) && "ring-1 ring-danger",
                                 )}
                               >
@@ -286,7 +286,7 @@ export default function ShiftPage() {
                         <tr key={s.id} className={cn("border-b border-[var(--glass-border)] last:border-b-0", s.crewMemberId === crew.id && "bg-content2/60")}>
                           <td className="px-2 py-2 font-semibold">{personName(s.crewMemberId)}</td>
                           <td className="px-2 py-2">{s.station}</td>
-                          <td className="px-2 py-2 text-foreground-400">{s.duty}</td>
+                          <td className="px-2 py-2 text-foreground-600">{s.duty}</td>
                         </tr>
                       ))}
                   </tbody>
@@ -297,7 +297,7 @@ export default function ShiftPage() {
         </CardBody>
       </Card>
 
-      <p className="text-xs text-foreground-400">
+      <p className="text-xs text-foreground-600">
         シフト・配置表の作成と変更は陸上アプリ（S-10）で行います。船内は参照のみです。
         デモ: <Link href="/shore/shifts" className="text-primary underline-offset-2 hover:underline">陸上でシフトを変更する →</Link>
         （変更は同期で本画面に届き、変更通知として表示されます）

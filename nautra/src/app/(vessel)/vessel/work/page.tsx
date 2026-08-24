@@ -205,7 +205,7 @@ export default function WorkPage() {
     <div className="flex flex-col gap-4">
       <GroupHeader group="05" subtitle="作業・待機・燃料・引継" />
       <CrewPicker selected={crew} onSelect={selectCrew} />
-      <p className="text-sm text-foreground-400">記録者: {crew.name}（{crew.position}）</p>
+      <p className="text-sm text-foreground-600">記録者: {crew.name}（{crew.position}）</p>
 
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         {WORK_REPORT_TYPES.map((type) => (
@@ -231,13 +231,13 @@ export default function WorkPage() {
       <Card shadow="none" className="glass-tile glass-blur border border-warning/60">
         <CardBody className="flex flex-wrap items-center gap-3">
           <div>
-            <p className="text-sm text-foreground-400">スタンバイ待機時間（直近7日・全船員）</p>
+            <p className="text-sm text-foreground-600">スタンバイ待機時間（直近7日・全船員）</p>
             <p className="tabular-nums text-2xl font-bold">
               {fmtMinutes(standbyWeek)}
-              <span className="ml-2 text-base font-normal text-foreground-400">{standbyWeekCount}件</span>
+              <span className="ml-2 text-base font-normal text-foreground-600">{standbyWeekCount}件</span>
             </p>
           </div>
-          <p className="max-w-sm text-xs text-foreground-400">
+          <p className="max-w-sm text-xs text-foreground-600">
             作業報告（待機記録）ベースの集計です。労働時間への算入は 01 の打刻（スタンバイ）が正であり、
             労務管理記録簿の集計とは別系統です。待機の見える化は荷主・オペレーターとの取引環境改善協議の
             エビデンスになります（要件定義書 3.3.3）。
@@ -265,7 +265,7 @@ export default function WorkPage() {
         {visible.length === 0 ? (
           <Card shadow="none" className="glass-tile">
             <CardBody>
-              <p className="text-foreground-400">記録がありません。</p>
+              <p className="text-foreground-600">記録がありません。</p>
             </CardBody>
           </Card>
         ) : null}
@@ -282,11 +282,11 @@ export default function WorkPage() {
                   <Chip size="sm" variant="flat" color={TYPE_COLOR[r.reportType]} radius="sm">
                     {t.workReportType[r.reportType]}
                   </Chip>
-                  {mins !== null ? <span className="text-sm text-foreground-400">{fmtMinutes(mins)}</span> : null}
-                  <span className="ml-auto text-sm text-foreground-400">{personName(r.crewMemberId)}</span>
+                  {mins !== null ? <span className="text-sm text-foreground-600">{fmtMinutes(mins)}</span> : null}
+                  <span className="ml-auto text-sm text-foreground-600">{personName(r.crewMemberId)}</span>
                 </div>
                 <p className="text-pretty">{summaryOf(r)}</p>
-                {r.remarks ? <p className="text-sm text-foreground-400">{r.remarks}</p> : null}
+                {r.remarks ? <p className="text-sm text-foreground-600">{r.remarks}</p> : null}
               </CardBody>
             </Card>
           );

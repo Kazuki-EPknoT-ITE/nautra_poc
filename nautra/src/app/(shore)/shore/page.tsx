@@ -16,7 +16,7 @@ export default function ShoreDashboardPage() {
 
   const stats = [
     { label: "警告（赤）日数 / 7日間", value: d.totals.violationDays, tone: "text-danger" },
-    { label: "注意（黄）日数 / 7日間", value: d.totals.cautionDays, tone: "text-warning" },
+    { label: "注意（黄）日数 / 7日間", value: d.totals.cautionDays, tone: "text-warning-700" },
     { label: "承認待ち", value: d.totals.pendingApprovals, tone: "text-foreground" },
     { label: "差戻し中", value: d.totals.remandedDays, tone: "text-danger" },
   ];

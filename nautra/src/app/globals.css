@@ -9,8 +9,8 @@
    にのみ定義し、画面はクラス名で参照する。
 
    設計上の制約:
-   - 船内テーマは暗所・手袋操作前提の高コントラスト。ガラスは「濃色の下地に白の
-     ごく薄い層」とし、本文色（#f7f7f8）は変えずコントラスト比を落とさない。
+   - 船内・陸上ともに白ベース。ガラスは「明るい下地に白の層」とし、本文色（#0b0c0d）は
+     変えずコントラスト比を落とさない（手袋・直射日光下の判読性を優先）。
    - backdrop-filter は重ねるほど描画コストが増えるため、**背後を内容がスクロール
      して通過する面（ヘッダ・モーダル・メニューカード）にのみ** `.glass-blur` を付ける。
      一覧行など多数繰り返す面は半透明＋ヘアラインのみ（ぼかしなし）とする。
@@ -24,40 +24,41 @@
 /* ポータル（モーダル等は .vessel の外＝body 直下に描画される）でも解決できる既定値。
    船内テーマの値を既定とし、各テーマクラスが自分の配下を上書きする。 */
 :root {
-  --glass-fg: #f7f7f8;
-  --glass-tint: rgba(255, 255, 255, 0.07);
-  --glass-tint-strong: rgba(10, 10, 11, 0.72);
-  --glass-tint-inset: rgba(255, 255, 255, 0.05);
-  --glass-modal-bg: rgba(14, 15, 17, 0.9);
-  --glass-border: rgba(255, 255, 255, 0.14);
-  --glass-border-strong: rgba(255, 255, 255, 0.2);
-  --glass-highlight: rgba(255, 255, 255, 0.22);
-  --glass-sheen: rgba(255, 255, 255, 0.1);
-  --glass-shadow: 0 12px 32px rgba(0, 0, 0, 0.55);
-  --glass-solid: #17181a;
-  --glass-solid-strong: #101112;
-  --glass-solid-inset: #1f2124;
+  --glass-fg: #0b0c0d;
+  --glass-tint: rgba(255, 255, 255, 0.7);
+  --glass-tint-strong: rgba(255, 255, 255, 0.82);
+  --glass-tint-inset: rgba(255, 255, 255, 0.55);
+  --glass-modal-bg: rgba(255, 255, 255, 0.95);
+  --glass-border: rgba(11, 12, 13, 0.1);
+  --glass-border-strong: rgba(11, 12, 13, 0.18);
+  --glass-highlight: rgba(255, 255, 255, 0.9);
+  --glass-sheen: rgba(255, 255, 255, 0.55);
+  --glass-shadow: 0 10px 28px rgba(11, 12, 13, 0.1);
+  --glass-solid: #ffffff;
+  --glass-solid-strong: #ffffff;
+  --glass-solid-inset: #f4f5f6;
 }
 
-/* 船内テーマ（暗所・高コントラスト） */
+/* 船内テーマ（白ベース・大きなタップ領域） */
 .vessel {
+  --glass-fg: #0b0c0d;
   --app-bg:
-    radial-gradient(1200px 820px at 10% -12%, #33363b 0%, rgba(51, 54, 59, 0) 60%),
-    radial-gradient(900px 700px at 92% -4%, #23262a 0%, rgba(35, 38, 42, 0) 55%),
-    radial-gradient(1100px 900px at 72% 112%, #1b1d20 0%, rgba(27, 29, 32, 0) 60%),
-    #08090a;
-  --glass-tint: rgba(255, 255, 255, 0.07);
-  --glass-tint-strong: rgba(10, 10, 11, 0.72);
-  --glass-modal-bg: rgba(14, 15, 17, 0.9);
-  --glass-tint-inset: rgba(255, 255, 255, 0.05);
-  --glass-border: rgba(255, 255, 255, 0.14);
-  --glass-border-strong: rgba(255, 255, 255, 0.2);
-  --glass-highlight: rgba(255, 255, 255, 0.22);
-  --glass-sheen: rgba(255, 255, 255, 0.1);
-  --glass-shadow: 0 12px 32px rgba(0, 0, 0, 0.55);
-  --glass-solid: #17181a;
-  --glass-solid-strong: #101112;
-  --glass-solid-inset: #1f2124;
+    radial-gradient(1200px 820px at 10% -12%, #e9ebee 0%, rgba(233, 235, 238, 0) 60%),
+    radial-gradient(900px 700px at 92% -4%, #eff1f3 0%, rgba(239, 241, 243, 0) 55%),
+    radial-gradient(1100px 900px at 72% 112%, #eceef1 0%, rgba(236, 238, 241, 0) 60%),
+    #f7f8fa;
+  --glass-tint: rgba(255, 255, 255, 0.72);
+  --glass-tint-strong: rgba(255, 255, 255, 0.84);
+  --glass-modal-bg: rgba(255, 255, 255, 0.95);
+  --glass-tint-inset: rgba(255, 255, 255, 0.55);
+  --glass-border: rgba(11, 12, 13, 0.1);
+  --glass-border-strong: rgba(11, 12, 13, 0.18);
+  --glass-highlight: rgba(255, 255, 255, 0.9);
+  --glass-sheen: rgba(255, 255, 255, 0.55);
+  --glass-shadow: 0 10px 28px rgba(11, 12, 13, 0.1);
+  --glass-solid: #ffffff;
+  --glass-solid-strong: #ffffff;
+  --glass-solid-inset: #f4f5f6;
 }
 
 /* 陸上テーマ（情報密度優先・明色） */
@@ -153,7 +154,7 @@
   background-color: var(--glass-tint-strong);
   -webkit-backdrop-filter: blur(24px) saturate(180%);
   backdrop-filter: blur(24px) saturate(180%);
-  box-shadow: 0 1px 0 var(--glass-border), 0 8px 24px rgba(0, 0, 0, 0.22), inset 0 1px 0 var(--glass-highlight);
+  box-shadow: 0 1px 0 var(--glass-border), 0 8px 24px rgba(11, 12, 13, 0.07), inset 0 1px 0 var(--glass-highlight);
 }
 
 .glass-modal {

@@ -74,10 +74,10 @@ export function GroupHeader({
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-balance text-xl font-bold">
-          <span className="mr-2 tabular-nums text-foreground-400">{g.no}</span>
+          <span className="mr-2 tabular-nums text-foreground-600">{g.no}</span>
           {g.title}
           {subtitle ? (
-            <span className="ml-2 text-base font-normal text-foreground-400">─ {subtitle}</span>
+            <span className="ml-2 text-base font-normal text-foreground-600">─ {subtitle}</span>
           ) : null}
         </h1>
         {right}
@@ -91,7 +91,7 @@ export function GroupHeader({
           classNames={{
             tabList: "glass-inset gap-1 p-1",
             tab: "min-h-11 px-4",
-            tabContent: "text-sm font-semibold text-foreground-400 group-data-[selected=true]:text-primary-foreground",
+            tabContent: "text-sm font-semibold text-foreground-600 group-data-[selected=true]:text-primary-foreground",
             cursor: "bg-primary shadow-none",
           }}
         >

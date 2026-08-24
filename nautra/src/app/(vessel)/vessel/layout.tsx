@@ -83,7 +83,7 @@ export default function VesselLayout({ children }: { children: ReactNode }) {
           <Link href={isMenu ? "/" : "/vessel"} className="flex min-w-0 items-baseline gap-2">
             <span className="text-xl font-bold">{PRODUCT_NAME}</span>
             {/* 船名は幅に余裕があるときだけ表示（狭い画面ではメニューボタンと同期状態を優先） */}
-            <span className="hidden truncate text-sm text-foreground-400 sm:inline">
+            <span className="hidden truncate text-sm text-foreground-600 sm:inline">
               船内 | {DEMO_VESSEL.name}
             </span>
           </Link>

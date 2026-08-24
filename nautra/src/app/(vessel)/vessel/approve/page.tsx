@@ -127,7 +127,7 @@ export default function ApprovePage() {
   return (
     <div className="flex flex-col gap-4">
       <GroupHeader group="02" subtitle={`船内承認（${CAPTAIN.name} ${CAPTAIN.position}）`} />
-      <p className="text-sm text-foreground-400">
+      <p className="text-sm text-foreground-600">
         承認者は打刻を修正できません。誤りがある場合は本人へ差戻し、本人が再入力します。
       </p>
 
@@ -135,7 +135,7 @@ export default function ApprovePage() {
         {rows.length === 0 ? (
           <Card shadow="none" className="glass-tile">
             <CardBody>
-              <p className="text-foreground-400">直近3日間に承認対象の記録がありません。</p>
+              <p className="text-foreground-600">直近3日間に承認対象の記録がありません。</p>
             </CardBody>
           </Card>
         ) : null}
@@ -146,7 +146,7 @@ export default function ApprovePage() {
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="font-bold">{fmtDateLabel(row.date)}</span>
                   <span>{row.crew.name}（{row.crew.position}）</span>
-                  <span className="tabular-nums text-foreground-400">
+                  <span className="tabular-nums text-foreground-600">
                     労働 {fmtMinutes(row.summary.workedMinutes)}
                   </span>
                   <StatusChip level={row.summary.level} size="sm" />
@@ -200,7 +200,7 @@ export default function ApprovePage() {
           <ModalHeader>差戻し（本人再入力の依頼）</ModalHeader>
           <ModalBody className="flex flex-col gap-3">
             {remandRow ? (
-              <p className="text-sm text-foreground-400">
+              <p className="text-sm text-foreground-600">
                 {fmtDateLabel(remandRow.date)} {remandRow.crew.name} の打刻から対象を選択してください。
               </p>
             ) : null}

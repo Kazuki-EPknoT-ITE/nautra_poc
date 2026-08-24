@@ -193,7 +193,7 @@ export default function LogbookPage() {
     <div className="flex flex-col gap-4">
       <GroupHeader group="03" subtitle="航海日誌" />
       <CrewPicker selected={crew} onSelect={selectCrew} />
-      <p className="text-sm text-foreground-400">記録者: {crew.name}（{crew.position}）</p>
+      <p className="text-sm text-foreground-600">記録者: {crew.name}（{crew.position}）</p>
 
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         {VOYAGE_LOG_TYPES.map((lt) => (
@@ -219,14 +219,14 @@ export default function LogbookPage() {
       {byDate.length === 0 ? (
         <Card shadow="none" className="glass-tile">
           <CardBody>
-            <p className="text-foreground-400">航海日誌の記録がありません。上のボタンから記入してください。</p>
+            <p className="text-foreground-600">航海日誌の記録がありません。上のボタンから記入してください。</p>
           </CardBody>
         </Card>
       ) : null}
 
       {byDate.map(([date, entries]) => (
         <section key={date} aria-label={`${fmtDateLabel(date)} の航海日誌`} className="flex flex-col gap-2">
-          <h2 className="text-base font-bold text-foreground-400">{fmtDateLabel(date)}</h2>
+          <h2 className="text-base font-bold text-foreground-600">{fmtDateLabel(date)}</h2>
           {entries.map((r) => {
             const superseded = supersededIds.has(r.id);
             const isCorrection = Boolean(r.supersedesId);
@@ -250,13 +250,13 @@ export default function LogbookPage() {
                         訂正済（原本保持）
                       </Chip>
                     ) : null}
-                    <span className="ml-auto text-sm text-foreground-400">記録者 {personName(r.recordedBy)}</span>
+                    <span className="ml-auto text-sm text-foreground-600">記録者 {personName(r.recordedBy)}</span>
                   </div>
                   <div className={cn("flex flex-col gap-1", superseded && "line-through")}>
                     {r.port ? (
                       <p>
                         <span className="font-semibold">{r.port}</span>
-                        {r.route ? <span className="ml-2 text-foreground-400">航路: {r.route}</span> : null}
+                        {r.route ? <span className="ml-2 text-foreground-600">航路: {r.route}</span> : null}
                       </p>
                     ) : null}
                     {r.position || r.courseDeg !== undefined || r.speedKnots !== undefined || r.engineRpm !== undefined ? (
@@ -268,7 +268,7 @@ export default function LogbookPage() {
                       </p>
                     ) : null}
                     {r.weather || r.wind || r.seaState || r.visibility ? (
-                      <p className="text-sm text-foreground-400">
+                      <p className="text-sm text-foreground-600">
                         海象: {[r.weather, r.wind, r.seaState, r.visibility ? `視程 ${r.visibility}` : null].filter(Boolean).join(" / ")}
                       </p>
                     ) : null}
@@ -291,7 +291,7 @@ export default function LogbookPage() {
         </section>
       ))}
 
-      <p className="text-xs text-foreground-400">
+      <p className="text-xs text-foreground-600">
         航海日誌は一次記録として追記のみ行い、削除・上書きはしません。訂正は訂正記録の追記で表現します
         （要件定義書 12.3）。
       </p>
@@ -303,7 +303,7 @@ export default function LogbookPage() {
           </ModalHeader>
           <ModalBody className="flex flex-col gap-3">
             {supersedes ? (
-              <p className="text-sm text-foreground-400">
+              <p className="text-sm text-foreground-600">
                 {fmtTime(supersedes.occurredAt)} の「{t.voyageLogType[supersedes.logType]}」を訂正します。
                 元の記録は訂正済として保持されます。
               </p>

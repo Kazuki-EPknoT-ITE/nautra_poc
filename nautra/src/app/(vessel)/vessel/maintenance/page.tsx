@@ -125,7 +125,7 @@ export default function MaintenancePage() {
         }
       />
       <CrewPicker selected={crew} onSelect={selectCrew} />
-      <p className="text-sm text-foreground-400">点検者: {crew.name}（{crew.position}）。機器をタップして点検・保守を記録します。</p>
+      <p className="text-sm text-foreground-600">点検者: {crew.name}（{crew.position}）。機器をタップして点検・保守を記録します。</p>
 
       <section aria-label="機器別の最新状態" className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         {EQUIPMENT_KINDS.map((eq) => {
@@ -151,12 +151,12 @@ export default function MaintenancePage() {
                   <Chip size="sm" variant="flat" color={style.color} radius="sm">
                     {style.icon} {t.condition[latest.condition]}
                   </Chip>
-                  <span className="text-xs text-foreground-400">
+                  <span className="text-xs text-foreground-600">
                     {t.maintenanceRecordType[latest.recordType]} {fmtDateTime(latest.occurredAt)}
                   </span>
                 </>
               ) : (
-                <span className="text-xs text-foreground-400">記録なし</span>
+                <span className="text-xs text-foreground-600">記録なし</span>
               )}
             </button>
           );
@@ -170,11 +170,11 @@ export default function MaintenancePage() {
       ) : null}
 
       <section aria-label="点検・保守の履歴" className="flex flex-col gap-2">
-        <h2 className="text-base font-bold text-foreground-400">履歴（新しい順）</h2>
+        <h2 className="text-base font-bold text-foreground-600">履歴（新しい順）</h2>
         {records.length === 0 ? (
           <Card shadow="none" className="glass-tile">
             <CardBody>
-              <p className="text-foreground-400">記録がありません。</p>
+              <p className="text-foreground-600">記録がありません。</p>
             </CardBody>
           </Card>
         ) : null}
@@ -193,20 +193,20 @@ export default function MaintenancePage() {
                     {style.icon} {t.condition[r.condition]}
                   </Chip>
                   {r.runningHours !== undefined ? (
-                    <span className="tabular-nums text-sm text-foreground-400">運転 {r.runningHours.toLocaleString()} h</span>
+                    <span className="tabular-nums text-sm text-foreground-600">運転 {r.runningHours.toLocaleString()} h</span>
                   ) : null}
-                  <span className="ml-auto text-sm text-foreground-400">{personName(r.crewMemberId)}</span>
+                  <span className="ml-auto text-sm text-foreground-600">{personName(r.crewMemberId)}</span>
                 </div>
                 {r.action ? <p className="text-pretty">{r.action}</p> : null}
-                {r.remarks ? <p className="text-sm text-foreground-400">{r.remarks}</p> : null}
-                {r.nextDueDate ? <p className="text-sm text-foreground-400">次回予定: {fmtDateLabel(r.nextDueDate)}</p> : null}
+                {r.remarks ? <p className="text-sm text-foreground-600">{r.remarks}</p> : null}
+                {r.nextDueDate ? <p className="text-sm text-foreground-600">次回予定: {fmtDateLabel(r.nextDueDate)}</p> : null}
               </CardBody>
             </Card>
           );
         })}
       </section>
 
-      <p className="text-xs text-foreground-400">
+      <p className="text-xs text-foreground-600">
         定期保守計画・部品在庫・入渠対応の管理は陸上アプリ（S-11）で行います。船内は点検結果と保守実績を一次記録として残します。
       </p>
 
