@@ -60,14 +60,6 @@ export const FEATURE_GROUPS: Record<string, FeatureGroup> = {
   },
 };
 
-/** パスから所属グループ番号を引く（下部ナビのアクティブ判定にも使う） */
-export function groupForPath(pathname: string): string | null {
-  for (const g of Object.values(FEATURE_GROUPS)) {
-    if (g.tabs.some((t) => pathname === t.href || pathname.startsWith(`${t.href}/`))) return g.no;
-  }
-  return null;
-}
-
 export function GroupHeader({
   group,
   subtitle,
