@@ -14,7 +14,7 @@ import {
   toLocalInputValue,
 } from "@/lib/format";
 import { appendRecord, assertNotFuture, newRecordBase } from "@/lib/vessel-actions";
-import { useRecords, useSelectedCrew } from "@/lib/vessel-hooks";
+import { useRecords, useActiveCrew } from "@/lib/vessel-hooks";
 import { WORK_REPORT_TYPES, type WorkReportPayload, type WorkReportType } from "@/sync-protocol/records";
 import {
   Button,
@@ -125,7 +125,7 @@ function summaryOf(r: WorkReportPayload): string {
  * 取引環境改善協議のエビデンス）として週次合計を表示する。
  */
 export default function WorkPage() {
-  const [crew, selectCrew] = useSelectedCrew();
+  const { crew, select: selectCrew, canSwitch } = useActiveCrew();
   const reports = useRecords("work_report");
   const modal = useDisclosure();
   const glassModal = useGlassModalProps();
@@ -204,7 +204,7 @@ export default function WorkPage() {
   return (
     <div className="flex flex-col gap-4">
       <GroupHeader group="05" subtitle="作業・待機・燃料・引継" />
-      <CrewPicker selected={crew} onSelect={selectCrew} />
+      {canSwitch ? <CrewPicker selected={crew} onSelect={selectCrew} /> : null}
       <p className="text-sm text-foreground-600">記録者: {crew.name}（{crew.position}）</p>
 
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">

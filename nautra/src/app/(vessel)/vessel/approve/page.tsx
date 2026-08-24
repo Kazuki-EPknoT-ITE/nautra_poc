@@ -30,6 +30,7 @@ import {
 } from "@/ui";
 
 import { GroupHeader } from "../_components/group-header";
+import { PermissionGate } from "../_components/permission-gate";
 
 const CAPTAIN = CREW_MEMBERS.find((c) => c.role === "captain")!;
 
@@ -127,6 +128,11 @@ export default function ApprovePage() {
   return (
     <div className="flex flex-col gap-4">
       <GroupHeader group="02" subtitle={`船内承認（${CAPTAIN.name} ${CAPTAIN.position}）`} />
+      <PermissionGate
+        permission="approve_labor"
+        fallbackTitle="日次労務の承認・差戻しは船長のみが行えます"
+        fallbackNote="自分の記録の確認は「02 本日の集計」、打刻の訂正は「01 履歴・後から打刻」から行えます（基本設計書 11.2）。"
+      >
       <p className="text-sm text-foreground-600">
         承認者は打刻を修正できません。誤りがある場合は本人へ差戻し、本人が再入力します。
       </p>
@@ -194,6 +200,8 @@ export default function ApprovePage() {
           </Card>
         ))}
       </div>
+
+      </PermissionGate>
 
       <Modal {...glassModal} isOpen={remandModal.isOpen} onOpenChange={remandModal.onOpenChange} placement="center">
         <ModalContent>

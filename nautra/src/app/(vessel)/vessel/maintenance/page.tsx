@@ -13,7 +13,7 @@ import {
 } from "@/lib/format";
 import { latestByEquipment, openMaintenanceIssues } from "@/lib/maintenance-status";
 import { appendRecord, newRecordBase } from "@/lib/vessel-actions";
-import { useRecords, useSelectedCrew } from "@/lib/vessel-hooks";
+import { useActiveCrew, usePermission, useRecords } from "@/lib/vessel-hooks";
 import {
   EQUIPMENT_KINDS,
   MAINTENANCE_RECORD_TYPES,
@@ -40,6 +40,7 @@ import {
 } from "@/ui";
 import { CrewPicker } from "../_components/crew-picker";
 import { GroupHeader } from "../_components/group-header";
+import { ReadOnlyNote } from "../_components/permission-gate";
 
 type Condition = MaintenanceRecordPayload["condition"];
 
@@ -54,7 +55,8 @@ const COND_STYLE: Record<Condition, { color: "success" | "warning" | "danger"; i
  * 保守・修繕履歴。機器ごとの最新状態を一覧し、要注意・不良を強調する。
  */
 export default function MaintenancePage() {
-  const [crew, selectCrew] = useSelectedCrew();
+  const { crew, select: selectCrew, canSwitch } = useActiveCrew();
+  const canWrite = usePermission("write_maintenance"); // 記入は船長・機関長（11.2）
   const records = useRecords("maintenance_record");
   const modal = useDisclosure();
   const glassModal = useGlassModalProps();
@@ -74,6 +76,7 @@ export default function MaintenancePage() {
   const openIssues = useMemo(() => openMaintenanceIssues(records), [records]);
 
   function open(eq: EquipmentKind) {
+    if (!canWrite) return; // 参照のみのロールは記録できない
     setEquipment(eq);
     setRecordType("daily_inspection");
     setCondition("good");
@@ -124,8 +127,12 @@ export default function MaintenancePage() {
           ) : null
         }
       />
-      <CrewPicker selected={crew} onSelect={selectCrew} />
-      <p className="text-sm text-foreground-600">点検者: {crew.name}（{crew.position}）。機器をタップして点検・保守を記録します。</p>
+      {canSwitch ? <CrewPicker selected={crew} onSelect={selectCrew} /> : null}
+      <p className="text-sm text-foreground-600">
+        点検者: {crew.name}（{crew.position}）。
+        {canWrite ? "機器をタップして点検・保守を記録します。" : "機器別の最新状態と履歴を参照できます。"}
+      </p>
+      {canWrite ? null : <ReadOnlyNote note="日常点検・保守の記録は船長・機関長が行います。" />}
 
       <section aria-label="機器別の最新状態" className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         {EQUIPMENT_KINDS.map((eq) => {

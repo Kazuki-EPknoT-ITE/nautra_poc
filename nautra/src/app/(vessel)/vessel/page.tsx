@@ -5,6 +5,9 @@ import { cn } from "@/lib/cn";
 import { openMaintenanceIssues } from "@/lib/maintenance-status";
 import { useRecords, useShiftPlans, useSyncBadge } from "@/lib/vessel-hooks";
 import { Button, CardFooter, CardHeader, Chip, GlassCard } from "@/ui";
+import { can, type Permission } from "@/domain/authz/roles";
+import { t } from "@/i18n/ja";
+import { useSessionCrew } from "@/lib/vessel-hooks";
 
 /**
  * 船内ホーム = 機能メニュー。
@@ -17,6 +20,8 @@ interface FeatureLink {
   label: string;
   href: string;
   primary?: boolean;
+  /** この導線を表示するために必要な権限（未指定は全ロール） */
+  permission?: Permission;
 }
 
 interface Feature {
@@ -39,7 +44,7 @@ const FEATURES: Feature[] = [
     title: "労務管理記録簿",
     links: [
       { label: "本日の集計", href: "/vessel/ledger", primary: true },
-      { label: "船内承認（船長）", href: "/vessel/approve" },
+      { label: "船内承認（船長）", href: "/vessel/approve", permission: "approve_labor" },
     ],
   },
   {
@@ -115,6 +120,7 @@ function FeatureCard({ feature, badge }: { feature: Feature; badge?: string }) {
 export default function VesselMenuPage() {
   const { pendingCount, offlineSim } = useSyncBadge();
   const { unread } = useShiftPlans();
+  const session = useSessionCrew();
   const maintenance = useRecords("maintenance_record");
   // 機器ごとの最新状態が不良のものだけを数える（保守画面のボードと同じ導出。二重実装しない）
   const openDefects = openMaintenanceIssues(maintenance).filter((m) => m.condition === "defect").length;
@@ -124,17 +130,30 @@ export default function VesselMenuPage() {
     "05": openDefects > 0 ? `不良 ${openDefects}件` : undefined,
   };
 
+  // サインイン中のロールで使える導線だけを出す（判定は domain/authz。基本設計書 11.2）
+  const visible = FEATURES.map((f) => ({
+    ...f,
+    links: f.links.filter((l) => !l.permission || (session && can(session.role, l.permission))),
+  })).filter((f) => f.links.length > 0);
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h1 className="text-balance text-2xl font-bold">船内メニュー</h1>
+        <h1 className="text-balance text-2xl font-bold">
+          船内メニュー
+          {session ? (
+            <span className="ml-3 text-base font-normal text-foreground-600">
+              {session.name}（{t.role[session.role]}）
+            </span>
+          ) : null}
+        </h1>
         <p className="text-sm text-foreground-600">
           {offlineSim ? "⚡ オフライン運用中" : "● オンライン"}
           {pendingCount > 0 ? `｜未同期 ${pendingCount}件` : ""}
         </p>
       </div>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {FEATURES.map((f) => (
+        {visible.map((f) => (
           <FeatureCard key={f.no} feature={f} badge={badges[f.no]} />
         ))}
       </div>

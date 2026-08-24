@@ -1,3 +1,5 @@
+import type { VesselRole } from "@/domain/authz/roles";
+
 /**
  * デモ用の船員・船舶マスタ（PoC）。
  * 本番ではアプリ内マスタが正本（crew_members / vessels。要件定義書 12.2）となり、
@@ -10,22 +12,29 @@ export const DEMO_VESSEL = {
   name: "第一のーとら丸",
 } as const;
 
-export type CrewRole = "captain" | "crew";
+export type CrewRole = VesselRole;
 
 export interface CrewMember {
   id: string;
   name: string;
+  /** 職名（表示用） */
   position: string;
+  /** 権限ロール（判定は src/domain/authz） */
   role: CrewRole;
   /** アバター表示用イニシャル（顔写真リスト選択方式の代替。基本設計書 11.3） */
   initial: string;
+  /**
+   * 船内共用端末のサインイン用 PIN（基本設計書 11.3「顔写真リストから選択+任意で PIN」）。
+   * PoC のデモ値。本番は Supabase Auth / IC カード / WebAuthn 等を運用選択制で用いる。
+   */
+  demoPin: string;
 }
 
 export const CREW_MEMBERS: CrewMember[] = [
-  { id: "crew-kato", name: "加藤 大和", position: "船長", role: "captain", initial: "加" },
-  { id: "crew-sato", name: "佐藤 海斗", position: "航海士", role: "crew", initial: "佐" },
-  { id: "crew-suzuki", name: "鈴木 港", position: "機関長", role: "crew", initial: "鈴" },
-  { id: "crew-tanaka", name: "田中 凪", position: "甲板部員", role: "crew", initial: "田" },
+  { id: "crew-kato", name: "加藤 大和", position: "船長", role: "captain", initial: "加", demoPin: "1111" },
+  { id: "crew-sato", name: "佐藤 海斗", position: "航海士", role: "deck_officer", initial: "佐", demoPin: "2222" },
+  { id: "crew-suzuki", name: "鈴木 港", position: "機関長", role: "chief_engineer", initial: "鈴", demoPin: "3333" },
+  { id: "crew-tanaka", name: "田中 凪", position: "甲板部員", role: "deck_rating", initial: "田", demoPin: "4444" },
 ];
 
 export function crewById(id: string): CrewMember | undefined {

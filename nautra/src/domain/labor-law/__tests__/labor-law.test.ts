@@ -329,4 +329,16 @@ describe("ルール注入（rule_sets 版管理。基本設計書 5.3(6) / ガ�
     expect(check(byAgreement, "daily_max").level).toBe("violation");
     expect(byAgreement.appliedRuleVersion).toBe("agreement-1");
   });
+  it("1分未満の打刻ペアでも当日の記録として扱う（集計は0分でも承認対象から消えない）", () => {
+    const start = rec("c1", "maintenance", "start", DAY, "12:00");
+    const end = rec("c1", "maintenance", "end", DAY, "12:01");
+    // 12:00:52 → 12:01:08（16秒）。分に丸めると 0 分になるが、記録は残さなければならない
+    const records = [
+      { ...start, occurredAt: new Date(new Date(start.occurredAt).getTime() + 52_000).toISOString() },
+      { ...end, occurredAt: new Date(new Date(end.occurredAt).getTime() + 8_000).toISOString() },
+    ];
+    const s = evaluateDaily({ crewMemberId: "c1", date: DAY, records, now: NOW, ruleSet: rules });
+    expect(s.hasRecords).toBe(true); // 記録は残る（一次記録を丸めで消さない）
+    expect(s.workedMinutes).toBe(0); // 集計は分に丸めて 0 分
+  });
 });

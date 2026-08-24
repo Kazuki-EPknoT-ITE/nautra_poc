@@ -10,7 +10,7 @@ import { cn } from "@/lib/cn";
 import { CREW_MEMBERS, personName } from "@/lib/crew";
 import { fmtDateLabel, fmtDateTime, fmtTime } from "@/lib/format";
 import { acknowledgeShiftChanges } from "@/lib/vessel-actions";
-import { useAllRecords, useNowTick, useSelectedCrew, useShiftPlans } from "@/lib/vessel-hooks";
+import { useAllRecords, useNowTick, useActiveCrew, useShiftPlans } from "@/lib/vessel-hooks";
 import { STATION_SCENARIOS, type ShiftPlanPayload, type ShiftType } from "@/sync-protocol/records";
 import { Accordion, AccordionItem, Button, Card, CardBody, CardHeader, Chip, Divider } from "@/ui";
 import { CrewPicker } from "../_components/crew-picker";
@@ -52,7 +52,7 @@ function shiftWindow(p: ShiftPlanPayload): [Date, Date] | null {
  * 画面上で計画/実績を対比する（基本設計書 8.3「計画・実績分離」）。
  */
 export default function ShiftPage() {
-  const [crew, selectCrew] = useSelectedCrew();
+  const { crew, select: selectCrew, canSwitch } = useActiveCrew();
   const { watches, stations, changes, unread, byId, ackAt } = useShiftPlans();
   const records = useAllRecords();
   const now = useNowTick(60_000);
@@ -102,7 +102,7 @@ export default function ShiftPage() {
           </Chip>
         }
       />
-      <CrewPicker selected={crew} onSelect={selectCrew} />
+      {canSwitch ? <CrewPicker selected={crew} onSelect={selectCrew} /> : null}
 
       {/* 本日の自分の当直（計画 vs 実績） */}
       <Card shadow="none" className="glass-tile">

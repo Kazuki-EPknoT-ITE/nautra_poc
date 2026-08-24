@@ -86,8 +86,11 @@ export function evaluateDaily(params: {
   for (const iv of intervals) {
     const end = iv.endAt ?? now;
     if (iv.endAt === null) hasOpenInterval = true;
-    const minutes = overlapMinutes(iv.startAt, end, dayStart, dayEnd);
-    if (minutes <= 0) continue;
+    // 重なりはミリ秒で判定する。分に丸めて 0 分になる短い区間（1分未満の打刻ペア）でも
+    // その日の記録として残し、集計・承認の対象から消えないようにする（記録の非破壊）。
+    const overlapMs =
+      Math.min(end.getTime(), dayEnd.getTime()) - Math.max(iv.startAt.getTime(), dayStart.getTime());
+    if (overlapMs <= 0) continue;
     clipped.push({
       start: new Date(Math.max(iv.startAt.getTime(), dayStart.getTime())),
       end: new Date(Math.min(end.getTime(), dayEnd.getTime())),

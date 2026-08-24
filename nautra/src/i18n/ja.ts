@@ -51,6 +51,14 @@ export const t = {
     pending: "承認待ち",
   } as Record<string, string>,
 
+  /** 船内ロール（権限は src/domain/authz。基本設計書 11.2） */
+  role: {
+    captain: "船長",
+    deck_officer: "航海士",
+    chief_engineer: "機関長",
+    deck_rating: "甲板部員",
+  } as Record<string, string>,
+
   /** 同期イベント種別（V-09 送信キュー表示・S-01 受信状況） */
   syncKind: {
     time_record: "打刻",

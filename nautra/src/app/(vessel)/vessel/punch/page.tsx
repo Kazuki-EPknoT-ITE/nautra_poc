@@ -6,7 +6,7 @@ import { WORK_CATEGORIES, type WorkCategory } from "@/domain/labor-law/types";
 import { t } from "@/i18n/ja";
 import { fmtMinutes, fmtTime } from "@/lib/format";
 import { recordPunch } from "@/lib/vessel-actions";
-import { useCrewRecords, useNowTick, useSelectedCrew } from "@/lib/vessel-hooks";
+import { useCrewRecords, useNowTick, useActiveCrew } from "@/lib/vessel-hooks";
 import { Card, CardBody, PunchButton } from "@/ui";
 import { CrewPicker } from "../_components/crew-picker";
 import { GroupHeader } from "../_components/group-header";
@@ -17,7 +17,7 @@ import { GroupHeader } from "../_components/group-header";
  * 直前打刻の確認表示を常時行い、誤操作を防止する（基本設計書 6.1 / 6.3）。
  */
 export default function VesselHomePage() {
-  const [crew, selectCrew] = useSelectedCrew();
+  const { crew, select: selectCrew, canSwitch } = useActiveCrew();
   const records = useCrewRecords(crew.id);
   const now = useNowTick(15_000);
   const [confirmation, setConfirmation] = useState<string | null>(null);
@@ -53,7 +53,7 @@ export default function VesselHomePage() {
     <div className="flex flex-col gap-4">
       <GroupHeader group="01" />
 
-      <CrewPicker selected={crew} onSelect={selectCrew} />
+      {canSwitch ? <CrewPicker selected={crew} onSelect={selectCrew} /> : null}
 
       <div className="flex items-baseline justify-between">
         <p className="text-foreground-600">

@@ -10,15 +10,45 @@ import {
   type RecordKind,
   type ShiftPlanPayload,
 } from "@/sync-protocol/records";
+import { can, canSwitchCrew, type Permission } from "@/domain/authz/roles";
 import { CREW_MEMBERS, crewById, type CrewMember } from "./crew";
 import { setSelectedCrewId } from "./vessel-actions";
 import { getMeta, vesselDb, type VesselRecordRow } from "./vessel-db";
+import { SESSION_CREW_KEY } from "./vessel-session";
 
-/** 選択中の打刻者（共用端末の打刻者選択方式。基本設計書 11.3） */
-export function useSelectedCrew(): [CrewMember, (id: string) => void] {
+/**
+ * サインイン中の船員（未サインインは null。読み込み中は undefined）。
+ * meta 未設定と読み込み中を区別するため、解決後は必ず文字列（未設定は ""）を返す。
+ */
+export function useSessionCrew(): CrewMember | null | undefined {
+  // 既定値を渡さない = 解決前は undefined（読み込み中）、解決後は "" か船員ID
+  const id = useLiveQuery(async () => (await getMeta(SESSION_CREW_KEY)) ?? "", []);
+  if (id === undefined) return undefined; // 読み込み中
+  return id ? (crewById(id) ?? null) : null;
+}
+
+/** サインイン中のロールが権限を持つか（判定は domain/authz に集約） */
+export function usePermission(permission: Permission): boolean {
+  const session = useSessionCrew();
+  return session ? can(session.role, permission) : false;
+}
+
+/**
+ * 画面が対象とする船員。
+ * 本人は自分に固定され、船長（view_all_crew）のみ対象船員を切り替えられる（基本設計書 11.2）。
+ */
+export function useActiveCrew(): {
+  crew: CrewMember;
+  select: (id: string) => void;
+  canSwitch: boolean;
+  session: CrewMember | null | undefined;
+} {
+  const session = useSessionCrew();
   const selectedId = useLiveQuery(() => getMeta("selectedCrewId"), [], undefined);
-  const crew = (selectedId && crewById(selectedId)) || CREW_MEMBERS[0];
-  return [crew, (id: string) => void setSelectedCrewId(id)];
+  const canSwitch = session ? canSwitchCrew(session.role) : false;
+  const selected = (selectedId && crewById(selectedId)) || undefined;
+  const crew = canSwitch ? (selected ?? session ?? CREW_MEMBERS[0]) : (session ?? CREW_MEMBERS[0]);
+  return { crew, select: (id: string) => void setSelectedCrewId(id), canSwitch, session };
 }
 
 export function useCrewRecords(crewMemberId: string): TimeRecord[] {

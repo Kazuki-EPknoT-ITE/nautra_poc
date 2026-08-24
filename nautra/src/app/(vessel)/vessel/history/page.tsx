@@ -8,7 +8,7 @@ import { t } from "@/i18n/ja";
 import { cn } from "@/lib/cn";
 import { fmtDateTime } from "@/lib/format";
 import { recordPunch } from "@/lib/vessel-actions";
-import { useApprovals, useCrewRecords, useSelectedCrew } from "@/lib/vessel-hooks";
+import { useApprovals, useCrewRecords, useActiveCrew } from "@/lib/vessel-hooks";
 import {
   Button,
   Card,
@@ -41,7 +41,7 @@ function parseLocal(dateStr: string, timeStr: string): Date {
  * 元レコードは物理保持のうえ「訂正済」と表示する（要件定義書 3.2.1 / 12.5）。
  */
 export default function HistoryPage() {
-  const [crew, selectCrew] = useSelectedCrew();
+  const { crew, select: selectCrew, canSwitch } = useActiveCrew();
   const records = useCrewRecords(crew.id);
   const approvals = useApprovals();
 
@@ -142,7 +142,7 @@ export default function HistoryPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <CrewPicker selected={crew} onSelect={selectCrew} />
+      {canSwitch ? <CrewPicker selected={crew} onSelect={selectCrew} /> : null}
 
       <GroupHeader
         group="01"

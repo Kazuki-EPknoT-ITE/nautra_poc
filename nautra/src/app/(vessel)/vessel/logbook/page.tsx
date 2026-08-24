@@ -13,7 +13,7 @@ import {
   toLocalInputValue,
 } from "@/lib/format";
 import { appendRecord, newRecordBase } from "@/lib/vessel-actions";
-import { useRecords, useSelectedCrew } from "@/lib/vessel-hooks";
+import { useActiveCrew, usePermission, useRecords } from "@/lib/vessel-hooks";
 import { latestBySupersedes, VOYAGE_LOG_TYPES, type VoyageLogPayload, type VoyageLogType } from "@/sync-protocol/records";
 import {
   Button,
@@ -34,6 +34,7 @@ import {
 } from "@/ui";
 import { CrewPicker } from "../_components/crew-picker";
 import { GroupHeader } from "../_components/group-header";
+import { ReadOnlyNote } from "../_components/permission-gate";
 
 const WEATHER = ["晴", "曇", "雨", "霧", "雪", "雷雨"];
 const WIND = ["静穏", "北 3m/s", "北東 3m/s", "東 5m/s", "南東 5m/s", "南 4m/s", "南西 5m/s", "西 8m/s", "北西 10m/s"];
@@ -105,7 +106,8 @@ function formFromRecord(r: VoyageLogPayload): FormState {
  * 一次記録は追記のみ。訂正は supersedesId 付きの訂正記録を追記し、原本は「訂正済」として保持する。
  */
 export default function LogbookPage() {
-  const [crew, selectCrew] = useSelectedCrew();
+  const { crew, select: selectCrew, canSwitch } = useActiveCrew();
+  const canWrite = usePermission("write_logbook"); // 記入は船長・航海士（11.2）
   const logs = useRecords("voyage_log");
   const modal = useDisclosure();
   const glassModal = useGlassModalProps();
@@ -192,9 +194,10 @@ export default function LogbookPage() {
   return (
     <div className="flex flex-col gap-4">
       <GroupHeader group="03" subtitle="航海日誌" />
-      <CrewPicker selected={crew} onSelect={selectCrew} />
+      {canSwitch ? <CrewPicker selected={crew} onSelect={selectCrew} /> : null}
       <p className="text-sm text-foreground-600">記録者: {crew.name}（{crew.position}）</p>
 
+      {canWrite ? (
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         {VOYAGE_LOG_TYPES.map((lt) => (
           <Button
@@ -209,6 +212,9 @@ export default function LogbookPage() {
           </Button>
         ))}
       </div>
+      ) : (
+        <ReadOnlyNote note="航海日誌の記入は船長・航海士が行います。" />
+      )}
 
       {done ? (
         <Chip variant="flat" radius="sm" className="h-auto whitespace-normal py-1">
@@ -274,7 +280,7 @@ export default function LogbookPage() {
                     ) : null}
                     {r.remarks ? <p className="text-pretty">{r.remarks}</p> : null}
                   </div>
-                  {!superseded && effective.some((e) => e.id === r.id) ? (
+                  {canWrite && !superseded && effective.some((e) => e.id === r.id) ? (
                     <Button
                       size="sm"
                       variant="bordered"

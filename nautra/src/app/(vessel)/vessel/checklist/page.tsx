@@ -7,7 +7,7 @@ import { cn } from "@/lib/cn";
 import { CREW_MEMBERS, personName } from "@/lib/crew";
 import { fmtDateTime, fromLocalInputValue, parseOptionalNumber, toLocalInputValue } from "@/lib/format";
 import { appendRecord, newRecordBase } from "@/lib/vessel-actions";
-import { useRecords, useSelectedCrew } from "@/lib/vessel-hooks";
+import { useRecords, useActiveCrew } from "@/lib/vessel-hooks";
 import { judgeAlcohol } from "@/domain/safety/alcohol";
 import { DEFAULT_SAFETY_RULE_SET } from "@/rules/safety-rules";
 import {
@@ -58,7 +58,7 @@ type HistoryItem =
  * （要件定義書 3.3.2）。いずれも追記専用の一次記録として保存し同期する。
  */
 export default function ChecklistPage() {
-  const [crew, selectCrew] = useSelectedCrew();
+  const { crew, select: selectCrew, canSwitch } = useActiveCrew();
   const checklists = useRecords("checklist_result");
   const drills = useRecords("drill_record");
   const alcohols = useRecords("alcohol_check");
@@ -210,7 +210,7 @@ export default function ChecklistPage() {
   return (
     <div className="flex flex-col gap-4">
       <GroupHeader group="03" subtitle="点検・操練・検知" />
-      <CrewPicker selected={crew} onSelect={selectCrew} />
+      {canSwitch ? <CrewPicker selected={crew} onSelect={selectCrew} /> : null}
       <p className="text-sm text-foreground-600">実施者: {crew.name}（{crew.position}）</p>
 
       <div className="grid grid-cols-2 gap-2">

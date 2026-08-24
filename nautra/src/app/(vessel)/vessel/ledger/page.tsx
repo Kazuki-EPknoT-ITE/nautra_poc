@@ -9,7 +9,7 @@ import {
 } from "@/domain/labor-law/evaluate";
 import { t } from "@/i18n/ja";
 import { fmtMinutes, fmtTime } from "@/lib/format";
-import { useCrewRecords, useNowTick, useSelectedCrew } from "@/lib/vessel-hooks";
+import { useCrewRecords, useNowTick, useActiveCrew } from "@/lib/vessel-hooks";
 import { DEFAULT_LABOR_RULE_SET } from "@/rules/default-rule-set";
 import { Card, CardBody, CardHeader, Divider, LimitGauge, StatusChip } from "@/ui";
 import { CrewPicker } from "../_components/crew-picker";
@@ -20,7 +20,7 @@ import { GroupHeader } from "../_components/group-header";
  * （注意=黄 / 警告=赤 の2段階アラート。要件定義書 3.2.5）。
  */
 export default function TodayPage() {
-  const [crew, selectCrew] = useSelectedCrew();
+  const { crew, select: selectCrew, canSwitch } = useActiveCrew();
   const records = useCrewRecords(crew.id);
   const now = useNowTick(30_000);
   const ruleSet = DEFAULT_LABOR_RULE_SET;
@@ -48,7 +48,7 @@ export default function TodayPage() {
         subtitle="本日の集計"
         right={<p className="text-xs text-foreground-600">第16号の5書式の帳票出力は陸上側で対応予定</p>}
       />
-      <CrewPicker selected={crew} onSelect={selectCrew} />
+      {canSwitch ? <CrewPicker selected={crew} onSelect={selectCrew} /> : null}
       <p className="text-foreground-600">対象船員: {crew.name}（{crew.position}）</p>
 
       <Card shadow="none" className="glass-tile">
