@@ -53,7 +53,7 @@ export default function SyncPage() {
     <div className="flex flex-col gap-4">
       <GroupHeader group="06" />
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
         <Card shadow="none" className="glass-tile">
           <CardBody>
             <p className="text-sm text-foreground-600">未同期イベント</p>

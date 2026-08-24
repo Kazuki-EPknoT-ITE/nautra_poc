@@ -89,7 +89,7 @@ function FeatureCard({ feature, badge }: { feature: Feature; badge?: string }) {
           </Chip>
         ) : null}
       </CardHeader>
-      <CardFooter className="mt-auto flex flex-wrap gap-2 px-5 pb-5 pt-0">
+      <CardFooter className="mt-auto flex flex-col gap-2 px-5 pb-5 pt-0">
         {feature.links.map((link) => (
           <Button
             key={link.href}
@@ -99,8 +99,8 @@ function FeatureCard({ feature, badge }: { feature: Feature; badge?: string }) {
             variant={link.primary ? "solid" : "bordered"}
             radius="md"
             className={cn(
-              // 長いラベルは折り返して収める（クリップさせない）
-              "h-auto min-h-12 flex-1 whitespace-normal py-2 text-center text-base font-semibold leading-tight",
+              // 3列レイアウトでもラベルを1行で読めるよう、カード内では縦積みの全幅ボタンにする
+              "h-auto min-h-12 w-full whitespace-normal py-2 text-center text-base font-semibold leading-tight",
               !link.primary && "border-[var(--glass-border-strong)] text-foreground",
             )}
           >
@@ -133,7 +133,7 @@ export default function VesselMenuPage() {
           {pendingCount > 0 ? `｜未同期 ${pendingCount}件` : ""}
         </p>
       </div>
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {FEATURES.map((f) => (
           <FeatureCard key={f.no} feature={f} badge={badges[f.no]} />
         ))}

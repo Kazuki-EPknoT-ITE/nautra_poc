@@ -65,7 +65,7 @@ export default function VesselLayout({ children }: { children: ReactNode }) {
         maxWidth="full"
         height="4.25rem"
         className="glass-bar"
-        classNames={{ wrapper: "mx-auto max-w-3xl px-4 gap-3" }}
+        classNames={{ wrapper: "mx-auto max-w-5xl px-4 gap-3" }}
       >
         <NavbarBrand className="min-w-0 gap-3">
           {isMenu ? null : (
@@ -94,7 +94,7 @@ export default function VesselLayout({ children }: { children: ReactNode }) {
           </ClientOnly>
         </NavbarContent>
       </Navbar>
-      <main className="mx-auto max-w-3xl px-4 pb-12 pt-5">
+      <main className="mx-auto max-w-5xl px-4 pb-12 pt-5">
         <ClientOnly>{children}</ClientOnly>
       </main>
     </AppShell>

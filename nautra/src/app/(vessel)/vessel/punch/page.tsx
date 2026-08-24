@@ -85,7 +85,7 @@ export default function VesselHomePage() {
         <p className="text-foreground-600">作業を選んで押すだけで開始打刻されます。</p>
       )}
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
         {WORK_CATEGORIES.map((cat) => (
           <PunchButton
             key={cat}
