@@ -1,3 +1,212 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* ==========================================================================
+   リキッドガラス マテリアル定義
+   --------------------------------------------------------------------------
+   基本設計書 6.3「画面ごとの独自スタイルを禁止する」に従い、材質はここ（+ src/ui）
+   にのみ定義し、画面はクラス名で参照する。
+
+   設計上の制約:
+   - 船内テーマは暗所・手袋操作前提の高コントラスト。ガラスは「濃色の下地に白の
+     ごく薄い層」とし、本文色（#f7f7f8）は変えずコントラスト比を落とさない。
+   - backdrop-filter は重ねるほど描画コストが増えるため、**背後を内容がスクロール
+     して通過する面（ヘッダ・モーダル・メニューカード）にのみ** `.glass-blur` を付ける。
+     一覧行など多数繰り返す面は半透明＋ヘアラインのみ（ぼかしなし）とする。
+   - 透明度を下げたい利用者（prefers-reduced-transparency / prefers-contrast）と
+     backdrop-filter 非対応環境では自動的に不透明の下地へフォールバックする。
+
+   Tailwind の utilities より後に素の CSS として定義し、HeroUI が持つ既定の
+   背景ユーティリティ（bg-content1 等）より確実に優先させる。
+   ========================================================================== */
+
+/* ポータル（モーダル等は .vessel の外＝body 直下に描画される）でも解決できる既定値。
+   船内テーマの値を既定とし、各テーマクラスが自分の配下を上書きする。 */
+:root {
+  --glass-fg: #f7f7f8;
+  --glass-tint: rgba(255, 255, 255, 0.07);
+  --glass-tint-strong: rgba(10, 10, 11, 0.72);
+  --glass-tint-inset: rgba(255, 255, 255, 0.05);
+  --glass-modal-bg: rgba(14, 15, 17, 0.9);
+  --glass-border: rgba(255, 255, 255, 0.14);
+  --glass-border-strong: rgba(255, 255, 255, 0.2);
+  --glass-highlight: rgba(255, 255, 255, 0.22);
+  --glass-sheen: rgba(255, 255, 255, 0.1);
+  --glass-shadow: 0 12px 32px rgba(0, 0, 0, 0.55);
+  --glass-solid: #17181a;
+  --glass-solid-strong: #101112;
+  --glass-solid-inset: #1f2124;
+}
+
+/* 船内テーマ（暗所・高コントラスト） */
+.vessel {
+  --app-bg:
+    radial-gradient(1200px 820px at 10% -12%, #33363b 0%, rgba(51, 54, 59, 0) 60%),
+    radial-gradient(900px 700px at 92% -4%, #23262a 0%, rgba(35, 38, 42, 0) 55%),
+    radial-gradient(1100px 900px at 72% 112%, #1b1d20 0%, rgba(27, 29, 32, 0) 60%),
+    #08090a;
+  --glass-tint: rgba(255, 255, 255, 0.07);
+  --glass-tint-strong: rgba(10, 10, 11, 0.72);
+  --glass-modal-bg: rgba(14, 15, 17, 0.9);
+  --glass-tint-inset: rgba(255, 255, 255, 0.05);
+  --glass-border: rgba(255, 255, 255, 0.14);
+  --glass-border-strong: rgba(255, 255, 255, 0.2);
+  --glass-highlight: rgba(255, 255, 255, 0.22);
+  --glass-sheen: rgba(255, 255, 255, 0.1);
+  --glass-shadow: 0 12px 32px rgba(0, 0, 0, 0.55);
+  --glass-solid: #17181a;
+  --glass-solid-strong: #101112;
+  --glass-solid-inset: #1f2124;
+}
+
+/* 陸上テーマ（情報密度優先・明色） */
+.shore {
+  --glass-fg: #0b0c0d;
+  --app-bg:
+    radial-gradient(1100px 720px at 8% -12%, #e8e9eb 0%, rgba(232, 233, 235, 0) 60%),
+    radial-gradient(900px 620px at 96% -6%, #f0f1f3 0%, rgba(240, 241, 243, 0) 55%),
+    #f7f8f9;
+  --glass-tint: rgba(255, 255, 255, 0.66);
+  --glass-tint-strong: rgba(255, 255, 255, 0.8);
+  --glass-modal-bg: rgba(255, 255, 255, 0.94);
+  --glass-tint-inset: rgba(255, 255, 255, 0.5);
+  --glass-border: rgba(11, 12, 13, 0.1);
+  --glass-border-strong: rgba(11, 12, 13, 0.16);
+  --glass-highlight: rgba(255, 255, 255, 0.9);
+  --glass-sheen: rgba(255, 255, 255, 0.55);
+  --glass-shadow: 0 10px 28px rgba(11, 12, 13, 0.1);
+  --glass-solid: #ffffff;
+  --glass-solid-strong: #ffffff;
+  --glass-solid-inset: #f4f5f6;
+}
+
+/* アプリの下地。ガラスが屈折する対象となる固定レイヤ（アニメーションはしない） */
+.app-shell {
+  position: relative;
+  isolation: isolate;
+}
+
+.app-shell::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background: var(--app-bg);
+}
+
+/* ガラス面の基本材質 */
+.glass,
+.glass-tile,
+.glass-bar,
+.glass-row,
+.glass-modal {
+  position: relative;
+  background-color: var(--glass-tint);
+  /* ヘアラインは内側リング（box-shadow）で描く。border プロパティは画面側の強調枠
+     （border-2 border-danger 等）に空けておく */
+  box-shadow: inset 0 0 0 1px var(--glass-border), inset 0 1px 0 var(--glass-highlight), var(--glass-shadow);
+}
+
+/* 上端の映り込み（Liquid Glass の鏡面ハイライト）。操作を妨げない */
+.glass::after,
+.glass-tile::after,
+.glass-bar::after,
+.glass-row::after,
+.glass-modal::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(180deg, var(--glass-sheen) 0%, rgba(255, 255, 255, 0) 45%);
+}
+
+.glass-tile {
+  border-radius: theme("borderRadius.large");
+}
+
+/* 一覧行など多数並ぶ面: ぼかしを持たない軽量ガラス */
+.glass-row {
+  border-radius: theme("borderRadius.large");
+  background-color: var(--glass-tint-inset);
+  box-shadow: inset 0 0 0 1px var(--glass-border), inset 0 1px 0 var(--glass-highlight);
+}
+
+/* ガラス面の内側に置く小ブロック（従来の bg-content2 相当） */
+.glass-inset {
+  position: relative;
+  border-radius: theme("borderRadius.medium");
+  background-color: var(--glass-tint-inset);
+  box-shadow: inset 0 0 0 1px var(--glass-border);
+}
+
+/* 背後を内容が通過する面だけに付けるぼかし */
+.glass-blur {
+  -webkit-backdrop-filter: blur(20px) saturate(165%);
+  backdrop-filter: blur(20px) saturate(165%);
+}
+
+/* 固定ヘッダ（上端は角丸なし・下辺のみのヘアライン） */
+.glass-bar {
+  border-radius: 0;
+  background-color: var(--glass-tint-strong);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  backdrop-filter: blur(24px) saturate(180%);
+  box-shadow: 0 1px 0 var(--glass-border), 0 8px 24px rgba(0, 0, 0, 0.22), inset 0 1px 0 var(--glass-highlight);
+}
+
+.glass-modal {
+  background-color: var(--glass-modal-bg, rgba(14, 15, 17, 0.9));
+  color: var(--glass-fg, #f7f7f8);
+  box-shadow: inset 0 0 0 1px var(--glass-border-strong), inset 0 1px 0 var(--glass-highlight), var(--glass-shadow);
+  -webkit-backdrop-filter: blur(28px) saturate(180%);
+  backdrop-filter: blur(28px) saturate(180%);
+}
+
+/* 透明効果を避ける設定・非対応環境では不透明にフォールバック（可読性を優先） */
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
+  .glass,
+  .glass-tile,
+  .glass-row {
+    background-color: var(--glass-solid);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  .glass-bar,
+  .glass-modal {
+    background-color: var(--glass-solid-strong);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  .glass-inset {
+    background-color: var(--glass-solid-inset);
+  }
+
+  .glass::after,
+  .glass-tile::after,
+  .glass-bar::after,
+  .glass-row::after,
+  .glass-modal::after {
+    background: none;
+  }
+}
+
+@supports not ((backdrop-filter: blur(2px)) or (-webkit-backdrop-filter: blur(2px))) {
+  .glass-bar,
+  .glass-modal {
+    background-color: var(--glass-solid-strong);
+  }
+
+  .glass-blur {
+    background-color: var(--glass-solid);
+  }
+}
+
+/* モーダル内の枠線ボタン（キャンセル等）はガラス上でも輪郭が残るようにする */
+.glass-modal button[data-slot="base"][class*="border-"],
+.glass-modal footer button {
+  border-color: var(--glass-border-strong);
+}

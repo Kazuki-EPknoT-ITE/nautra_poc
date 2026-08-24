@@ -33,14 +33,16 @@ import {
   SelectItem,
   Textarea,
   useDisclosure,
+  useGlassModalProps,
 } from "@/ui";
 import { CrewPicker } from "../_components/crew-picker";
 import { GroupHeader } from "../_components/group-header";
 
-const TYPE_COLOR: Record<WorkReportType, "primary" | "warning" | "secondary" | "default"> = {
+/** 記録種別は白黒基調（塗り=主要操作 / 枠線=補助）。種別名は必ず文言で併記する */
+const TYPE_COLOR: Record<WorkReportType, "primary" | "default"> = {
   cargo: "primary",
-  standby: "warning",
-  fuel: "secondary",
+  standby: "primary",
+  fuel: "default",
   handover: "default",
 };
 
@@ -126,6 +128,7 @@ export default function WorkPage() {
   const [crew, selectCrew] = useSelectedCrew();
   const reports = useRecords("work_report");
   const modal = useDisclosure();
+  const glassModal = useGlassModalProps();
   const [form, setForm] = useState<FormState>(() => emptyForm("cargo", crew.id));
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
@@ -202,7 +205,7 @@ export default function WorkPage() {
     <div className="flex flex-col gap-4">
       <GroupHeader group="05" subtitle="作業・待機・燃料・引継" />
       <CrewPicker selected={crew} onSelect={selectCrew} />
-      <p className="text-sm text-foreground-500">記録者: {crew.name}（{crew.position}）</p>
+      <p className="text-sm text-foreground-400">記録者: {crew.name}（{crew.position}）</p>
 
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         {WORK_REPORT_TYPES.map((type) => (
@@ -211,7 +214,7 @@ export default function WorkPage() {
             color={TYPE_COLOR[type] === "default" ? "default" : TYPE_COLOR[type]}
             variant={TYPE_COLOR[type] === "default" ? "bordered" : "solid"}
             radius="lg"
-            className={cn("min-h-16 h-auto py-2 text-lg font-bold", TYPE_COLOR[type] === "default" && "border-foreground-300 text-foreground")}
+            className={cn("min-h-16 h-auto py-2 text-lg font-bold", TYPE_COLOR[type] === "default" && "border-[var(--glass-border-strong)] text-foreground")}
             onPress={() => open(type)}
           >
             {t.workReportType[type]}
@@ -220,21 +223,21 @@ export default function WorkPage() {
       </div>
 
       {done ? (
-        <Chip color="success" variant="flat" radius="sm" className="h-auto whitespace-normal py-1">
+        <Chip variant="flat" radius="sm" className="h-auto whitespace-normal py-1">
           ✓ {done}
         </Chip>
       ) : null}
 
-      <Card shadow="none" className="border border-warning/60 bg-content1">
+      <Card shadow="none" className="glass-tile glass-blur border border-warning/60">
         <CardBody className="flex flex-wrap items-center gap-3">
           <div>
-            <p className="text-sm text-foreground-500">スタンバイ待機時間（直近7日・全船員）</p>
+            <p className="text-sm text-foreground-400">スタンバイ待機時間（直近7日・全船員）</p>
             <p className="tabular-nums text-2xl font-bold">
               {fmtMinutes(standbyWeek)}
-              <span className="ml-2 text-base font-normal text-foreground-500">{standbyWeekCount}件</span>
+              <span className="ml-2 text-base font-normal text-foreground-400">{standbyWeekCount}件</span>
             </p>
           </div>
-          <p className="max-w-sm text-xs text-foreground-500">
+          <p className="max-w-sm text-xs text-foreground-400">
             作業報告（待機記録）ベースの集計です。労働時間への算入は 01 の打刻（スタンバイ）が正であり、
             労務管理記録簿の集計とは別系統です。待機の見える化は荷主・オペレーターとの取引環境改善協議の
             エビデンスになります（要件定義書 3.3.3）。
@@ -250,7 +253,7 @@ export default function WorkPage() {
             radius="full"
             variant={filter === f ? "solid" : "bordered"}
             color={filter === f ? "primary" : "default"}
-            className={cn("min-h-10", filter !== f && "border-foreground-300 text-foreground")}
+            className={cn("min-h-10", filter !== f && "border-[var(--glass-border-strong)] text-foreground")}
             onPress={() => setFilter(f)}
           >
             {f === "all" ? "すべて" : t.workReportType[f]}
@@ -260,16 +263,16 @@ export default function WorkPage() {
 
       <section aria-label="作業記録の履歴" className="flex flex-col gap-2">
         {visible.length === 0 ? (
-          <Card shadow="none" className="bg-content1">
+          <Card shadow="none" className="glass-tile">
             <CardBody>
-              <p className="text-foreground-500">記録がありません。</p>
+              <p className="text-foreground-400">記録がありません。</p>
             </CardBody>
           </Card>
         ) : null}
         {visible.map((r) => {
           const mins = durationMinutes(r);
           return (
-            <Card key={r.id} shadow="none" className="bg-content1">
+            <Card key={r.id} shadow="none" className="glass-tile">
               <CardBody className="flex flex-col gap-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="tabular-nums font-bold">
@@ -279,18 +282,18 @@ export default function WorkPage() {
                   <Chip size="sm" variant="flat" color={TYPE_COLOR[r.reportType]} radius="sm">
                     {t.workReportType[r.reportType]}
                   </Chip>
-                  {mins !== null ? <span className="text-sm text-foreground-500">{fmtMinutes(mins)}</span> : null}
-                  <span className="ml-auto text-sm text-foreground-500">{personName(r.crewMemberId)}</span>
+                  {mins !== null ? <span className="text-sm text-foreground-400">{fmtMinutes(mins)}</span> : null}
+                  <span className="ml-auto text-sm text-foreground-400">{personName(r.crewMemberId)}</span>
                 </div>
                 <p className="text-pretty">{summaryOf(r)}</p>
-                {r.remarks ? <p className="text-sm text-foreground-500">{r.remarks}</p> : null}
+                {r.remarks ? <p className="text-sm text-foreground-400">{r.remarks}</p> : null}
               </CardBody>
             </Card>
           );
         })}
       </section>
 
-      <Modal isOpen={modal.isOpen} onOpenChange={modal.onOpenChange} placement="center" scrollBehavior="inside">
+      <Modal {...glassModal} isOpen={modal.isOpen} onOpenChange={modal.onOpenChange} placement="center" scrollBehavior="inside">
         <ModalContent>
           <ModalHeader>{t.workReportType[form.reportType]} の記録</ModalHeader>
           <ModalBody className="flex flex-col gap-3">

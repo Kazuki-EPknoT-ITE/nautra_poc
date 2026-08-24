@@ -36,7 +36,7 @@ export function ShiftChangeForm({ options }: { options: ShiftOption[] }) {
   }
 
   return (
-    <form action={formAction} className="flex flex-col gap-3 rounded-large border border-default-200 bg-content1 p-4">
+    <form action={formAction} className="glass-tile flex flex-col gap-3 p-4">
       <h2 className="font-bold">シフトを変更して配信</h2>
       <input type="hidden" name="supersedesId" value={selectedId} />
       <input type="hidden" name="shiftType" value={shiftType} />
@@ -74,7 +74,7 @@ export function ShiftChangeForm({ options }: { options: ShiftOption[] }) {
           変更を配信する
         </Button>
         {state.message ? (
-          <p className={state.ok ? "text-sm text-success" : "text-sm text-danger"}>
+          <p className={state.ok ? "text-sm font-semibold" : "text-sm text-danger"}>
             {state.ok ? "✓ " : "✕ "}
             {state.message}
           </p>

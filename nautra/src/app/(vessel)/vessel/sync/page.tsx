@@ -54,18 +54,18 @@ export default function SyncPage() {
       <GroupHeader group="06" />
 
       <div className="grid grid-cols-2 gap-3">
-        <Card shadow="none" className="bg-content1">
+        <Card shadow="none" className="glass-tile">
           <CardBody>
-            <p className="text-sm text-foreground-500">未同期イベント</p>
+            <p className="text-sm text-foreground-400">未同期イベント</p>
             <p className="tabular-nums text-3xl font-bold">
               {pendingCount}
               <span className="ml-1 text-base font-normal">件</span>
             </p>
           </CardBody>
         </Card>
-        <Card shadow="none" className={conflictCount > 0 ? "border border-danger bg-content1" : "bg-content1"}>
+        <Card shadow="none" className={conflictCount > 0 ? "glass-tile border border-danger" : "glass-tile"}>
           <CardBody>
-            <p className="text-sm text-foreground-500">競合（要確認）</p>
+            <p className="text-sm text-foreground-400">競合（要確認）</p>
             <p className="tabular-nums text-3xl font-bold">
               {conflictCount}
               <span className="ml-1 text-base font-normal">件</span>
@@ -75,24 +75,24 @@ export default function SyncPage() {
             </p>
           </CardBody>
         </Card>
-        <Card shadow="none" className="bg-content1">
+        <Card shadow="none" className="glass-tile">
           <CardBody>
-            <p className="text-sm text-foreground-500">最終同期日時</p>
+            <p className="text-sm text-foreground-400">最終同期日時</p>
             <p className="tabular-nums font-bold">
               {lastSyncAt ? fmtDateTime(lastSyncAt) : "未同期"}
             </p>
           </CardBody>
         </Card>
-        <Card shadow="none" className="bg-content1">
+        <Card shadow="none" className="glass-tile">
           <CardBody>
-            <p className="text-sm text-foreground-500">受信カーソル（Pull）</p>
+            <p className="text-sm text-foreground-400">受信カーソル（Pull）</p>
             <p className="tabular-nums font-bold">v{pullCursor ?? "0"}</p>
             <p className="text-xs text-foreground-400">切断後もこの続きから再開（再開可能）</p>
           </CardBody>
         </Card>
-        <Card shadow="none" className="bg-content1">
+        <Card shadow="none" className="glass-tile">
           <CardBody>
-            <p className="text-sm text-foreground-500">隔離（未知種別）</p>
+            <p className="text-sm text-foreground-400">隔離（未知種別）</p>
             <p className="tabular-nums text-3xl font-bold">
               {serverQuarantineCount + localQuarantineCount}
               <span className="ml-1 text-base font-normal">件</span>
@@ -102,9 +102,9 @@ export default function SyncPage() {
             </p>
           </CardBody>
         </Card>
-        <Card shadow="none" className="bg-content1">
+        <Card shadow="none" className="glass-tile">
           <CardBody>
-            <p className="text-sm text-foreground-500">端末内の記録（IndexedDB）</p>
+            <p className="text-sm text-foreground-400">端末内の記録（IndexedDB）</p>
             <p className="tabular-nums text-sm">
               打刻 <span className="font-bold">{localCounts.timeRecords}</span> / 承認{" "}
               <span className="font-bold">{localCounts.approvals}</span> / 船内記録・シフト{" "}
@@ -115,7 +115,7 @@ export default function SyncPage() {
         </Card>
       </div>
 
-      <Card shadow="none" className="bg-content1">
+      <Card shadow="none" className="glass-tile">
         <CardHeader className="font-bold">通信・同期操作</CardHeader>
         <Divider />
         <CardBody className="flex flex-col gap-4">
@@ -154,12 +154,12 @@ export default function SyncPage() {
         </CardBody>
       </Card>
 
-      <Card shadow="none" className="bg-content1">
+      <Card shadow="none" className="glass-tile">
         <CardHeader className="font-bold">送信キュー（先頭10件）</CardHeader>
         <Divider />
         <CardBody>
           {outboxPreview.length === 0 ? (
-            <p className="text-foreground-500">キューは空です。すべて同期済みです。</p>
+            <p className="text-foreground-400">キューは空です。すべて同期済みです。</p>
           ) : (
             <ul className="flex flex-col gap-1 text-sm">
               {outboxPreview.map((o) => (

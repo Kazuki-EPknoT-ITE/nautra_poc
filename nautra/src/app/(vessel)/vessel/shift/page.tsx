@@ -16,12 +16,13 @@ import { Accordion, AccordionItem, Button, Card, CardBody, CardHeader, Chip, Div
 import { CrewPicker } from "../_components/crew-picker";
 import { GroupHeader } from "../_components/group-header";
 
-const SHIFT_COLOR: Record<ShiftType, "primary" | "secondary" | "default" | "warning" | "success"> = {
+/** 当直種別は白黒基調。種別は文言で区別する（色は情報を担わない） */
+const SHIFT_COLOR: Record<ShiftType, "primary" | "default"> = {
   navigation_watch: "primary",
-  engine_watch: "secondary",
+  engine_watch: "default",
   port_watch: "default",
-  cargo_watch: "warning",
-  off: "success",
+  cargo_watch: "primary",
+  off: "default",
 };
 
 /** シフト種別 → 実績（打刻）として対応づける作業種別 */
@@ -104,18 +105,18 @@ export default function ShiftPage() {
       <CrewPicker selected={crew} onSelect={selectCrew} />
 
       {/* 本日の自分の当直（計画 vs 実績） */}
-      <Card shadow="none" className="bg-content1">
+      <Card shadow="none" className="glass-tile">
         <CardHeader className="flex items-center justify-between">
           <span className="font-bold">本日の当直 ─ {crew.name}</span>
-          <span className="text-sm text-foreground-500">{fmtDateLabel(today)}</span>
+          <span className="text-sm text-foreground-400">{fmtDateLabel(today)}</span>
         </CardHeader>
         <Divider />
         <CardBody className="flex flex-col gap-2">
           {myToday.length === 0 ? (
-            <p className="text-foreground-500">本日の当直予定はありません。</p>
+            <p className="text-foreground-400">本日の当直予定はありません。</p>
           ) : (
             myToday.map(({ plan, matched, started }) => (
-              <div key={plan.id} className="flex flex-wrap items-center gap-2 rounded-medium bg-content2 p-3">
+              <div key={plan.id} className="glass-inset flex flex-wrap items-center gap-2 p-3">
                 <Chip variant="flat" color={plan.shiftType ? SHIFT_COLOR[plan.shiftType] : "default"} radius="sm">
                   {plan.shiftType ? t.shiftType[plan.shiftType] : "—"}
                 </Chip>
@@ -130,13 +131,13 @@ export default function ShiftPage() {
                 <span className="ml-auto text-sm">
                   実績（打刻）:{" "}
                   {matched.length > 0 ? (
-                    <span className="tabular-nums font-semibold text-success">
+                    <span className="tabular-nums font-semibold">
                       ✓ {matched.map((iv) => `${fmtTime(iv.startAt.toISOString())}–${iv.endAt ? fmtTime(iv.endAt.toISOString()) : "作業中"}`).join(", ")}
                     </span>
                   ) : started ? (
                     <span className="font-semibold text-warning">⚠ 未打刻</span>
                   ) : (
-                    <span className="text-foreground-500">開始前</span>
+                    <span className="text-foreground-400">開始前</span>
                   )}
                 </span>
               </div>
@@ -149,7 +150,7 @@ export default function ShiftPage() {
       </Card>
 
       {/* 変更通知 */}
-      <Card shadow="none" className={cn("bg-content1", unread.length > 0 && "border-2 border-danger")}>
+      <Card shadow="none" className={cn("glass-tile", unread.length > 0 && "border-2 border-danger")}>
         <CardHeader className="flex items-center justify-between">
           <span className="font-bold">陸上からの変更通知</span>
           {unread.length > 0 ? (
@@ -157,7 +158,7 @@ export default function ShiftPage() {
               {unread.length}件を確認済みにする
             </Button>
           ) : (
-            <span className="text-sm text-foreground-500">
+            <span className="text-sm text-foreground-400">
               未読なし{ackAt ? `（確認 ${fmtDateTime(ackAt)}）` : ""}
             </span>
           )}
@@ -165,13 +166,13 @@ export default function ShiftPage() {
         <Divider />
         <CardBody className="flex flex-col gap-2">
           {changes.length === 0 ? (
-            <p className="text-foreground-500">変更通知はありません。</p>
+            <p className="text-foreground-400">変更通知はありません。</p>
           ) : (
             changes.slice(0, 10).map((c) => {
               const prev = c.supersedesId ? byId.get(c.supersedesId) : undefined;
               const isUnread = unread.some((u) => u.id === c.id);
               return (
-                <div key={c.id} className="flex flex-col gap-1 rounded-medium bg-content2 p-3">
+                <div key={c.id} className="glass-inset flex flex-col gap-1 p-3">
                   <div className="flex flex-wrap items-center gap-2">
                     {isUnread ? (
                       <Chip size="sm" color="danger" variant="solid" radius="sm">
@@ -183,7 +184,7 @@ export default function ShiftPage() {
                     <span className="tabular-nums">
                       {prev?.from && prev?.to ? (
                         <>
-                          <span className="line-through text-foreground-500">
+                          <span className="line-through text-foreground-400">
                             {prev.shiftType ? t.shiftType[prev.shiftType] : ""} {prev.from}–{prev.to}
                           </span>{" "}
                           →{" "}
@@ -193,11 +194,11 @@ export default function ShiftPage() {
                         {c.shiftType ? t.shiftType[c.shiftType] : ""} {c.from}–{c.to}
                       </span>
                     </span>
-                    <span className="ml-auto text-xs text-foreground-500">
+                    <span className="ml-auto text-xs text-foreground-400">
                       配信 {fmtDateTime(c.publishedAt)} / {personName(c.publishedBy)}
                     </span>
                   </div>
-                  {c.changeNote ? <p className="text-sm text-foreground-500">{c.changeNote}</p> : null}
+                  {c.changeNote ? <p className="text-sm text-foreground-400">{c.changeNote}</p> : null}
                 </div>
               );
             })
@@ -206,13 +207,13 @@ export default function ShiftPage() {
       </Card>
 
       {/* 週間当直表 */}
-      <Card shadow="none" className="bg-content1">
+      <Card shadow="none" className="glass-tile">
         <CardHeader className="font-bold">週間当直表（昨日〜6日後）</CardHeader>
         <Divider />
         <CardBody className="overflow-x-auto p-0">
           <table className="w-full min-w-[720px] text-sm">
             <thead>
-              <tr className="border-b border-content3 text-left text-foreground-500">
+              <tr className="border-b border-[var(--glass-border)] text-left text-foreground-400">
                 <th className="px-3 py-2 font-medium">船員</th>
                 {days.map((d) => (
                   <th
@@ -227,10 +228,10 @@ export default function ShiftPage() {
             </thead>
             <tbody>
               {CREW_MEMBERS.map((c) => (
-                <tr key={c.id} className={cn("border-b border-content3 last:border-b-0", c.id === crew.id && "bg-content2/60")}>
+                <tr key={c.id} className={cn("border-b border-[var(--glass-border)] last:border-b-0", c.id === crew.id && "bg-content2/60")}>
                   <td className="px-3 py-2">
                     <p className="font-semibold">{c.name}</p>
-                    <p className="text-xs text-foreground-500">{c.position}</p>
+                    <p className="text-xs text-foreground-400">{c.position}</p>
                   </td>
                   {days.map((d) => {
                     const cell = table.get(`${c.id}|${d}`) ?? [];
@@ -246,10 +247,10 @@ export default function ShiftPage() {
                                 className={cn(
                                   "rounded-small px-1.5 py-0.5 text-xs tabular-nums",
                                   p.shiftType === "navigation_watch" && "bg-primary/20 text-primary",
-                                  p.shiftType === "engine_watch" && "bg-secondary/20 text-secondary",
-                                  p.shiftType === "cargo_watch" && "bg-warning/20 text-warning",
-                                  p.shiftType === "port_watch" && "bg-default-200 text-foreground",
-                                  p.shiftType === "off" && "bg-success/20 text-success",
+                                  p.shiftType === "engine_watch" && "bg-content3 text-foreground",
+                                  p.shiftType === "cargo_watch" && "bg-foreground/10 text-foreground",
+                                  p.shiftType === "port_watch" && "bg-content3 text-foreground",
+                                  p.shiftType === "off" && "bg-content3 text-foreground-400",
                                   changedIds.has(p.id) && "ring-1 ring-danger",
                                 )}
                               >
@@ -270,7 +271,7 @@ export default function ShiftPage() {
       </Card>
 
       {/* 通常配置表 */}
-      <Card shadow="none" className="bg-content1">
+      <Card shadow="none" className="glass-tile">
         <CardHeader className="font-bold">通常配置表</CardHeader>
         <Divider />
         <CardBody className="p-0">
@@ -282,10 +283,10 @@ export default function ShiftPage() {
                     {stations
                       .filter((s) => s.scenario === sc)
                       .map((s) => (
-                        <tr key={s.id} className={cn("border-b border-content3 last:border-b-0", s.crewMemberId === crew.id && "bg-content2/60")}>
+                        <tr key={s.id} className={cn("border-b border-[var(--glass-border)] last:border-b-0", s.crewMemberId === crew.id && "bg-content2/60")}>
                           <td className="px-2 py-2 font-semibold">{personName(s.crewMemberId)}</td>
                           <td className="px-2 py-2">{s.station}</td>
-                          <td className="px-2 py-2 text-foreground-500">{s.duty}</td>
+                          <td className="px-2 py-2 text-foreground-400">{s.duty}</td>
                         </tr>
                       ))}
                   </tbody>

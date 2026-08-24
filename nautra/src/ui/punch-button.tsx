@@ -30,7 +30,8 @@ export function PunchButton({
       radius="lg"
       className={cn(
         "min-h-16 h-auto w-full py-3 text-xl font-bold",
-        !active && !danger && "border-foreground-300 text-foreground",
+        // 未選択はガラス面（主要な操作の判別は色ではなく塗り/枠の差で示す。基本設計書 6.3）
+        !active && !danger && "glass border-[var(--glass-border-strong)] text-foreground",
       )}
     >
       <span className="flex flex-col items-center gap-0.5">

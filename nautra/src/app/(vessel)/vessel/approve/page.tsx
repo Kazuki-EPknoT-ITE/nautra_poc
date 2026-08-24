@@ -26,6 +26,7 @@ import {
   StatusChip,
   Textarea,
   useDisclosure,
+  useGlassModalProps,
 } from "@/ui";
 
 import { GroupHeader } from "../_components/group-header";
@@ -52,6 +53,7 @@ export default function ApprovePage() {
   const today = ymdLocal(now);
 
   const remandModal = useDisclosure();
+  const glassModal = useGlassModalProps();
   const [remandRow, setRemandRow] = useState<DayRow | null>(null);
   const [remandTargetId, setRemandTargetId] = useState<string>("");
   const [remandReason, setRemandReason] = useState("");
@@ -125,26 +127,26 @@ export default function ApprovePage() {
   return (
     <div className="flex flex-col gap-4">
       <GroupHeader group="02" subtitle={`船内承認（${CAPTAIN.name} ${CAPTAIN.position}）`} />
-      <p className="text-sm text-foreground-500">
+      <p className="text-sm text-foreground-400">
         承認者は打刻を修正できません。誤りがある場合は本人へ差戻し、本人が再入力します。
       </p>
 
       <div className="flex flex-col gap-2">
         {rows.length === 0 ? (
-          <Card shadow="none" className="bg-content1">
+          <Card shadow="none" className="glass-tile">
             <CardBody>
-              <p className="text-foreground-500">直近3日間に承認対象の記録がありません。</p>
+              <p className="text-foreground-400">直近3日間に承認対象の記録がありません。</p>
             </CardBody>
           </Card>
         ) : null}
         {rows.map((row) => (
-          <Card key={`${row.crew.id}-${row.date}`} shadow="none" className="bg-content1">
+          <Card key={`${row.crew.id}-${row.date}`} shadow="none" className="glass-tile">
             <CardBody className="flex flex-col gap-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="font-bold">{fmtDateLabel(row.date)}</span>
                   <span>{row.crew.name}（{row.crew.position}）</span>
-                  <span className="tabular-nums text-foreground-500">
+                  <span className="tabular-nums text-foreground-400">
                     労働 {fmtMinutes(row.summary.workedMinutes)}
                   </span>
                   <StatusChip level={row.summary.level} size="sm" />
@@ -193,12 +195,12 @@ export default function ApprovePage() {
         ))}
       </div>
 
-      <Modal isOpen={remandModal.isOpen} onOpenChange={remandModal.onOpenChange} placement="center">
+      <Modal {...glassModal} isOpen={remandModal.isOpen} onOpenChange={remandModal.onOpenChange} placement="center">
         <ModalContent>
           <ModalHeader>差戻し（本人再入力の依頼）</ModalHeader>
           <ModalBody className="flex flex-col gap-3">
             {remandRow ? (
-              <p className="text-sm text-foreground-500">
+              <p className="text-sm text-foreground-400">
                 {fmtDateLabel(remandRow.date)} {remandRow.crew.name} の打刻から対象を選択してください。
               </p>
             ) : null}

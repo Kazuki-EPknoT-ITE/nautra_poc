@@ -30,7 +30,7 @@ export default function ShoreDashboardPage() {
 
       <section aria-label="法令遵守アラート集計" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {stats.map((s) => (
-          <div key={s.label} className="rounded-large border border-default-200 bg-content1 p-4">
+          <div key={s.label} className="glass-tile p-4">
             <p className="text-sm text-foreground-500">{s.label}</p>
             <p className={`tabular-nums text-3xl font-bold ${s.tone}`}>{s.value}</p>
           </div>
@@ -39,7 +39,7 @@ export default function ShoreDashboardPage() {
 
       <section
         aria-label="同期受信状況"
-        className="flex flex-wrap items-center gap-x-6 gap-y-1 rounded-large border border-default-200 bg-content1 px-4 py-3 text-sm"
+        className="glass-tile flex flex-wrap items-center gap-x-6 gap-y-1 px-4 py-3 text-sm"
       >
         <span>
           受信イベント <span className="tabular-nums font-bold">{d.sync.eventCount}</span> 件
@@ -61,7 +61,7 @@ export default function ShoreDashboardPage() {
         </span>
       </section>
 
-      <section aria-label="船内記録の受信状況（種別別）" className="rounded-large border border-default-200 bg-content1 px-4 py-3">
+      <section aria-label="船内記録の受信状況（種別別）" className="glass-tile px-4 py-3">
         <p className="mb-2 text-sm font-semibold">船内記録の受信状況（種別別・累計）</p>
         <div className="flex flex-wrap gap-2 text-sm">
           {Object.entries(t.syncKind).map(([kind, label]) => (
@@ -72,10 +72,10 @@ export default function ShoreDashboardPage() {
         </div>
       </section>
 
-      <section aria-label="船員別の遵守状況（直近7日）" className="overflow-x-auto rounded-large border border-default-200 bg-content1">
+      <section aria-label="船員別の遵守状況（直近7日）" className="glass-tile overflow-x-auto">
         <table className="w-full min-w-[720px] text-sm">
           <thead>
-            <tr className="border-b border-default-200 text-left text-foreground-500">
+            <tr className="border-b border-[var(--glass-border)] text-left text-foreground-500">
               <th className="px-4 py-3 font-medium">船員</th>
               {d.rows[0]?.days.map((day) => (
                 <th key={day.date} className="px-2 py-3 text-center font-medium tabular-nums">
@@ -87,7 +87,7 @@ export default function ShoreDashboardPage() {
           </thead>
           <tbody>
             {d.rows.map((row) => (
-              <tr key={row.crew.id} className="border-b border-default-100 last:border-b-0">
+              <tr key={row.crew.id} className="border-b border-[var(--glass-border)] last:border-b-0">
                 <td className="px-4 py-3">
                   <p className="font-semibold">{row.crew.name}</p>
                   <p className="text-xs text-foreground-500">{row.crew.position}</p>

@@ -4,7 +4,15 @@ import Link from "next/link";
 import { cn } from "@/lib/cn";
 import { openMaintenanceIssues } from "@/lib/maintenance-status";
 import { useRecords, useShiftPlans, useSyncBadge } from "@/lib/vessel-hooks";
-import { Chip, Divider } from "@/ui";
+import {
+  Button,
+  CardBody,
+  CardFooter,
+  CardHeader,
+  Chip,
+  Divider,
+  GlassCard,
+} from "@/ui";
 
 /**
  * 船内ホーム = 機能メニュー。
@@ -79,44 +87,49 @@ const FEATURES: Feature[] = [
 
 function FeatureCard({ feature, badge }: { feature: Feature; badge?: string }) {
   return (
-    <section
+    <GlassCard
+      blurred
       aria-label={`${feature.no} ${feature.title}`}
-      className="flex flex-col gap-3 rounded-large bg-content1 p-5"
+      className="flex h-full flex-col"
     >
-      <div className="flex items-start justify-between gap-2">
+      <CardHeader className="flex items-start justify-between gap-2 px-5 pb-2 pt-5">
         <div className="flex items-baseline gap-3">
           <span className="tabular-nums text-3xl font-bold text-foreground-400">{feature.no}</span>
           <h2 className="text-balance text-xl font-bold">{feature.title}</h2>
         </div>
         <Chip
           size="sm"
-          variant="flat"
-          color={badge ? "danger" : "success"}
+          variant={badge ? "flat" : "bordered"}
+          color={badge ? "danger" : "default"}
           radius="sm"
-          className="shrink-0"
+          className={cn("shrink-0", !badge && "border-[var(--glass-border-strong)] text-foreground-400")}
         >
           {badge ?? "利用できます"}
         </Chip>
-      </div>
-      <Divider />
-      <p className="text-pretty text-sm leading-relaxed text-foreground-500">{feature.desc}</p>
-      <div className="mt-auto flex flex-wrap gap-2 pt-1">
+      </CardHeader>
+      <Divider className="bg-[var(--glass-border)]" />
+      <CardBody className="px-5 py-3">
+        <p className="text-pretty text-sm leading-relaxed text-foreground-400">{feature.desc}</p>
+      </CardBody>
+      <CardFooter className="mt-auto flex flex-wrap gap-2 px-5 pb-5 pt-0">
         {feature.links.map((link) => (
-          <Link
+          <Button
             key={link.href}
+            as={Link}
             href={link.href}
+            color={link.primary ? "primary" : "default"}
+            variant={link.primary ? "solid" : "bordered"}
+            radius="md"
             className={cn(
-              "flex min-h-12 flex-1 items-center justify-center rounded-medium px-4 text-center text-base font-semibold",
-              link.primary
-                ? "bg-primary text-primary-foreground"
-                : "border border-foreground-300 text-foreground",
+              "min-h-12 flex-1 text-base font-semibold",
+              !link.primary && "border-[var(--glass-border-strong)] text-foreground",
             )}
           >
             {link.label}
-          </Link>
+          </Button>
         ))}
-      </div>
-    </section>
+      </CardFooter>
+    </GlassCard>
   );
 }
 
@@ -136,7 +149,7 @@ export default function VesselMenuPage() {
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h1 className="text-balance text-2xl font-bold">船内メニュー</h1>
-        <p className="text-sm text-foreground-500">
+        <p className="text-sm text-foreground-400">
           {offlineSim ? "⚡ オフライン運用中（記録は端末に蓄積されます）" : "● オンライン"}
           {pendingCount > 0 ? `｜未同期 ${pendingCount}件` : ""}
         </p>
@@ -146,7 +159,7 @@ export default function VesselMenuPage() {
           <FeatureCard key={f.no} feature={f} badge={badges[f.no]} />
         ))}
       </div>
-      <p className="text-xs text-foreground-400">
+      <p className="text-pretty text-xs text-foreground-400">
         Phase 1 実装機能マップ（要件定義書 2章）に基づく機能構成。すべての記録は端末に先に保存され、
         通信回復時に陸上へ同期されます。
       </p>

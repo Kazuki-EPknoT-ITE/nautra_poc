@@ -30,6 +30,7 @@ import {
   SelectItem,
   Textarea,
   useDisclosure,
+  useGlassModalProps,
 } from "@/ui";
 import { CrewPicker } from "../_components/crew-picker";
 import { GroupHeader } from "../_components/group-header";
@@ -39,11 +40,12 @@ const WIND = ["静穏", "北 3m/s", "北東 3m/s", "東 5m/s", "南東 5m/s", "�
 const SEA = ["波高 0.3m", "波高 0.5m", "波高 1.0m", "波高 1.5m", "波高 2.0m", "波高 3.0m 以上"];
 const VIS = ["良好", "やや不良（2〜5海里）", "不良（2海里未満）", "濃霧"];
 
-const TYPE_COLOR: Record<VoyageLogType, "primary" | "success" | "default" | "warning"> = {
+/** 記録種別は白黒基調（塗り=主要操作 / 枠線=補助）。種別名は必ず文言で併記する */
+const TYPE_COLOR: Record<VoyageLogType, "primary" | "default"> = {
   departure: "primary",
-  arrival: "success",
+  arrival: "primary",
   position: "default",
-  remark: "warning",
+  remark: "default",
 };
 
 interface FormState {
@@ -106,6 +108,7 @@ export default function LogbookPage() {
   const [crew, selectCrew] = useSelectedCrew();
   const logs = useRecords("voyage_log");
   const modal = useDisclosure();
+  const glassModal = useGlassModalProps();
   const [form, setForm] = useState<FormState>(() => emptyForm("position"));
   const [supersedes, setSupersedes] = useState<VoyageLogPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -190,7 +193,7 @@ export default function LogbookPage() {
     <div className="flex flex-col gap-4">
       <GroupHeader group="03" subtitle="航海日誌" />
       <CrewPicker selected={crew} onSelect={selectCrew} />
-      <p className="text-sm text-foreground-500">記録者: {crew.name}（{crew.position}）</p>
+      <p className="text-sm text-foreground-400">記録者: {crew.name}（{crew.position}）</p>
 
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         {VOYAGE_LOG_TYPES.map((lt) => (
@@ -199,7 +202,7 @@ export default function LogbookPage() {
             color={TYPE_COLOR[lt] === "default" ? "default" : TYPE_COLOR[lt]}
             variant={TYPE_COLOR[lt] === "default" ? "bordered" : "solid"}
             radius="lg"
-            className={cn("min-h-16 h-auto py-2 text-lg font-bold", TYPE_COLOR[lt] === "default" && "border-foreground-300 text-foreground")}
+            className={cn("min-h-16 h-auto py-2 text-lg font-bold", TYPE_COLOR[lt] === "default" && "border-[var(--glass-border-strong)] text-foreground")}
             onPress={() => openNew(lt)}
           >
             {t.voyageLogType[lt]}
@@ -208,27 +211,27 @@ export default function LogbookPage() {
       </div>
 
       {done ? (
-        <Chip color="success" variant="flat" radius="sm" className="h-auto whitespace-normal py-1">
+        <Chip variant="flat" radius="sm" className="h-auto whitespace-normal py-1">
           ✓ {done}
         </Chip>
       ) : null}
 
       {byDate.length === 0 ? (
-        <Card shadow="none" className="bg-content1">
+        <Card shadow="none" className="glass-tile">
           <CardBody>
-            <p className="text-foreground-500">航海日誌の記録がありません。上のボタンから記入してください。</p>
+            <p className="text-foreground-400">航海日誌の記録がありません。上のボタンから記入してください。</p>
           </CardBody>
         </Card>
       ) : null}
 
       {byDate.map(([date, entries]) => (
         <section key={date} aria-label={`${fmtDateLabel(date)} の航海日誌`} className="flex flex-col gap-2">
-          <h2 className="text-base font-bold text-foreground-500">{fmtDateLabel(date)}</h2>
+          <h2 className="text-base font-bold text-foreground-400">{fmtDateLabel(date)}</h2>
           {entries.map((r) => {
             const superseded = supersededIds.has(r.id);
             const isCorrection = Boolean(r.supersedesId);
             return (
-              <Card key={r.id} shadow="none" className={cn("bg-content1", superseded && "opacity-60")}>
+              <Card key={r.id} shadow="none" className={cn("glass-tile", superseded && "opacity-60")}>
                 <CardBody className="flex flex-col gap-2">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className={cn("tabular-nums text-lg font-bold", superseded && "line-through")}>
@@ -247,13 +250,13 @@ export default function LogbookPage() {
                         訂正済（原本保持）
                       </Chip>
                     ) : null}
-                    <span className="ml-auto text-sm text-foreground-500">記録者 {personName(r.recordedBy)}</span>
+                    <span className="ml-auto text-sm text-foreground-400">記録者 {personName(r.recordedBy)}</span>
                   </div>
                   <div className={cn("flex flex-col gap-1", superseded && "line-through")}>
                     {r.port ? (
                       <p>
                         <span className="font-semibold">{r.port}</span>
-                        {r.route ? <span className="ml-2 text-foreground-500">航路: {r.route}</span> : null}
+                        {r.route ? <span className="ml-2 text-foreground-400">航路: {r.route}</span> : null}
                       </p>
                     ) : null}
                     {r.position || r.courseDeg !== undefined || r.speedKnots !== undefined || r.engineRpm !== undefined ? (
@@ -265,7 +268,7 @@ export default function LogbookPage() {
                       </p>
                     ) : null}
                     {r.weather || r.wind || r.seaState || r.visibility ? (
-                      <p className="text-sm text-foreground-500">
+                      <p className="text-sm text-foreground-400">
                         海象: {[r.weather, r.wind, r.seaState, r.visibility ? `視程 ${r.visibility}` : null].filter(Boolean).join(" / ")}
                       </p>
                     ) : null}
@@ -275,7 +278,7 @@ export default function LogbookPage() {
                     <Button
                       size="sm"
                       variant="bordered"
-                      className="self-end min-h-10 border-foreground-300"
+                      className="self-end min-h-10 border-[var(--glass-border-strong)]"
                       onPress={() => openCorrection(r)}
                     >
                       訂正記録を追記
@@ -293,14 +296,14 @@ export default function LogbookPage() {
         （要件定義書 12.3）。
       </p>
 
-      <Modal isOpen={modal.isOpen} onOpenChange={modal.onOpenChange} placement="center" scrollBehavior="inside">
+      <Modal {...glassModal} isOpen={modal.isOpen} onOpenChange={modal.onOpenChange} placement="center" scrollBehavior="inside">
         <ModalContent>
           <ModalHeader>
             {supersedes ? "訂正記録の追記" : `航海日誌: ${t.voyageLogType[form.logType]}`}
           </ModalHeader>
           <ModalBody className="flex flex-col gap-3">
             {supersedes ? (
-              <p className="text-sm text-foreground-500">
+              <p className="text-sm text-foreground-400">
                 {fmtTime(supersedes.occurredAt)} の「{t.voyageLogType[supersedes.logType]}」を訂正します。
                 元の記録は訂正済として保持されます。
               </p>

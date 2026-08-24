@@ -5,6 +5,11 @@ import type { Config } from "tailwindcss";
  * HeroUI テーマ2系統（基本設計書 6.3）:
  * - vessel: 船内テーマ。大文字・高コントラスト（暗所・手袋操作前提）
  * - shore : 陸上テーマ。情報密度優先
+ *
+ * 基調色は白黒（モノクローム）。primary は「船内=白／陸上=黒」で、押せる面と
+ * 情報面をコントラスト差だけで区別する。
+ * ただし success/warning/danger は法令遵守の2段階アラート（要件定義書 3.2.5）で
+ * 意味を担うため色を保持する（併記するアイコン・文言と合わせて色だけに依存しない）。
  */
 const config: Config = {
   content: [
@@ -18,17 +23,18 @@ const config: Config = {
         vessel: {
           extend: "dark",
           colors: {
-            background: "#0c1524",
-            foreground: "#f4f7fb",
-            content1: "#152239",
-            content2: "#1c2c49",
-            content3: "#25375a",
-            content4: "#2f436c",
-            primary: { DEFAULT: "#3b82f6", foreground: "#ffffff" },
+            background: "#0a0a0b",
+            foreground: "#f7f7f8",
+            content1: "#17181a",
+            content2: "#1f2124",
+            content3: "#2a2c30",
+            content4: "#35383d",
+            primary: { DEFAULT: "#f2f3f5", foreground: "#0b0c0d" },
+            secondary: { DEFAULT: "#a8adb3", foreground: "#0b0c0d" },
             success: { DEFAULT: "#22c55e", foreground: "#052e12" },
             warning: { DEFAULT: "#f5a524", foreground: "#221200" },
             danger: { DEFAULT: "#ef4444", foreground: "#ffffff" },
-            focus: "#3b82f6",
+            focus: "#f2f3f5",
           },
           layout: {
             fontSize: {
@@ -43,10 +49,15 @@ const config: Config = {
         shore: {
           extend: "light",
           colors: {
-            background: "#f6f7f9",
-            foreground: "#101828",
-            primary: { DEFAULT: "#1e5aa8", foreground: "#ffffff" },
-            focus: "#1e5aa8",
+            background: "#fbfbfc",
+            foreground: "#0b0c0d",
+            content1: "#ffffff",
+            content2: "#f4f5f6",
+            content3: "#e9eaec",
+            content4: "#dcdee1",
+            primary: { DEFAULT: "#17181a", foreground: "#ffffff" },
+            secondary: { DEFAULT: "#5f646a", foreground: "#ffffff" },
+            focus: "#17181a",
           },
         },
       },

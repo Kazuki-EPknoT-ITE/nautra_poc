@@ -1,9 +1,8 @@
 "use client";
 
-import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
-import { cn } from "@/lib/cn";
+import { Tab, Tabs } from "@/ui";
 
 /**
  * 機能グループ（01〜06）の見出しとサブ画面タブ。
@@ -77,31 +76,27 @@ export function GroupHeader({
         <h1 className="text-balance text-xl font-bold">
           <span className="mr-2 tabular-nums text-foreground-400">{g.no}</span>
           {g.title}
-          {subtitle ? <span className="ml-2 text-base font-normal text-foreground-500">─ {subtitle}</span> : null}
+          {subtitle ? (
+            <span className="ml-2 text-base font-normal text-foreground-400">─ {subtitle}</span>
+          ) : null}
         </h1>
         {right}
       </div>
       {g.tabs.length > 1 ? (
-        <nav aria-label={`${g.title} のサブメニュー`} className="flex gap-2 overflow-x-auto">
-          {g.tabs.map((tab) => {
-            const active = pathname === tab.href;
-            return (
-              <Link
-                key={tab.href}
-                href={tab.href}
-                aria-current={active ? "page" : undefined}
-                className={cn(
-                  "flex min-h-11 shrink-0 items-center rounded-full border px-4 text-sm font-semibold",
-                  active
-                    ? "border-primary bg-primary text-primary-foreground"
-                    : "border-foreground-300 text-foreground-600",
-                )}
-              >
-                {tab.label}
-              </Link>
-            );
-          })}
-        </nav>
+        <Tabs
+          aria-label={`${g.title} のサブメニュー`}
+          selectedKey={pathname}
+          items={g.tabs}
+          radius="full"
+          classNames={{
+            tabList: "glass-inset gap-1 p-1",
+            tab: "min-h-11 px-4",
+            tabContent: "text-sm font-semibold text-foreground-400 group-data-[selected=true]:text-primary-foreground",
+            cursor: "bg-primary shadow-none",
+          }}
+        >
+          {(tab) => <Tab key={tab.href} href={tab.href} title={tab.label} />}
+        </Tabs>
       ) : null}
     </div>
   );

@@ -49,9 +49,9 @@ export default function TodayPage() {
         right={<p className="text-xs text-foreground-400">第16号の5書式の帳票出力は陸上側で対応予定</p>}
       />
       <CrewPicker selected={crew} onSelect={selectCrew} />
-      <p className="text-foreground-500">対象船員: {crew.name}（{crew.position}）</p>
+      <p className="text-foreground-400">対象船員: {crew.name}（{crew.position}）</p>
 
-      <Card shadow="none" className="bg-content1">
+      <Card shadow="none" className="glass-tile">
         <CardHeader className="flex items-center justify-between">
           <span className="font-bold">労働時間ゲージ</span>
           {daily.hasOpenInterval ? (
@@ -72,14 +72,14 @@ export default function TodayPage() {
             limitMinutes={ruleSet.values.weeklyMaxMinutes}
             level={weekly.check.level}
           />
-          <p className="text-sm text-foreground-500">
+          <p className="text-sm text-foreground-400">
             直近4週間合計: <span className="tabular-nums">{fmtMinutes(fourWeeks)}</span>
             （4週上限の判定は基準労働期間の設定後に有効化 — PoC対象外）
           </p>
         </CardBody>
       </Card>
 
-      <Card shadow="none" className="bg-content1">
+      <Card shadow="none" className="glass-tile">
         <CardHeader className="font-bold">休息時間チェック</CardHeader>
         <Divider />
         <CardBody className="flex flex-col gap-3">
@@ -89,7 +89,7 @@ export default function TodayPage() {
                 <div key={c.key} className="flex items-center justify-between gap-2">
                   <span>{t.check[c.key]}</span>
                   <div className="flex items-center gap-2">
-                    <span className="tabular-nums text-foreground-500">
+                    <span className="tabular-nums text-foreground-400">
                       {c.key === "rest_split"
                         ? `${c.actual}回（上限${c.limit}回）`
                         : `${fmtMinutes(c.actual)}（基準${fmtMinutes(c.limit)}）`}
@@ -99,7 +99,7 @@ export default function TodayPage() {
                 </div>
               ))}
               <Divider />
-              <p className="text-sm text-foreground-500">
+              <p className="text-sm text-foreground-400">
                 本日の休息時間帯（現在時刻まで。分割回数・最長休息は日を跨ぐ休息を連結して判定）:
               </p>
               <ul className="flex flex-col gap-1 text-sm">
@@ -111,13 +111,13 @@ export default function TodayPage() {
               </ul>
             </>
           ) : (
-            <p className="text-foreground-500">本日の打刻がまだありません。</p>
+            <p className="text-foreground-400">本日の打刻がまだありません。</p>
           )}
         </CardBody>
       </Card>
 
       <div className="flex items-center gap-2">
-        <span className="text-sm text-foreground-500">本日の総合判定:</span>
+        <span className="text-sm text-foreground-400">本日の総合判定:</span>
         <StatusChip level={daily.hasRecords ? daily.level : "none"} />
       </div>
 

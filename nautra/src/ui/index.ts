@@ -11,6 +11,7 @@ export {
   Button,
   Card,
   CardBody,
+  CardFooter,
   CardHeader,
   Checkbox,
   CheckboxGroup,
@@ -22,9 +23,14 @@ export {
   ModalContent,
   ModalFooter,
   ModalHeader,
+  Navbar,
+  NavbarBrand,
+  NavbarContent,
+  NavbarItem,
   Progress,
   Radio,
   RadioGroup,
+  ScrollShadow,
   Select,
   SelectItem,
   Spinner,
@@ -43,8 +49,11 @@ export {
 } from "@heroui/react";
 
 export { UIProvider } from "./provider";
+export { AppShell } from "./app-shell";
 export { ClientOnly } from "./client-only";
+export { GlassCard, GlassRow, GlassStat, useGlassModalProps } from "./glass";
 export { StatusChip } from "./status-chip";
 export { LimitGauge } from "./limit-gauge";
 export { PunchButton } from "./punch-button";
 export { TriStateToggle } from "./tri-state-toggle";
+export { GLASS_MODAL_CLASSNAMES } from "./modal-style";

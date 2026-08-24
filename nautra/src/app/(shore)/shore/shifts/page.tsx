@@ -34,10 +34,10 @@ export default function ShoreShiftsPage() {
         <p className="text-sm text-foreground-500">計画は陸上が正本。変更は船内へ同期され変更通知になります。</p>
       </div>
 
-      <section aria-label="週間当直表" className="overflow-x-auto rounded-large border border-default-200 bg-content1">
+      <section aria-label="週間当直表" className="glass-tile overflow-x-auto">
         <table className="w-full min-w-[760px] text-sm">
           <thead>
-            <tr className="border-b border-default-200 text-left text-foreground-500">
+            <tr className="border-b border-[var(--glass-border)] text-left text-foreground-500">
               <th className="px-4 py-3 font-medium">船員</th>
               {week.days.map((d) => (
                 <th key={d} className={`px-2 py-3 text-center font-medium tabular-nums ${d === week.today ? "text-primary" : ""}`}>
@@ -49,7 +49,7 @@ export default function ShoreShiftsPage() {
           </thead>
           <tbody>
             {CREW_MEMBERS.map((crew) => (
-              <tr key={crew.id} className="border-b border-default-100 last:border-b-0">
+              <tr key={crew.id} className="border-b border-[var(--glass-border)] last:border-b-0">
                 <td className="px-4 py-3">
                   <p className="font-semibold">{crew.name}</p>
                   <p className="text-xs text-foreground-500">{crew.position}</p>
@@ -75,7 +75,7 @@ export default function ShoreShiftsPage() {
       <ShiftChangeForm options={options} />
 
       {week.conflicts.length > 0 ? (
-        <section aria-label="競合（要確認）" className="rounded-large border border-danger bg-content1 p-4">
+        <section aria-label="競合（要確認）" className="glass-tile border border-danger p-4">
           <h2 className="mb-2 font-bold text-danger">競合（要確認） {week.conflicts.length}件</h2>
           <p className="mb-2 text-sm text-foreground-500">
             同一のシフトに対して複数の変更が配信されています。自動では解決せず双方を保持しています（基本設計書 8.3）。
@@ -90,7 +90,7 @@ export default function ShoreShiftsPage() {
         </section>
       ) : null}
 
-      <section aria-label="配信済みの変更" className="rounded-large border border-default-200 bg-content1 p-4">
+      <section aria-label="配信済みの変更" className="glass-tile p-4">
         <h2 className="mb-2 font-bold">配信済みの変更（新しい順）</h2>
         {week.changes.length === 0 ? (
           <p className="text-sm text-foreground-500">変更はありません。</p>

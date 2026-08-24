@@ -23,6 +23,7 @@ import {
   Select,
   SelectItem,
   useDisclosure,
+  useGlassModalProps,
 } from "@/ui";
 import { CrewPicker } from "../_components/crew-picker";
 import { GroupHeader } from "../_components/group-header";
@@ -45,6 +46,7 @@ export default function HistoryPage() {
   const approvals = useApprovals();
 
   const afterModal = useDisclosure();
+  const glassModal = useGlassModalProps();
   const resubmitModal = useDisclosure();
   const [resubmitTarget, setResubmitTarget] = useState<TimeRecord | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
@@ -154,9 +156,9 @@ export default function HistoryPage() {
 
       <div className="flex flex-col gap-2">
         {sorted.length === 0 ? (
-          <Card shadow="none" className="bg-content1">
+          <Card shadow="none" className="glass-tile">
             <CardBody>
-              <p className="text-foreground-500">
+              <p className="text-foreground-400">
                 打刻がありません。ホーム画面から打刻するか、「後から打刻」で入力してください。
               </p>
             </CardBody>
@@ -169,7 +171,7 @@ export default function HistoryPage() {
             <Card
               key={r.id}
               shadow="none"
-              className={cn("bg-content1", remandReason && "border border-danger")}
+              className={cn("glass-tile", remandReason && "border border-danger")}
             >
               <CardBody className="flex flex-col gap-2">
                 <div className="flex flex-wrap items-center gap-2">
@@ -214,7 +216,7 @@ export default function HistoryPage() {
       </div>
 
       {/* 後から打刻 */}
-      <Modal isOpen={afterModal.isOpen} onOpenChange={afterModal.onOpenChange} placement="center">
+      <Modal {...glassModal} isOpen={afterModal.isOpen} onOpenChange={afterModal.onOpenChange} placement="center">
         <ModalContent>
           <ModalHeader>後から打刻（事後入力）</ModalHeader>
           <ModalBody className="flex flex-col gap-3">
@@ -242,7 +244,7 @@ export default function HistoryPage() {
               <Input type="time" label="終了" value={afterTo} onValueChange={setAfterTo} />
             </div>
             {formError ? <p className="text-danger">✕ {formError}</p> : null}
-            <p className="text-sm text-foreground-500">
+            <p className="text-sm text-foreground-400">
               未来の日時は入力できません（日付誤り防止ガード）。
             </p>
           </ModalBody>
@@ -258,12 +260,12 @@ export default function HistoryPage() {
       </Modal>
 
       {/* 差戻し再入力 */}
-      <Modal isOpen={resubmitModal.isOpen} onOpenChange={resubmitModal.onOpenChange} placement="center">
+      <Modal {...glassModal} isOpen={resubmitModal.isOpen} onOpenChange={resubmitModal.onOpenChange} placement="center">
         <ModalContent>
           <ModalHeader>差戻し再入力</ModalHeader>
           <ModalBody className="flex flex-col gap-3">
             {resubmitTarget ? (
-              <p className="text-sm text-foreground-500">
+              <p className="text-sm text-foreground-400">
                 対象: {t.workCategory[resubmitTarget.workCategory]}{" "}
                 {t.action[resubmitTarget.action]}（{fmtDateTime(resubmitTarget.occurredAt)}）。
                 正しい日時で再入力すると、元の打刻は「訂正済」となり集計から除外されます

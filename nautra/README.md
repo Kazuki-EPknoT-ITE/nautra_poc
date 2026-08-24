@@ -58,5 +58,7 @@ npm run dev   # http://localhost:3100
    （`src/sync-protocol/records.ts` / `events.ts`。テスト `__tests__/records.test.ts`）
 5. **計画・実績分離**: シフト計画は陸上正本、船内の打刻実績と対比表示（上書きしない）
 6. **HeroUI の2テーマ**: 船内（大文字・高コントラスト・64px ボタン）/ 陸上（情報密度）
+7. **リキッドガラス・白黒基調**: 材質は globals.css に集約。基調は白黒で、法令アラートの
+   黄／赤・判定の緑のみ色を保持（アイコン・文言を併記）
 
 詳細な規約・本番との差分は `CLAUDE.md` を参照。
