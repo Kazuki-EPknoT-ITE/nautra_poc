@@ -52,9 +52,23 @@ function approvalSyncEvent(payload: ApprovalPayload, deviceId: string): SyncEven
   };
 }
 
+/** 連続記録時に同期が毎回走らないようまとめる待ち時間（ミリ秒） */
+const BACKGROUND_SYNC_DEBOUNCE_MS = 800;
+let backgroundSyncTimer: ReturnType<typeof setTimeout> | null = null;
+
+/**
+ * 記録直後の同期はまとめて実行する。
+ * 連続打刻のたびに Push/Pull を走らせると、通信と再描画が操作のたびに発生して
+ * 画面が重くなるため、短時間の連続書き込みは1回の同期に集約する。
+ * 記録自体はローカルに確定済みで、同期が遅れても失われない（ローカルファースト）。
+ */
 async function trySyncInBackground(): Promise<void> {
   if (await isOfflineSim()) return; // 擬似オフライン中はキューに保持
-  void syncNow();
+  if (backgroundSyncTimer) clearTimeout(backgroundSyncTimer);
+  backgroundSyncTimer = setTimeout(() => {
+    backgroundSyncTimer = null;
+    void syncNow();
+  }, BACKGROUND_SYNC_DEBOUNCE_MS);
 }
 
 /** 未来日時ガード（誤操作防止。基本設計書 6.3）。1分の時計ずれは許容 */

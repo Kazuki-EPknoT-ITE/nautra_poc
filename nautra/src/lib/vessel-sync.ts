@@ -74,37 +74,92 @@ async function pushOutbox(): Promise<number> {
   return pushed;
 }
 
+/** 既存IDを1回の読み取りで判定し、新規行だけを一括追記する（追記のみ・再受信は冪等） */
+async function bulkAddNew<T extends { id: string }>(
+  table: { bulkGet: (ids: string[]) => Promise<(T | undefined)[]>; bulkAdd: (rows: T[]) => Promise<unknown> },
+  rows: T[],
+): Promise<number> {
+  if (rows.length === 0) return 0;
+  // 同一バッチ内の重複を先に除く
+  const seen = new Set<string>();
+  const unique = rows.filter((r) => (seen.has(r.id) ? false : (seen.add(r.id), true)));
+  const existing = await table.bulkGet(unique.map((r) => r.id));
+  const fresh = unique.filter((_, i) => existing[i] === undefined);
+  if (fresh.length > 0) await table.bulkAdd(fresh);
+  return fresh.length;
+}
+
 /**
- * 受信イベントのローカル適用。一次記録は追記のみ: 同一IDが既にあれば書き換えず読み飛ばす
- * （再受信は冪等。自端末発の記録が Pull で戻ってきても内容は同一）。
- * レジストリ外の種別は破棄せずローカル隔離する（旧版端末 × 新サーバ。8.6）。
+ * 受信イベントのローカル適用（バッチ単位で1トランザクション）。
+ * 一次記録は追記のみ: 同一IDが既にあれば書き換えず読み飛ばす（再受信は冪等。自端末発の記録が
+ * Pull で戻ってきても内容は同一）。レジストリ外の種別は破棄せずローカル隔離する（8.6）。
+ *
+ * 1件ずつ書くと IndexedDB の往復と画面の再描画がイベント数だけ発生し、初回同期
+ * （200件超）で数秒かかる。種別ごとにまとめ、単一トランザクションで書くことで
+ * 往復と再描画を1回に抑える。
  */
-async function applyPulledEvent(event: SyncEvent, receivedAt: string): Promise<void> {
-  const kind = (event as { kind: string }).kind;
-  if (kind === "time_record") {
-    const payload = event.payload as TimeRecord;
-    if (!(await vesselDb.timeRecords.get(payload.id))) await vesselDb.timeRecords.add(payload);
-  } else if (kind === "approval") {
-    const payload = event.payload as ApprovalPayload;
-    if (!(await vesselDb.approvals.get(payload.id))) await vesselDb.approvals.add(payload);
-  } else if (isRecordKind(kind)) {
-    const payload = event.payload as AnyRecordPayload;
-    if (!(await vesselDb.records.get(payload.id))) {
-      await vesselDb.records.add({ ...payload, kind } as VesselRecordRow);
-    }
-  } else if (!(SYNC_KINDS as string[]).includes(kind)) {
-    const eventId = String((event as { eventId?: unknown }).eventId ?? "(unknown)");
-    const exists = await vesselDb.quarantine.where("eventId").equals(eventId).count();
-    if (exists === 0) {
-      await vesselDb.quarantine.add({
+async function applyPulledEvents(events: { event: SyncEvent }[], receivedAt: string): Promise<void> {
+  const timeRecords: TimeRecord[] = [];
+  const approvals: ApprovalPayload[] = [];
+  const records: VesselRecordRow[] = [];
+  const unknown: { kind: string; eventId: string; raw: unknown }[] = [];
+
+  for (const { event } of events) {
+    const kind = (event as { kind: string }).kind;
+    if (kind === "time_record") {
+      timeRecords.push(event.payload as TimeRecord);
+    } else if (kind === "approval") {
+      approvals.push(event.payload as ApprovalPayload);
+    } else if (isRecordKind(kind)) {
+      records.push({ ...(event.payload as AnyRecordPayload), kind } as VesselRecordRow);
+    } else if (!(SYNC_KINDS as string[]).includes(kind)) {
+      unknown.push({
         kind,
-        eventId,
+        eventId: String((event as { eventId?: unknown }).eventId ?? "(unknown)"),
         raw: event,
-        reason: "unknown event kind on this device (app update required)",
-        receivedAt,
       });
     }
   }
+
+  // 適用するものが無ければ書き込みトランザクションを開かない
+  // （定期同期のたびに書き込みロックを取ると、利用者の打刻がその後ろで待たされる）
+  if (
+    timeRecords.length === 0 &&
+    approvals.length === 0 &&
+    records.length === 0 &&
+    unknown.length === 0
+  ) {
+    return;
+  }
+
+  await vesselDb.transaction(
+    "rw",
+    vesselDb.timeRecords,
+    vesselDb.approvals,
+    vesselDb.records,
+    vesselDb.quarantine,
+    async () => {
+      await bulkAddNew(vesselDb.timeRecords, timeRecords);
+      await bulkAddNew(vesselDb.approvals, approvals);
+      await bulkAddNew(vesselDb.records, records);
+      if (unknown.length > 0) {
+        const ids = unknown.map((u) => u.eventId);
+        const already = new Set(
+          (await vesselDb.quarantine.where("eventId").anyOf(ids).toArray()).map((q) => q.eventId),
+        );
+        const fresh = unknown
+          .filter((u) => !already.has(u.eventId))
+          .map((u) => ({
+            kind: u.kind,
+            eventId: u.eventId,
+            raw: u.raw,
+            reason: "unknown event kind on this device (app update required)",
+            receivedAt,
+          }));
+        if (fresh.length > 0) await vesselDb.quarantine.bulkAdd(fresh);
+      }
+    },
+  );
 }
 
 /**
@@ -172,10 +227,8 @@ async function pullSince(): Promise<number> {
       continue; // ストア変更: 先頭から取り直す
     }
     const receivedAt = new Date().toISOString();
-    for (const stored of data.events) {
-      await applyPulledEvent(stored.event, receivedAt);
-      pulled += 1;
-    }
+    await applyPulledEvents(data.events, receivedAt);
+    pulled += data.events.length;
     cursor = data.nextCursor;
     await setMeta("pullCursor", String(cursor)); // バージョンカーソル保存（再開可能）
     if (typeof data.quarantineCount === "number") {

@@ -127,27 +127,43 @@ export interface SyncBadge {
 }
 
 /** 未同期件数・最終同期・擬似オフライン状態（V-09 / ヘッダ常時表示。基本設計書 8.4） */
+const EMPTY_BADGE: SyncBadge = {
+  pendingCount: 0,
+  offlineSim: false,
+  lastSyncAt: undefined,
+  lastSyncError: undefined,
+  pullCursor: undefined,
+  serverQuarantineCount: 0,
+  localQuarantineCount: 0,
+};
+
 export function useSyncBadge(): SyncBadge {
-  const pendingCount = useLiveQuery(() => vesselDb.outbox.count(), [], 0) ?? 0;
-  const offlineSim = useLiveQuery(async () => (await getMeta("offlineSim")) === "1", [], false) ?? false;
-  const lastSyncAt = useLiveQuery(() => getMeta("lastSyncAt"), [], undefined);
-  const lastSyncError = useLiveQuery(async () => {
-    const v = await getMeta("lastSyncError");
-    return v || undefined;
-  }, [], undefined);
-  const pullCursor = useLiveQuery(() => getMeta("pullCursor"), [], undefined);
-  const serverQuarantineCount =
-    useLiveQuery(async () => Number((await getMeta("serverQuarantineCount")) ?? "0"), [], 0) ?? 0;
-  const localQuarantineCount = useLiveQuery(() => vesselDb.quarantine.count(), [], 0) ?? 0;
-  return {
-    pendingCount,
-    offlineSim,
-    lastSyncAt,
-    lastSyncError,
-    pullCursor,
-    serverQuarantineCount,
-    localQuarantineCount,
-  };
+  // 1つの購読にまとめる（ヘッダは全画面に出るため、購読数と再描画を最小にする）
+  return (
+    useLiveQuery(async () => {
+      const [pendingCount, localQuarantineCount, meta] = await Promise.all([
+        vesselDb.outbox.count(),
+        vesselDb.quarantine.count(),
+        vesselDb.meta.bulkGet([
+          "offlineSim",
+          "lastSyncAt",
+          "lastSyncError",
+          "pullCursor",
+          "serverQuarantineCount",
+        ]),
+      ]);
+      const [offline, at, err, cursor, quarantined] = meta.map((m) => m?.value);
+      return {
+        pendingCount,
+        localQuarantineCount,
+        offlineSim: offline === "1",
+        lastSyncAt: at || undefined,
+        lastSyncError: err || undefined,
+        pullCursor: cursor,
+        serverQuarantineCount: Number(quarantined ?? "0"),
+      } satisfies SyncBadge;
+    }, []) ?? EMPTY_BADGE
+  );
 }
 
 /** 現在時刻（経過表示用に intervalMs ごとに更新） */
