@@ -6,6 +6,7 @@ import { AppShell } from "@/ui";
 const NAV_LINKS = [
   { href: "/shore", label: "労務ダッシュボード（S-01）" },
   { href: "/shore/shifts", label: "シフト作成（S-10）" },
+  { href: "/shore/templates", label: "記録項目の配信" },
 ];
 
 /**

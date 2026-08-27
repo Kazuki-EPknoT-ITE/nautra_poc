@@ -43,6 +43,22 @@ describe("エンティティレジストリ（基本設計書 8.6）", () => {
     expect(ev.idempotencyKey).toBe("dev-1:vl-1");
   });
 
+  it("レジストリに登録した種別は必ず判別ユニオンにも含まれる（登録漏れで隔離されない）", () => {
+    // union に無い種別はサーバで「未知種別」として隔離されてしまうため、登録と同時に検査する
+    const inUnion = new Set(
+      knownSyncEventSchema.options.map((o) => (o.shape.kind as { value: string }).value),
+    );
+    for (const kind of SYNC_KINDS) {
+      expect(inUnion.has(kind), `${kind} が knownSyncEventSchema に未登録`).toBe(true);
+    }
+  });
+
+  it("記録項目テンプレートは船内（船長）・陸上のどちらからも配信できる（origin=both）", () => {
+    expect(SYNC_ENTITY_REGISTRY.record_template.origin).toBe("both");
+    expect(checkOriginPolicy("record_template", "dev-01abc")).toBeNull();
+    expect(checkOriginPolicy("record_template", "shore-planner-device")).toBeNull();
+  });
+
   it("シフト計画は計画・実績分離ポリシー、陸上発（origin=shore）として宣言される", () => {
     expect(SYNC_ENTITY_REGISTRY.shift_plan.policy).toBe("plan_actual_split");
     expect(SYNC_ENTITY_REGISTRY.shift_plan.origin).toBe("shore");

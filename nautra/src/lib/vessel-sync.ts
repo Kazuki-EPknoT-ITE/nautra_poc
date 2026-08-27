@@ -163,6 +163,26 @@ async function applyPulledEvents(events: { event: SyncEvent }[], receivedAt: str
 }
 
 /**
+ * ローカル隔離の再処理（8.6）。
+ * 端末が未対応だった種別は破棄せず quarantine に保持している。アプリ更新で対応種別が
+ * 増えたあと、隔離済みイベントを本来のテーブルへ適用し直し、隔離から取り除く。
+ * これを行わないと、更新前の端末（別タブ・別端末）が先に受信した配信が
+ * 更新後も欠けたままになる。再処理は追記のみで、既存行は書き換えない。
+ */
+async function reprocessLocalQuarantine(): Promise<number> {
+  const rows = await vesselDb.quarantine.toArray();
+  const known = rows.filter((q) => isRecordKind(q.kind) || q.kind === "time_record" || q.kind === "approval");
+  if (known.length === 0) return 0;
+  const events = known
+    .map((q) => (q.raw as { event?: SyncEvent })?.event ?? (q.raw as SyncEvent))
+    .filter((e): e is SyncEvent => Boolean(e && (e as { payload?: unknown }).payload));
+  if (events.length > 0) await applyPulledEvents(events.map((event) => ({ event })), new Date().toISOString());
+  const seqs = known.map((q) => q.seq).filter((seq): seq is number => seq !== undefined);
+  if (seqs.length > 0) await vesselDb.quarantine.bulkDelete(seqs);
+  return known.length;
+}
+
+/**
  * 陸上ストアが作り直された（storeId が変わった）場合、ローカルの受信レプリカを退避して
  * カーソル 0 から取り直す。
  * - 退避先 replicaArchive に全行を保持する（一次記録を消さない。要件定義書 12.5 / ガードレール②）
@@ -266,6 +286,7 @@ async function runSync(): Promise<SyncResult> {
     return { ok: false, pushed: 0, pulled: 0, skippedOffline: true };
   }
   try {
+    await reprocessLocalQuarantine(); // アプリ更新で対応した種別を先に取り込む（8.6）
     const pushed = await pushOutbox();
     const pulled = await pullSince();
     await setMeta("lastSyncAt", new Date().toISOString());

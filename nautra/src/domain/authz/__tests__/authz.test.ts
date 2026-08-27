@@ -22,6 +22,8 @@ describe("船内ロールの権限（基本設計書 11.2）", () => {
     ["write_logbook", { captain: true, deck_officer: true, chief_engineer: false, deck_rating: false }],
     // 日常点検・保守は船長・機関長が記入（他は参照のみ）
     ["write_maintenance", { captain: true, deck_officer: false, chief_engineer: true, deck_rating: false }],
+    // 記録項目テンプレートの追加は船長のみ（陸上からも配信される）
+    ["manage_record_templates", { captain: true, deck_officer: false, chief_engineer: false, deck_rating: false }],
     // 点検・作業記録・シフト参照・同期は全ロール
     ["write_checklist", { captain: true, deck_officer: true, chief_engineer: true, deck_rating: true }],
     ["write_work_report", { captain: true, deck_officer: true, chief_engineer: true, deck_rating: true }],

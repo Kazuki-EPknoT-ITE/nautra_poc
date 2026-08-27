@@ -28,6 +28,24 @@ const recordBase = {
   note: z.string().optional(),
 };
 
+/* 記録項目の入力結果（点検の各項目・航海日誌の追加項目で共用する）。
+   voyageLogPayloadSchema より前に定義する必要がある（評価順） */
+export const checklistItemResultSchema = z
+  .object({
+    key: z.string(),
+    label: z.string(),
+    group: z.string(),
+    /** 良否で答える項目（inputType=check）。数値・テキスト項目では "na" を入れる */
+    result: z.enum(["ok", "ng", "na"]),
+    /** 数値・テキスト項目の入力値（inputType=number/text。利用者が入力する） */
+    value: z.union([z.string(), z.number()]).optional(),
+    /** 数値項目の単位（テンプレート定義から転記し、結果だけで意味が読めるようにする） */
+    unit: z.string().optional(),
+    note: z.string().optional(),
+  })
+  .passthrough(); // ネストした未知フィールドも往復保全（8.6）
+export type ChecklistItemResult = z.infer<typeof checklistItemResultSchema>;
+
 /* ───────────────────────── 03 航海日誌（V-05） ───────────────────────── */
 
 export const VOYAGE_LOG_TYPES = ["departure", "arrival", "position", "remark"] as const;
@@ -49,6 +67,8 @@ export const voyageLogPayloadSchema = z
     seaState: z.string().optional(),
     visibility: z.string().optional(),
     remarks: z.string().optional(),
+    /** 配信テンプレート（usage=voyage_log）で追加された項目の入力値 */
+    extraValues: z.array(checklistItemResultSchema).optional(),
   })
   .passthrough();
 export type VoyageLogPayload = z.infer<typeof voyageLogPayloadSchema>;
@@ -58,21 +78,11 @@ export type VoyageLogPayload = z.infer<typeof voyageLogPayloadSchema>;
 export const CHECKLIST_TEMPLATE_IDS = ["pre_departure", "safety_patrol"] as const;
 export type ChecklistTemplateId = (typeof CHECKLIST_TEMPLATE_IDS)[number];
 
-export const checklistItemResultSchema = z
-  .object({
-    key: z.string(),
-    label: z.string(),
-    group: z.string(),
-    result: z.enum(["ok", "ng", "na"]),
-    note: z.string().optional(),
-  })
-  .passthrough(); // ネストした未知フィールドも往復保全（8.6）
-export type ChecklistItemResult = z.infer<typeof checklistItemResultSchema>;
-
 export const checklistResultPayloadSchema = z
   .object({
     ...recordBase,
-    templateId: z.enum(CHECKLIST_TEMPLATE_IDS),
+    /** 配信テンプレートの templateKey（既定は pre_departure / safety_patrol） */
+    templateId: z.string(),
     /** テンプレート版（テンプレート変更後も結果の意味が追えるように保持） */
     templateVersion: z.string(),
     items: z.array(checklistItemResultSchema),
@@ -224,6 +234,51 @@ export const shiftPlanPayloadSchema = z
   .passthrough();
 export type ShiftPlanPayload = z.infer<typeof shiftPlanPayloadSchema>;
 
+/* ─────────────── 記録項目テンプレート（上司・陸上が配信する定義） ─────────────── */
+
+/** 項目の入力方法。number は利用者が数値を入力する（要件: 数字はユーザー入力） */
+export const TEMPLATE_INPUT_TYPES = ["check", "number", "text"] as const;
+export type TemplateInputType = (typeof TEMPLATE_INPUT_TYPES)[number];
+
+/** テンプレートを使う画面 */
+export const TEMPLATE_USAGES = ["checklist", "voyage_log"] as const;
+export type TemplateUsage = (typeof TEMPLATE_USAGES)[number];
+
+export const templateItemSchema = z
+  .object({
+    key: z.string(),
+    label: z.string(),
+    group: z.string(),
+    inputType: z.enum(TEMPLATE_INPUT_TYPES),
+    /** 数値項目の単位（例: L, °C, rpm） */
+    unit: z.string().optional(),
+  })
+  .passthrough();
+export type TemplateItem = z.infer<typeof templateItemSchema>;
+
+/**
+ * 記録項目テンプレート（checklist_templates 相当。基本設計書 5.2）。
+ * 点検表の項目や航海日誌の追加記録項目を、**船長（上司）や陸上から追加**できるようにする。
+ * 追記専用で、項目の追加・変更は supersedesId 付きの新しい版を配信して置き換える
+ * （過去の記録は当時の templateVersion を保持しているため意味が変わらない）。
+ */
+export const recordTemplatePayloadSchema = z
+  .object({
+    ...recordBase,
+    usage: z.enum(TEMPLATE_USAGES),
+    /** テンプレートの識別キー。同じキーの新しい版が既存を置き換える */
+    templateKey: z.string(),
+    name: z.string(),
+    description: z.string().optional(),
+    version: z.string(),
+    items: z.array(templateItemSchema),
+    publishedAt: z.string(),
+    publishedBy: z.string(),
+    changeNote: z.string().optional(),
+  })
+  .passthrough();
+export type RecordTemplatePayload = z.infer<typeof recordTemplatePayloadSchema>;
+
 /* ─────────────── 種別 → ペイロード型の対応表 ─────────────── */
 
 export const RECORD_PAYLOAD_SCHEMAS = {
@@ -234,6 +289,7 @@ export const RECORD_PAYLOAD_SCHEMAS = {
   work_report: workReportPayloadSchema,
   maintenance_record: maintenanceRecordPayloadSchema,
   shift_plan: shiftPlanPayloadSchema,
+  record_template: recordTemplatePayloadSchema,
 } as const;
 
 export type RecordKind = keyof typeof RECORD_PAYLOAD_SCHEMAS;

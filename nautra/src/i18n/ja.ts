@@ -70,6 +70,7 @@ export const t = {
     work_report: "作業・待機・燃料・引継",
     maintenance_record: "日常点検・保守",
     shift_plan: "当直シフト・配置表",
+    record_template: "記録項目テンプレート",
   } as Record<string, string>,
 
   /* ── 03 航海日誌 ── */

@@ -8,10 +8,13 @@ import {
   findSupersedeConflicts,
   latestBySupersedes,
   type RecordKind,
+  type RecordTemplatePayload,
   type ShiftPlanPayload,
+  type TemplateUsage,
 } from "@/sync-protocol/records";
 import { can, canSwitchCrew, type Permission } from "@/domain/authz/roles";
 import { CREW_MEMBERS, crewById, type CrewMember } from "./crew";
+import { builtInChecklistTemplates, effectiveTemplates } from "./record-templates";
 import { setSelectedCrewId } from "./vessel-actions";
 import { getMeta, vesselDb, type VesselRecordRow } from "./vessel-db";
 import { SESSION_CREW_KEY } from "./vessel-session";
@@ -80,6 +83,19 @@ export function useRecords<K extends RecordKind>(kind: K): VesselRecordRow<K>[] 
     () => [...(rows ?? [])].sort((a, b) => b.occurredAt.localeCompare(a.occurredAt)),
     [rows],
   );
+}
+
+/**
+ * 配信済みの記録項目テンプレート（上司・陸上が追加した項目を含む有効な最新版）。
+ * 未配信の端末では既定のテンプレートにフォールバックし、点検が止まらないようにする。
+ */
+export function useRecordTemplates(usage: TemplateUsage): RecordTemplatePayload[] {
+  const all = useRecords("record_template");
+  return useMemo(() => {
+    const effective = effectiveTemplates(all, usage);
+    if (effective.length > 0) return effective;
+    return usage === "checklist" ? builtInChecklistTemplates() : [];
+  }, [all, usage]);
 }
 
 /** 有効なシフト計画（訂正で無効化されたものを除く）と変更通知の集計（V-08） */

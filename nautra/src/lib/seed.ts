@@ -12,6 +12,7 @@ import {
 } from "@/sync-protocol/events";
 import type {
   ChecklistResultPayload,
+  RecordTemplatePayload,
   MaintenanceRecordPayload,
   ShiftPlanPayload,
   ShiftType,
@@ -38,7 +39,7 @@ import type {
  */
 
 /** デモデータ版。上げるとストアが作り直される（PoC の .data/store.json のみ） */
-export const SEED_VERSION = 5;
+export const SEED_VERSION = 6;
 
 const SEED_DEVICE = "seed-shore-device";
 
@@ -221,6 +222,10 @@ function voyageSeed(today: string): SyncEvent[] {
       wind: "北東 3m/s",
       seaState: "波高 0.5m",
       visibility: "良好",
+      extraValues: [
+        { key: "added_1", label: "出港時 燃料残量", group: "出港", result: "na", value: 182.4, unit: "kL" },
+        { key: "added_2", label: "バラスト水量", group: "出港", result: "na", value: 640, unit: "t" },
+      ],
       remarks: "定刻出港。水先人なし。乗組員4名 異常なし。",
     },
     {
@@ -234,6 +239,9 @@ function voyageSeed(today: string): SyncEvent[] {
       wind: "南西 5m/s",
       seaState: "波高 1.0m",
       visibility: "良好",
+      extraValues: [
+        { key: "added_1", label: "気圧", group: "定時船位", result: "na", value: 1013, unit: "hPa" },
+      ],
     },
     {
       ...base("sd-vlog-3", atLocal(d2, "18:30"), "crew-sato"),
@@ -244,6 +252,9 @@ function voyageSeed(today: string): SyncEvent[] {
       wind: "南 4m/s",
       seaState: "波高 0.3m",
       visibility: "良好",
+      extraValues: [
+        { key: "added_1", label: "入港時 燃料残量", group: "入港", result: "na", value: 168.9, unit: "kL" },
+      ],
       remarks: "着岸。タグ1隻使用。荷役は翌日バース空き次第。",
     },
     {
@@ -254,6 +265,82 @@ function voyageSeed(today: string): SyncEvent[] {
     },
   ];
   return logs.map((p) => makeRecordEvent("voyage_log", p, SEED_DEVICE));
+}
+
+/* ───────────── 記録項目テンプレート（陸上・上司が配信） ───────────── */
+
+/**
+ * 点検表・航海日誌の記録項目を陸上から配信する。
+ * 既定の点検表を第1版として配信したあと、「陸上が項目を追加した」第2版を配信し、
+ * 数値項目（利用者が入力する欄）が増える様子をデモで確認できるようにする。
+ */
+function templateSeed(today: string): SyncEvent[] {
+  const d6 = addDays(today, -6);
+  const d3 = addDays(today, -3);
+  const events: SyncEvent[] = [];
+
+  const publish = (p: RecordTemplatePayload) => {
+    events.push(makeRecordEvent("record_template", p, SEED_DEVICE));
+  };
+
+  // 点検表: 既定項目（すべて良否）を第1版として配信
+  for (const tpl of Object.values(CHECKLIST_TEMPLATES)) {
+    publish({
+      ...base(`sd-tpl-${tpl.id}-1`, atLocal(d6, "08:00"), SHORE_PLANNER_ID),
+      usage: "checklist",
+      templateKey: tpl.id,
+      name: tpl.name,
+      description: tpl.description,
+      version: tpl.version,
+      items: tpl.items.map((it) => ({ ...it, inputType: "check" as const })),
+      publishedAt: atLocal(d6, "08:00"),
+      publishedBy: SHORE_PLANNER_ID,
+    });
+  }
+
+  // 陸上が出港前点検に数値項目を追加（第2版。過去の記録は第1版のまま保持される）
+  const pre = CHECKLIST_TEMPLATES.pre_departure;
+  publish({
+    ...base("sd-tpl-pre_departure-2", atLocal(d3, "09:00"), SHORE_PLANNER_ID),
+    supersedesId: "sd-tpl-pre_departure-1",
+    usage: "checklist",
+    templateKey: pre.id,
+    name: pre.name,
+    description: pre.description,
+    version: "2026-08.1",
+    items: [
+      ...pre.items.map((it) => ({ ...it, inputType: "check" as const })),
+      { key: "added_15", group: "機関", label: "燃料タンク残量", inputType: "number" as const, unit: "kL" },
+      { key: "added_16", group: "船体", label: "ビルジ量", inputType: "number" as const, unit: "cm" },
+    ],
+    publishedAt: atLocal(d3, "09:00"),
+    publishedBy: SHORE_PLANNER_ID,
+    changeNote: "燃料残量・ビルジ量の数値記録を追加（本社安全部）",
+  });
+
+  // 航海日誌の追加記録項目（記録種別ごと。templateKey = 記録種別）
+  const voyageItems: [string, string, { key: string; label: string; inputType: "number"; unit: string }[]][] = [
+    ["departure", "出港", [
+      { key: "added_1", label: "出港時 燃料残量", inputType: "number", unit: "kL" },
+      { key: "added_2", label: "バラスト水量", inputType: "number", unit: "t" },
+    ]],
+    ["arrival", "入港", [{ key: "added_1", label: "入港時 燃料残量", inputType: "number", unit: "kL" }]],
+    ["position", "定時船位", [{ key: "added_1", label: "気圧", inputType: "number", unit: "hPa" }]],
+  ];
+  for (const [key, label, items] of voyageItems) {
+    publish({
+      ...base(`sd-tpl-voyage-${key}`, atLocal(d6, "08:10"), SHORE_PLANNER_ID),
+      usage: "voyage_log",
+      templateKey: key,
+      name: `航海日誌: ${label}`,
+      description: "陸上が指定した追加の記録項目",
+      version: "1",
+      items: items.map((it) => ({ ...it, group: label })),
+      publishedAt: atLocal(d6, "08:10"),
+      publishedBy: SHORE_PLANNER_ID,
+    });
+  }
+  return events;
 }
 
 /* ───────────── 03 点検・操練・アルコール検知 ───────────── */
@@ -544,6 +631,7 @@ function shiftSeed(today: string): SyncEvent[] {
 export function makeSeedEvents(today: string): SyncEvent[] {
   return [
     ...laborSeed(today),
+    ...templateSeed(today),
     ...voyageSeed(today),
     ...inspectionSeed(today),
     ...workSeed(today),

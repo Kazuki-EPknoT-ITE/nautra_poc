@@ -36,7 +36,10 @@
 5. HeroUI の直接 import は `src/ui/` 配下のみ。画面は `@/ui` 経由で使用
 6. 製品名は `src/i18n/ja.ts` の `PRODUCT_NAME` からのみ参照（ハードコード禁止）
 7. `(vessel)` ⇔ `(shore)` の相互 import 禁止（共有は src/domain・src/ui 等経由）
-8. 同期イベントは冪等キー必須。未知種別は破棄せず隔離（quarantine）
+8. 同期イベントは冪等キー必須。未知種別は破棄せず隔離（quarantine）し、**アプリ更新後の
+   同期で再処理**する（`reprocessLocalQuarantine`。旧版の端末が先に受信した配信が欠けたまま
+   にならないようにする）。レジストリに種別を足したら `knownSyncEventSchema` にも必ず足す
+   （登録漏れはテストで検出する）
 9. **新しい記録種別の追加は `src/sync-protocol/records.ts` にスキーマを定義し
    `SYNC_ENTITY_REGISTRY` に登録するだけ**で完了させる。種別ごとに Push/Pull・Dexie
    テーブル・適用処理を個別実装しない（汎用 `records` テーブル + `appendRecord`）
@@ -136,6 +139,25 @@
 - 判定の言い換えは `src/lib/labor-plain.ts` に集約する（画面に文言ロジックを散らさない）。
   法令用語ではなく「働いた時間 / 休んだ時間 / 休みが分かれた回数」等の日常語＋
   「あと◯◯働けます」「◯◯不足する見込みです」の一文で示す。判定自体は domain が行う。
+
+## 航海日誌・点検の仕様（03）
+
+- **記録項目は配信で決まる**。点検表・航海日誌の追加項目は `record_template`（追記型・
+  `origin: "both"`）として上司（船長）と陸上の双方から配信する。項目の追加は
+  「項目を1つ足した新しい版」を `supersedesId` 付きで配信し、旧版は保持する
+  （過去の記録は記録時点の `templateVersion` を持つため意味が変わらない）。
+  - 解決は `src/lib/record-templates.ts`（`effectiveTemplates` / `buildTemplateWithAddedItem`）。
+    画面・サーバの双方がこの純関数を使い、組み立てを二重に実装しない。
+  - 入力方法は `check`（良否）/ `number`（数値・単位付き）/ `text`。**数値は利用者が入力する**。
+    数値項目は未入力を許さず、良否項目とは別に「未入力」件数に数える。
+  - 航海日誌は `templateKey` = 記録種別（departure / arrival / position / remark）とし、
+    入力値は `extraValues` に保持する。点検は `checklist_result.items` に同じ形で保持する。
+  - 追加の権限は `manage_record_templates`（船長のみ）。陸上は `/shore/templates` から配信する。
+- **記録できるのはサインイン中の本人のみ**（打刻と同じ。共用端末で記録者を取り違えない）。
+  航海日誌・点検の画面から対象船員の切替（CrewPicker）は外し、`useSessionCrew()` を使う。
+- 記録の入口ボタンは**種別で色を変えない**。出港・入港・定時記録・特記事項・出港前点検・
+  安全パトロール・操練・アルコール検知はすべて共通の `RecordTile`（`_components/record-tile.tsx`）
+  で描く。打刻の作業タイルと同じガラス面・同じ高さで、船内アプリ全体の操作感を揃える。
 
 ## 性能上の約束事
 
