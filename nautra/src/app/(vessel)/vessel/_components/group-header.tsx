@@ -18,10 +18,7 @@ export const FEATURE_GROUPS: Record<string, FeatureGroup> = {
   "01": {
     no: "01",
     title: "労働時間・打刻",
-    tabs: [
-      { href: "/vessel/punch", label: "打刻" },
-      { href: "/vessel/history", label: "履歴・後から打刻" },
-    ],
+    tabs: [{ href: "/vessel/punch", label: "打刻" }],
   },
   "02": {
     no: "02",

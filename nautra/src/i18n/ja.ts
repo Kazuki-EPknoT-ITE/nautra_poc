@@ -26,7 +26,7 @@ export const t = {
 
   entryType: {
     realtime: "即時打刻",
-    after: "後から打刻",
+    after: "事後入力",
     resubmit: "差戻し再入力",
   } as Record<string, string>,
 

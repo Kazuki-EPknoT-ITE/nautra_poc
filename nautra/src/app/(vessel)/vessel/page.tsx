@@ -34,10 +34,7 @@ const FEATURES: Feature[] = [
   {
     no: "01",
     title: "労働時間・打刻",
-    links: [
-      { label: "打刻する", href: "/vessel/punch", primary: true },
-      { label: "履歴・後から打刻", href: "/vessel/history" },
-    ],
+    links: [{ label: "打刻する", href: "/vessel/punch", primary: true }],
   },
   {
     no: "02",

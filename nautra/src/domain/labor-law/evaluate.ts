@@ -8,7 +8,7 @@ import type {
   WorkCategory,
   WorkInterval,
 } from "./types";
-import { buildIntervals, overlapMinutes } from "./intervals";
+import { buildIntervals, mergeRanges, overlapMinutes } from "./intervals";
 
 /** ローカル日付の YYYY-MM-DD */
 export function ymdLocal(d: Date): string {
@@ -100,26 +100,24 @@ export function evaluateDaily(params: {
   }
   clipped.sort((a, b) => a.start.getTime() - b.start.getTime());
 
+  // 種別ごとの内訳（並列作業があるため、内訳の合計は労働時間合計を超えうる）
   const workedByCategory: Partial<Record<WorkCategory, number>> = {};
-  let workedMinutes = 0;
   for (const c of clipped) {
     const m = Math.round((c.end.getTime() - c.start.getTime()) / 60000);
-    workedMinutes += m;
     workedByCategory[c.category] = (workedByCategory[c.category] ?? 0) + m;
   }
+
+  // 労働時間の合計は区間の**和集合**で求める。
+  // 並列打刻（当直しながら荷役監督など）でも同時刻を二重に数えない。
+  const merged = mergeRanges(clipped);
+  const workedMinutes = merged.reduce(
+    (sum, m) => sum + Math.round((m.end.getTime() - m.start.getTime()) / 60000),
+    0,
+  );
 
   // 休息時間 = 暦日内で労働区間に覆われていない時間帯（now までを対象）
   const restPeriods: RestPeriod[] = [];
   let cursor = dayStart;
-  const merged: { start: Date; end: Date }[] = [];
-  for (const c of clipped) {
-    const last = merged[merged.length - 1];
-    if (last && c.start.getTime() <= last.end.getTime()) {
-      if (c.end.getTime() > last.end.getTime()) last.end = c.end;
-    } else {
-      merged.push({ start: c.start, end: c.end });
-    }
-  }
   for (const m of merged) {
     if (m.start.getTime() > cursor.getTime()) {
       const minutes = Math.round((m.start.getTime() - cursor.getTime()) / 60000);
@@ -138,16 +136,7 @@ export function evaluateDaily(params: {
   // 日跨ぎ連結の休息ブロック（全期間の労働区間の補集合）。
   // 分割回数・最長休息は、ブロック開始時刻が本日に属するものでカウントする。
   const dayCompleted = now.getTime() >= dayEnd.getTime();
-  const mergedAll: { start: Date; end: Date }[] = [];
-  for (const iv of intervals) {
-    const end = iv.endAt ?? now;
-    const last = mergedAll[mergedAll.length - 1];
-    if (last && iv.startAt.getTime() <= last.end.getTime()) {
-      if (end.getTime() > last.end.getTime()) last.end = end;
-    } else {
-      mergedAll.push({ start: iv.startAt, end });
-    }
-  }
+  const mergedAll = mergeRanges(intervals.map((iv) => ({ start: iv.startAt, end: iv.endAt ?? now })));
   const restBlocks: { start: Date; end: Date | null }[] = [];
   if (mergedAll.length > 0) {
     // 記録開始前（最初の労働区間より前）の時間帯は「データ範囲外」とし、

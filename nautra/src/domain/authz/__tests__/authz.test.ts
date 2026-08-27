@@ -10,6 +10,10 @@ describe("船内ロールの権限（基本設計書 11.2）", () => {
     // 打刻は本人の権利（全ロール）
     ["punch", { captain: true, deck_officer: true, chief_engineer: true, deck_rating: true }],
     ["view_own_ledger", { captain: true, deck_officer: true, chief_engineer: true, deck_rating: true }],
+    // 事後入力・差戻し再入力は自分の記録に対して全ロールが行える
+    ["punch_after_entry", { captain: true, deck_officer: true, chief_engineer: true, deck_rating: true }],
+    // 他船員の打刻の調整（差戻し依頼）は船長のみ。直接修正は誰もできない
+    ["adjust_crew_punch", { captain: true, deck_officer: false, chief_engineer: false, deck_rating: false }],
     // 日次労務の承認・差戻しは船長のみ（修正は本人差戻しのみ）
     ["approve_labor", { captain: true, deck_officer: false, chief_engineer: false, deck_rating: false }],
     // 他船員の記録参照・対象船員の切替は船長のみ

@@ -53,3 +53,26 @@ export function parseOptionalNumber(v: string): number | undefined {
   const n = Number(v);
   return Number.isFinite(n) ? n : undefined;
 }
+
+/** ISO → ローカル "HH:MM:SS"（打刻の証跡は秒まで表示する） */
+export function fmtTimeSec(iso: string): string {
+  const d = new Date(iso);
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+}
+
+/** 経過ミリ秒 → "H:MM:SS"（作業中の経過表示） */
+export function fmtElapsedClock(ms: number): string {
+  const total = Math.max(0, Math.floor(ms / 1000));
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${h}:${p(m)}:${p(s)}`;
+}
+
+/** ISO → ローカル "M/D HH:MM:SS"（履歴表示） */
+export function fmtDateTimeSec(iso: string): string {
+  const d = new Date(iso);
+  return `${d.getMonth() + 1}/${d.getDate()} ${fmtTimeSec(iso)}`;
+}

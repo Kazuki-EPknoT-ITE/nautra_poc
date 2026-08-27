@@ -281,17 +281,61 @@ describe("区間構成（intervals）", () => {
     expect(s.workedMinutes).toBe(240);
   });
 
-  it("作業切替（開始打刻の連続）は前の作業を暗黙終了する", () => {
+  it("別種別の開始は前の作業を終了させない（並列打刻。終了は種別ごとに対応づく）", () => {
     const records = [
       rec("c1", "navigation_watch", "start", DAY, "00:00"),
       rec("c1", "cargo", "start", DAY, "04:00"),
       rec("c1", "cargo", "end", DAY, "08:00"),
+      rec("c1", "navigation_watch", "end", DAY, "10:00"),
     ];
     const intervals = buildIntervals(records);
-    expect(intervals.length).toBe(2);
+    expect(intervals).toHaveLength(2);
+    // 荷役の終了打刻で航海当直が閉じられていないこと
+    const watch = intervals.find((iv) => iv.workCategory === "navigation_watch")!;
+    expect(watch.endAt?.getHours()).toBe(10);
     const s = evaluateDaily({ crewMemberId: "c1", date: DAY, records, now: NOW, ruleSet: rules });
+    expect(s.workedByCategory.navigation_watch).toBe(600); // 00:00-10:00
+    expect(s.workedByCategory.cargo).toBe(240); // 04:00-08:00（当直と重複）
+  });
+
+  it("並列作業の労働時間合計は和集合で数える（同時刻を二重に数えない）", () => {
+    const records = [
+      rec("c1", "navigation_watch", "start", DAY, "08:00"),
+      rec("c1", "cargo", "start", DAY, "10:00"),
+      rec("c1", "navigation_watch", "end", DAY, "12:00"),
+      rec("c1", "cargo", "end", DAY, "14:00"),
+    ];
+    const s = evaluateDaily({ crewMemberId: "c1", date: DAY, records, now: NOW, ruleSet: rules });
+    // 内訳は各240分だが、実働は 08:00-14:00 の 6時間
     expect(s.workedByCategory.navigation_watch).toBe(240);
     expect(s.workedByCategory.cargo).toBe(240);
+    expect(s.workedMinutes).toBe(360);
+    // 休息も重複を除いた補集合で数える（当日 24h - 6h = 18h）
+    expect(s.restTotalMinutes + s.workedMinutes).toBe(24 * 60);
+  });
+
+  it("同一種別の開始が続いた場合は連続扱い（合計は変わらない）", () => {
+    const records = [
+      rec("c1", "cargo", "start", DAY, "08:00"),
+      rec("c1", "cargo", "start", DAY, "09:00"), // 打ち忘れ後の再開始
+      rec("c1", "cargo", "end", DAY, "12:00"),
+    ];
+    const s = evaluateDaily({ crewMemberId: "c1", date: DAY, records, now: NOW, ruleSet: rules });
+    expect(s.workedMinutes).toBe(240); // 08:00-12:00
+  });
+
+  it("複数の作業を同時に進行中にできる（進行中区間が2つ）", () => {
+    const now = startOfLocalDay(DAY);
+    now.setHours(12, 0, 0, 0);
+    const records = [
+      rec("c1", "navigation_watch", "start", DAY, "08:00"),
+      rec("c1", "standby", "start", DAY, "10:00"),
+    ];
+    const open = buildIntervals(records).filter((iv) => iv.endAt === null);
+    expect(open).toHaveLength(2);
+    const s = evaluateDaily({ crewMemberId: "c1", date: DAY, records, now, ruleSet: rules });
+    expect(s.hasOpenInterval).toBe(true);
+    expect(s.workedMinutes).toBe(240); // 08:00-12:00 の和集合
   });
 
   it("日跨ぎ区間は日ごとにクリップして集計する", () => {

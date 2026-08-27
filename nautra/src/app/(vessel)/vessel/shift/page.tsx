@@ -4,8 +4,8 @@ import Link from "next/link";
 import { useMemo } from "react";
 import { addDays, startOfLocalDay, ymdLocal } from "@/domain/labor-law/evaluate";
 import { buildIntervals } from "@/domain/labor-law/intervals";
-import type { WorkCategory } from "@/domain/labor-law/types";
 import { t } from "@/i18n/ja";
+import { SHIFT_TO_WORK } from "@/lib/assigned-work";
 import { cn } from "@/lib/cn";
 import { CREW_MEMBERS, personName } from "@/lib/crew";
 import { fmtDateLabel, fmtDateTime, fmtTime } from "@/lib/format";
@@ -23,15 +23,6 @@ const SHIFT_COLOR: Record<ShiftType, "primary" | "default"> = {
   port_watch: "default",
   cargo_watch: "primary",
   off: "default",
-};
-
-/** シフト種別 → 実績（打刻）として対応づける作業種別 */
-const SHIFT_TO_WORK: Record<ShiftType, WorkCategory[]> = {
-  navigation_watch: ["navigation_watch"],
-  engine_watch: ["maintenance", "other"],
-  port_watch: ["navigation_watch", "other"],
-  cargo_watch: ["cargo", "standby"],
-  off: [],
 };
 
 function shiftWindow(p: ShiftPlanPayload): [Date, Date] | null {

@@ -22,12 +22,16 @@ export const VESSEL_ROLES: VesselRole[] = [
 /**
  * 権限キー。
  * - punch/view_own_*: 本人の記録に対する権限（全ロール共通）
+ * - punch/punch_after_entry: 自分の打刻と事後入力・差戻し再入力（全ロール）
+ * - adjust_crew_punch: 他船員の打刻の調整（差戻し依頼。船長のみ。直接修正は不可）
  * - approve_labor   : 日次労務の承認・差戻し（船長のみ。11.2）
  * - view_all_crew   : 他船員の記録の参照・対象船員の切替（船長のみ）
  * - write_*         : 各記録の作成（職掌の主担当のみ。担当外は参照のみ）
  */
 export type Permission =
   | "punch"
+  | "punch_after_entry"
+  | "adjust_crew_punch"
   | "view_own_ledger"
   | "approve_labor"
   | "view_all_crew"
@@ -40,6 +44,8 @@ export type Permission =
 
 const COMMON: Permission[] = [
   "punch",
+  // 事後入力・差戻し再入力は「自分の記録」に対して全ロールが行える（11.2「修正は本人差戻しのみ」）
+  "punch_after_entry",
   "view_own_ledger",
   "write_checklist",
   "write_work_report",
@@ -51,6 +57,8 @@ export const ROLE_PERMISSIONS: Record<VesselRole, Permission[]> = {
   // 船長: 船内の全機能。日次労務の承認・差戻しと全船員の参照は船長のみ（11.2）
   captain: [
     ...COMMON,
+    // 他船員の打刻を参照し、誤りは本人へ差戻して調整を依頼する（直接修正はしない）
+    "adjust_crew_punch",
     "approve_labor",
     "view_all_crew",
     "write_logbook",

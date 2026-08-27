@@ -131,7 +131,7 @@ export default function ApprovePage() {
       <PermissionGate
         permission="approve_labor"
         fallbackTitle="日次労務の承認・差戻しは船長のみが行えます"
-        fallbackNote="自分の記録の確認は「02 本日の集計」、打刻の訂正は「01 履歴・後から打刻」から行えます（基本設計書 11.2）。"
+        fallbackNote="自分の記録の確認は「02 本日の集計」、打刻の訂正は「01 打刻」の履歴・事後入力から行えます（基本設計書 11.2）。"
       >
       <p className="text-sm text-foreground-600">
         承認者は打刻を修正できません。誤りがある場合は本人へ差戻し、本人が再入力します。
