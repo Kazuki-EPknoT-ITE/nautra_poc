@@ -2,6 +2,9 @@
 
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
+import type { Permission } from "@/domain/authz/roles";
+import { can } from "@/domain/authz/roles";
+import { useSessionCrew } from "@/lib/vessel-hooks";
 import { Tab, Tabs } from "@/ui";
 
 /**
@@ -11,7 +14,8 @@ import { Tab, Tabs } from "@/ui";
 export interface FeatureGroup {
   no: string;
   title: string;
-  tabs: { href: string; label: string }[];
+  /** permission を持つタブは、その権限があるロールにだけ表示する（11.2） */
+  tabs: { href: string; label: string; permission?: Permission }[];
 }
 
 export const FEATURE_GROUPS: Record<string, FeatureGroup> = {
@@ -25,7 +29,7 @@ export const FEATURE_GROUPS: Record<string, FeatureGroup> = {
     title: "労務管理記録簿",
     tabs: [
       { href: "/vessel/ledger", label: "本日の集計" },
-      { href: "/vessel/approve", label: "船内承認（船長）" },
+      { href: "/vessel/approve", label: "船内承認（船長）", permission: "approve_labor" },
     ],
   },
   "03": {
@@ -66,7 +70,10 @@ export function GroupHeader({
   right?: ReactNode;
 }) {
   const pathname = usePathname();
+  const session = useSessionCrew();
   const g = FEATURE_GROUPS[group];
+  // 権限のないサブ画面は導線ごと出さない（開いても PermissionGate で止まる）
+  const tabs = g.tabs.filter((tab) => !tab.permission || (session && can(session.role, tab.permission)));
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -79,11 +86,11 @@ export function GroupHeader({
         </h1>
         {right}
       </div>
-      {g.tabs.length > 1 ? (
+      {tabs.length > 1 ? (
         <Tabs
           aria-label={`${g.title} のサブメニュー`}
           selectedKey={pathname}
-          items={g.tabs}
+          items={tabs}
           radius="full"
           classNames={{
             tabList: "glass-inset gap-1 p-1",
