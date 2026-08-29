@@ -122,8 +122,11 @@ export default function VesselMenuPage() {
   // 機器ごとの最新状態が不良のものだけを数える（保守画面のボードと同じ導出。二重実装しない）
   const openDefects = openMaintenanceIssues(maintenance).filter((m) => m.condition === "defect").length;
 
+  // 当直の変更通知は本人の分だけ数える（他船員の予定は本人にしか表示しない）
+  const myUnread = session ? unread.filter((u) => u.crewMemberId === session.id) : [];
+
   const badges: Record<string, string | undefined> = {
-    "04": unread.length > 0 ? `変更通知 ${unread.length}件` : undefined,
+    "04": myUnread.length > 0 ? `変更 ${myUnread.length}件` : undefined,
     "05": openDefects > 0 ? `不良 ${openDefects}件` : undefined,
   };
 

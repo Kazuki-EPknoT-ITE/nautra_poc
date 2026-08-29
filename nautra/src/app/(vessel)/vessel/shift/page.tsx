@@ -1,195 +1,272 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
-import { addDays, startOfLocalDay, ymdLocal } from "@/domain/labor-law/evaluate";
+import { useMemo, useState } from "react";
+import { addDays, ymdLocal } from "@/domain/labor-law/evaluate";
 import { buildIntervals } from "@/domain/labor-law/intervals";
 import { t } from "@/i18n/ja";
 import { SHIFT_TO_WORK } from "@/lib/assigned-work";
 import { cn } from "@/lib/cn";
-import { CREW_MEMBERS, personName } from "@/lib/crew";
+import { personName } from "@/lib/crew";
 import { fmtDateLabel, fmtDateTime, fmtTime } from "@/lib/format";
+import {
+  describeActual,
+  describeShiftChange,
+  describeWatchStatus,
+  shiftWindow,
+  watchStatus,
+} from "@/lib/shift-plain";
 import { acknowledgeShiftChanges } from "@/lib/vessel-actions";
-import { useAllRecords, useNowTick, useActiveCrew, useShiftPlans } from "@/lib/vessel-hooks";
-import { STATION_SCENARIOS, type ShiftPlanPayload, type ShiftType } from "@/sync-protocol/records";
-import { Accordion, AccordionItem, Button, Card, CardBody, CardHeader, Chip, Divider } from "@/ui";
-import { CrewPicker } from "../_components/crew-picker";
+import {
+  useCrewRecords,
+  useNowTick,
+  usePermission,
+  useSessionCrew,
+  useShiftPlans,
+} from "@/lib/vessel-hooks";
+import { STATION_SCENARIOS, type ShiftPlanPayload } from "@/sync-protocol/records";
+import { Button, Card, CardBody, CardHeader, Chip, Divider } from "@/ui";
+import { CrewWatchTable } from "../_components/crew-watch-table";
 import { GroupHeader } from "../_components/group-header";
-
-/** 当直種別は白黒基調。種別は文言で区別する（色は情報を担わない） */
-const SHIFT_COLOR: Record<ShiftType, "primary" | "default"> = {
-  navigation_watch: "primary",
-  engine_watch: "default",
-  port_watch: "default",
-  cargo_watch: "primary",
-  off: "default",
-};
-
-function shiftWindow(p: ShiftPlanPayload): [Date, Date] | null {
-  if (!p.date || !p.from || !p.to) return null;
-  const s = startOfLocalDay(p.date);
-  const e = startOfLocalDay(p.date);
-  const [sh, sm] = p.from.split(":").map(Number);
-  const [eh, em] = p.to.split(":").map(Number);
-  s.setHours(sh, sm, 0, 0);
-  e.setHours(eh, em, 0, 0);
-  if (e <= s) e.setDate(e.getDate() + 1);
-  return [s, e];
-}
 
 /**
  * V-08 シフト・配置表。当直シフト・通常配置表の参照（編集は陸上 S-10）と変更通知。
- * 計画は陸上正本（Pull で配信）、実績は船内の打刻（01）として別レコードに保持し、
- * 画面上で計画/実績を対比する（基本設計書 8.3「計画・実績分離」）。
+ *
+ * - **当直はサインイン中の本人の分だけ**を表示する。全員の当直表は船長（view_all_crew）のみ。
+ * - **通常配置表は船内全員の持ち場**を表示する（非常配置は全員が互いの持ち場を知る必要がある）。
+ *   陸上の変更は SSE 通知（`useLiveSync`）で即座に反映される。
+ * - 計画は陸上正本（Pull で配信）、実績は船内の打刻（01）として別レコードに保持し、
+ *   画面上で計画/実績を対比する（基本設計書 8.3「計画・実績分離」）。
  */
 export default function ShiftPage() {
-  const { crew, select: selectCrew, canSwitch } = useActiveCrew();
+  const session = useSessionCrew();
+  const canViewAll = usePermission("view_all_crew"); // 全員の当直表は船長のみ
   const { watches, stations, changes, unread, byId, ackAt } = useShiftPlans();
-  const records = useAllRecords();
-  const now = useNowTick(60_000);
+  const now = useNowTick(30_000);
   const today = ymdLocal(now);
+  const selfId = session?.id ?? "";
+  const records = useCrewRecords(selfId); // 実績は本人の打刻のみ読む
+  const [showAll, setShowAll] = useState(false);
 
-  const days = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(today, i - 1)), [today]);
+  /** 本人の当直（本日） */
+  const myToday = useMemo(
+    () =>
+      watches
+        .filter((w) => w.crewMemberId === selfId && w.date === today)
+        .sort((a, b) => (a.from ?? "").localeCompare(b.from ?? "")),
+    [watches, selfId, today],
+  );
+  const status = useMemo(() => watchStatus(myToday, now), [myToday, now]);
+  const plain = describeWatchStatus(status);
 
-  const table = useMemo(() => {
-    const map = new Map<string, ShiftPlanPayload[]>();
-    for (const w of watches) {
-      if (!w.date) continue;
-      const key = `${w.crewMemberId}|${w.date}`;
-      map.set(key, [...(map.get(key) ?? []), w]);
-    }
-    for (const arr of map.values()) arr.sort((a, b) => (a.from ?? "").localeCompare(b.from ?? ""));
-    return map;
-  }, [watches]);
+  /** 予定ごとの実績（打刻）対比 */
+  const intervals = useMemo(() => buildIntervals(records), [records]);
+  const withActual = useMemo(
+    () =>
+      myToday.map((plan) => {
+        const win = shiftWindow(plan);
+        const cats = plan.shiftType ? SHIFT_TO_WORK[plan.shiftType] : [];
+        const matched = win
+          ? intervals.filter((iv) => {
+              const ivEnd = iv.endAt ?? now;
+              return iv.startAt < win[1] && ivEnd > win[0] && cats.includes(iv.workCategory);
+            })
+          : [];
+        return {
+          plan,
+          matched,
+          started: win ? now >= win[0] : false,
+          onDuty: win ? now >= win[0] && now < win[1] : false,
+        };
+      }),
+    [myToday, intervals, now],
+  );
+
+  /** 本人の今週の当直（昨日〜6日後） */
+  const myWeek = useMemo(() => {
+    const days = Array.from({ length: 7 }, (_, i) => addDays(today, i - 1));
+    return days.map((d) => ({
+      date: d,
+      plans: watches
+        .filter((w) => w.crewMemberId === selfId && w.date === d)
+        .sort((a, b) => (a.from ?? "").localeCompare(b.from ?? "")),
+    }));
+  }, [watches, selfId, today]);
 
   const changedIds = useMemo(() => new Set(changes.map((c) => c.id)), [changes]);
 
-  // 選択船員の本日シフトと実績（打刻区間）の対比
-  const myToday = useMemo(() => {
-    const plans = table.get(`${crew.id}|${today}`) ?? [];
-    const intervals = buildIntervals(records.filter((r) => r.crewMemberId === crew.id));
-    return plans.map((p) => {
-      const win = shiftWindow(p);
-      const cats = p.shiftType ? SHIFT_TO_WORK[p.shiftType] : [];
-      const matched = win
-        ? intervals.filter((iv) => {
-            const ivEnd = iv.endAt ?? now;
-            const overlaps = iv.startAt < win[1] && ivEnd > win[0];
-            return overlaps && cats.includes(iv.workCategory);
-          })
-        : [];
-      const started = win ? now >= win[0] : false;
-      return { plan: p, matched, started };
-    });
-  }, [table, crew.id, today, records, now]);
+  /** 変更通知は本人の分のみ（船長は全員分） */
+  const myChanges = useMemo(
+    () => (canViewAll && showAll ? changes : changes.filter((c) => c.crewMemberId === selfId)),
+    [changes, canViewAll, showAll, selfId],
+  );
+  const myUnread = useMemo(
+    () => (canViewAll && showAll ? unread : unread.filter((c) => c.crewMemberId === selfId)),
+    [unread, canViewAll, showAll, selfId],
+  );
+
+  /** 通常配置表: 自分の持ち場（場面別）と船内全員の配置 */
+  const myStations = useMemo(
+    () => stations.filter((s) => s.crewMemberId === selfId),
+    [stations, selfId],
+  );
 
   return (
     <div className="flex flex-col gap-4">
       <GroupHeader
         group="04"
         right={
-          <Chip size="sm" variant="flat" color={unread.length > 0 ? "danger" : "default"} radius="sm">
-            変更通知 {unread.length}件
-          </Chip>
+          myUnread.length > 0 ? (
+            <Chip size="sm" variant="flat" color="warning" radius="sm">
+              変更 {myUnread.length}件
+            </Chip>
+          ) : null
         }
       />
-      {canSwitch ? <CrewPicker selected={crew} onSelect={selectCrew} /> : null}
 
-      {/* 本日の自分の当直（計画 vs 実績） */}
+      {/* いまの状態（初めてでも一目で分かる大きな表示） */}
       <Card shadow="none" className="glass-tile">
-        <CardHeader className="flex items-center justify-between">
-          <span className="font-bold">本日の当直 ─ {crew.name}</span>
-          <span className="text-sm text-foreground-600">{fmtDateLabel(today)}</span>
-        </CardHeader>
+        <CardBody className="flex flex-col gap-3 p-5">
+          <div className="flex flex-wrap items-baseline gap-3">
+            <span aria-hidden="true" className="text-3xl">
+              {plain.icon}
+            </span>
+            <span className="text-2xl font-bold">{plain.title}</span>
+            <span className="ml-auto text-sm text-foreground-600">
+              {session ? `${session.name}（${session.position}）` : "—"} / {fmtDateLabel(today)}
+            </span>
+          </div>
+          {plain.detail ? <p className="text-lg text-foreground-600">{plain.detail}</p> : null}
+          {status.state === "on_duty" && status.current ? (
+            <div className="glass-inset flex flex-wrap items-center gap-3 p-4">
+              <span className="tabular-nums text-3xl font-bold">
+                {status.current.plan.from}–{status.current.plan.to}
+              </span>
+              <span className="text-lg">
+                {status.current.plan.shiftType ? t.shiftType[status.current.plan.shiftType] : ""}
+              </span>
+              <Button
+                as={Link}
+                href="/vessel/punch"
+                color="primary"
+                radius="lg"
+                className="ml-auto min-h-12 px-6 text-base font-bold"
+              >
+                打刻する
+              </Button>
+            </div>
+          ) : null}
+        </CardBody>
+      </Card>
+
+      {/* 本日の予定と打刻 */}
+      <Card shadow="none" className="glass-tile">
+        <CardHeader className="font-bold">本日の当直（あなたの分）</CardHeader>
         <Divider />
         <CardBody className="flex flex-col gap-2">
-          {myToday.length === 0 ? (
-            <p className="text-foreground-600">本日の当直予定はありません。</p>
+          {withActual.length === 0 ? (
+            <p className="text-foreground-600">本日の当直はありません。</p>
           ) : (
-            myToday.map(({ plan, matched, started }) => (
-              <div key={plan.id} className="glass-inset flex flex-wrap items-center gap-2 p-3">
-                <Chip variant="flat" color={plan.shiftType ? SHIFT_COLOR[plan.shiftType] : "default"} radius="sm">
-                  {plan.shiftType ? t.shiftType[plan.shiftType] : "—"}
-                </Chip>
-                <span className="tabular-nums text-xl font-bold">
-                  {plan.from}–{plan.to}
-                </span>
-                {changedIds.has(plan.id) ? (
-                  <Chip size="sm" variant="flat" color="danger" radius="sm">
-                    変更あり
-                  </Chip>
-                ) : null}
-                <span className="ml-auto text-sm">
-                  実績（打刻）:{" "}
-                  {matched.length > 0 ? (
-                    <span className="tabular-nums font-semibold">
-                      ✓ {matched.map((iv) => `${fmtTime(iv.startAt.toISOString())}–${iv.endAt ? fmtTime(iv.endAt.toISOString()) : "作業中"}`).join(", ")}
-                    </span>
-                  ) : started ? (
-                    <span className="font-semibold text-warning-700">⚠ 未打刻</span>
-                  ) : (
-                    <span className="text-foreground-600">開始前</span>
+            withActual.map(({ plan, matched, started, onDuty }) => (
+              <div
+                key={plan.id}
+                className={cn("glass-inset flex flex-col gap-1 p-4", onDuty && "border-2 border-primary")}
+              >
+                <div className="flex flex-wrap items-center gap-3">
+                  <span className="tabular-nums text-2xl font-bold">
+                    {plan.from}–{plan.to}
+                  </span>
+                  <span className="text-lg">{plan.shiftType ? t.shiftType[plan.shiftType] : "—"}</span>
+                  {onDuty ? (
+                    <Chip size="sm" color="primary" variant="solid" radius="sm">
+                      ● 当直中
+                    </Chip>
+                  ) : null}
+                  {changedIds.has(plan.id) ? (
+                    <Chip size="sm" variant="flat" color="warning" radius="sm">
+                      ✎ 変更されました
+                    </Chip>
+                  ) : null}
+                </div>
+                <p
+                  className={cn(
+                    "text-base",
+                    matched.length > 0
+                      ? "text-foreground-600"
+                      : onDuty
+                        ? "font-semibold text-warning-700"
+                        : "text-foreground-600",
                   )}
-                </span>
+                >
+                  {matched.length > 0 ? "✓ " : onDuty ? "⚠ " : "－ "}
+                  {describeActual(matched.length, started, onDuty)}
+                  {matched.length > 0 ? (
+                    <span className="ml-2 tabular-nums">
+                      {matched
+                        .map(
+                          (iv) =>
+                            `${fmtTime(iv.startAt.toISOString())}–${iv.endAt ? fmtTime(iv.endAt.toISOString()) : "作業中"}`,
+                        )
+                        .join(", ")}
+                    </span>
+                  ) : null}
+                </p>
               </div>
             ))
           )}
           <p className="text-xs text-foreground-600">
-            計画は陸上の配信値、実績は船内の打刻（01）です。両者は別レコードとして保持され、計画を実績で上書きしません。
+            予定は陸上が決めた計画、実績はあなたの打刻（01）です。計画を実績で上書きしません。
           </p>
         </CardBody>
       </Card>
 
       {/* 変更通知 */}
-      <Card shadow="none" className={cn("glass-tile", unread.length > 0 && "border-2 border-danger")}>
-        <CardHeader className="flex items-center justify-between">
-          <span className="font-bold">陸上からの変更通知</span>
-          {unread.length > 0 ? (
-            <Button size="sm" color="danger" variant="solid" className="min-h-10" onPress={() => void acknowledgeShiftChanges()}>
-              {unread.length}件を確認済みにする
+      <Card shadow="none" className={cn("glass-tile", myUnread.length > 0 && "border-2 border-warning")}>
+        <CardHeader className="flex flex-wrap items-center justify-between gap-2">
+          <span className="font-bold">陸上からのお知らせ（予定の変更）</span>
+          {myUnread.length > 0 ? (
+            <Button
+              size="sm"
+              color="primary"
+              className="min-h-10"
+              onPress={() => void acknowledgeShiftChanges()}
+            >
+              {myUnread.length}件を確認しました
             </Button>
           ) : (
             <span className="text-sm text-foreground-600">
-              未読なし{ackAt ? `（確認 ${fmtDateTime(ackAt)}）` : ""}
+              新しいお知らせはありません{ackAt ? `（最終確認 ${fmtDateTime(ackAt)}）` : ""}
             </span>
           )}
         </CardHeader>
         <Divider />
         <CardBody className="flex flex-col gap-2">
-          {changes.length === 0 ? (
-            <p className="text-foreground-600">変更通知はありません。</p>
+          {myChanges.length === 0 ? (
+            <p className="text-foreground-600">予定の変更はありません。</p>
           ) : (
-            changes.slice(0, 10).map((c) => {
+            myChanges.slice(0, 10).map((c) => {
               const prev = c.supersedesId ? byId.get(c.supersedesId) : undefined;
-              const isUnread = unread.some((u) => u.id === c.id);
+              const isUnread = myUnread.some((u) => u.id === c.id);
               return (
-                <div key={c.id} className="glass-inset flex flex-col gap-1 p-3">
+                <div key={c.id} className="glass-inset flex flex-col gap-1 p-4">
                   <div className="flex flex-wrap items-center gap-2">
                     {isUnread ? (
-                      <Chip size="sm" color="danger" variant="solid" radius="sm">
-                        未読
+                      <Chip size="sm" color="warning" variant="flat" radius="sm">
+                        未確認
                       </Chip>
                     ) : null}
-                    <span className="font-semibold">{personName(c.crewMemberId)}</span>
-                    <span>{c.date ? fmtDateLabel(c.date) : ""}</span>
-                    <span className="tabular-nums">
-                      {prev?.from && prev?.to ? (
-                        <>
-                          <span className="line-through text-foreground-600">
-                            {prev.shiftType ? t.shiftType[prev.shiftType] : ""} {prev.from}–{prev.to}
-                          </span>{" "}
-                          →{" "}
-                        </>
-                      ) : null}
-                      <span className="font-bold">
-                        {c.shiftType ? t.shiftType[c.shiftType] : ""} {c.from}–{c.to}
-                      </span>
-                    </span>
-                    <span className="ml-auto text-xs text-foreground-600">
-                      配信 {fmtDateTime(c.publishedAt)} / {personName(c.publishedBy)}
+                    {c.crewMemberId !== selfId ? (
+                      <span className="font-semibold">{personName(c.crewMemberId)}</span>
+                    ) : null}
+                    <span className="text-base font-semibold">
+                      {c.date ? `${fmtDateLabel(c.date)}: ` : ""}
+                      {describeShiftChange(c, prev)}
                     </span>
                   </div>
-                  {c.changeNote ? <p className="text-sm text-foreground-600">{c.changeNote}</p> : null}
+                  {c.changeNote ? <p className="text-sm text-foreground-600">理由: {c.changeNote}</p> : null}
+                  <p className="text-xs text-foreground-600">
+                    陸上 {personName(c.publishedBy)} が {fmtDateTime(c.publishedAt)} に配信
+                  </p>
                 </div>
               );
             })
@@ -197,102 +274,149 @@ export default function ShiftPage() {
         </CardBody>
       </Card>
 
-      {/* 週間当直表 */}
+      {/* 通常配置表: あなたの持ち場 */}
       <Card shadow="none" className="glass-tile">
-        <CardHeader className="font-bold">週間当直表（昨日〜6日後）</CardHeader>
+        <CardHeader className="font-bold">あなたの持ち場（通常配置表）</CardHeader>
         <Divider />
-        <CardBody className="overflow-x-auto p-0">
-          <table className="w-full min-w-[720px] text-sm">
-            <thead>
-              <tr className="border-b border-[var(--glass-border)] text-left text-foreground-600">
-                <th className="px-3 py-2 font-medium">船員</th>
-                {days.map((d) => (
-                  <th
-                    key={d}
-                    className={cn("px-2 py-2 text-center font-medium tabular-nums", d === today && "bg-content2 text-primary")}
-                  >
-                    {fmtDateLabel(d)}
-                    {d === today ? "（本日）" : ""}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {CREW_MEMBERS.map((c) => (
-                <tr key={c.id} className={cn("border-b border-[var(--glass-border)] last:border-b-0", c.id === crew.id && "bg-content2/60")}>
-                  <td className="px-3 py-2">
-                    <p className="font-semibold">{c.name}</p>
-                    <p className="text-xs text-foreground-600">{c.position}</p>
-                  </td>
-                  {days.map((d) => {
-                    const cell = table.get(`${c.id}|${d}`) ?? [];
-                    return (
-                      <td key={d} className={cn("px-2 py-2 align-top", d === today && "bg-content2/40")}>
-                        <div className="flex flex-col gap-1">
-                          {cell.length === 0 ? (
-                            <span className="text-foreground-300">–</span>
-                          ) : (
-                            cell.map((p) => (
-                              <span
-                                key={p.id}
-                                className={cn(
-                                  "rounded-small px-1.5 py-0.5 text-xs tabular-nums",
-                                  p.shiftType === "navigation_watch" && "bg-primary/20 text-primary",
-                                  p.shiftType === "engine_watch" && "bg-content3 text-foreground",
-                                  p.shiftType === "cargo_watch" && "bg-foreground/10 text-foreground",
-                                  p.shiftType === "port_watch" && "bg-content3 text-foreground",
-                                  p.shiftType === "off" && "bg-content3 text-foreground-600",
-                                  changedIds.has(p.id) && "ring-1 ring-danger",
-                                )}
-                              >
-                                {p.shiftType ? t.shiftType[p.shiftType].replace("当直", "") : ""} {p.from}–{p.to}
-                                {changedIds.has(p.id) ? " ✎" : ""}
-                              </span>
-                            ))
-                          )}
-                        </div>
-                      </td>
-                    );
-                  })}
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <CardBody className="flex flex-col gap-2">
+          {STATION_SCENARIOS.map((sc) => {
+            const mine = myStations.find((s) => s.scenario === sc);
+            return (
+              <div key={sc} className="glass-inset flex flex-wrap items-center gap-3 p-4">
+                <span className="w-44 shrink-0 text-foreground-600">{t.stationScenario[sc]}</span>
+                <span className="text-xl font-bold">{mine?.station ?? "配置なし"}</span>
+                {mine?.duty ? <span className="text-foreground-600">{mine.duty}</span> : null}
+                {mine && changedIds.has(mine.id) ? (
+                  <Chip size="sm" variant="flat" color="warning" radius="sm">
+                    ✎ 変更されました
+                  </Chip>
+                ) : null}
+              </div>
+            );
+          })}
         </CardBody>
       </Card>
 
-      {/* 通常配置表 */}
+      {/* 通常配置表: 船内全員 */}
       <Card shadow="none" className="glass-tile">
-        <CardHeader className="font-bold">通常配置表</CardHeader>
+        <CardHeader className="font-bold">船内の配置（全員）</CardHeader>
         <Divider />
-        <CardBody className="p-0">
-          <Accordion selectionMode="multiple" defaultExpandedKeys={["arrival_departure"]}>
-            {STATION_SCENARIOS.map((sc) => (
-              <AccordionItem key={sc} aria-label={t.stationScenario[sc]} title={t.stationScenario[sc]}>
-                <table className="w-full text-sm">
-                  <tbody>
-                    {stations
-                      .filter((s) => s.scenario === sc)
-                      .map((s) => (
-                        <tr key={s.id} className={cn("border-b border-[var(--glass-border)] last:border-b-0", s.crewMemberId === crew.id && "bg-content2/60")}>
-                          <td className="px-2 py-2 font-semibold">{personName(s.crewMemberId)}</td>
-                          <td className="px-2 py-2">{s.station}</td>
-                          <td className="px-2 py-2 text-foreground-600">{s.duty}</td>
-                        </tr>
-                      ))}
-                  </tbody>
-                </table>
-              </AccordionItem>
-            ))}
-          </Accordion>
+        <CardBody className="flex flex-col gap-4">
+          {STATION_SCENARIOS.map((sc) => (
+            <div key={sc} className="flex flex-col gap-1">
+              <h3 className="font-bold text-foreground-600">{t.stationScenario[sc]}</h3>
+              <StationRows
+                rows={stations.filter((s) => s.scenario === sc)}
+                selfId={selfId}
+                changedIds={changedIds}
+              />
+            </div>
+          ))}
+          <p className="text-xs text-foreground-600">
+            配置は陸上が変更すると、この画面にすぐ反映されます（変更された行には「変更」が付きます）。
+          </p>
+        </CardBody>
+      </Card>
+
+      {/* 今週の当直（本人。船長は全員表示に切替可） */}
+      <Card shadow="none" className="glass-tile">
+        <CardHeader className="flex flex-wrap items-center justify-between gap-2">
+          <span className="font-bold">今週の当直{canViewAll && showAll ? "（全員）" : "（あなたの分）"}</span>
+          {canViewAll ? (
+            <Button
+              size="sm"
+              variant="bordered"
+              className="min-h-10 border-[var(--glass-border-strong)]"
+              onPress={() => setShowAll((v) => !v)}
+            >
+              {showAll ? "自分の分だけ表示" : "全員の当直表を見る"}
+            </Button>
+          ) : null}
+        </CardHeader>
+        <Divider />
+        <CardBody className={canViewAll && showAll ? "p-0" : undefined}>
+          {canViewAll && showAll ? (
+            <CrewWatchTable watches={watches} today={today} changedIds={changedIds} selfId={selfId} />
+          ) : (
+            <div className="flex flex-col gap-1">
+              {myWeek.map(({ date, plans }) => (
+                <div
+                  key={date}
+                  className={cn(
+                    "flex flex-wrap items-center gap-3 rounded-medium px-3 py-2",
+                    date === today && "glass-inset font-semibold",
+                  )}
+                >
+                  <span className="w-28 shrink-0 tabular-nums">
+                    {fmtDateLabel(date)}
+                    {date === today ? "（本日）" : ""}
+                  </span>
+                  {plans.length === 0 ? (
+                    <span className="text-foreground-600">当直なし</span>
+                  ) : (
+                    plans.map((p) => (
+                      <span key={p.id} className="tabular-nums">
+                        {p.shiftType ? t.shiftType[p.shiftType] : ""} {p.from}–{p.to}
+                        {changedIds.has(p.id) ? (
+                          <span className="ml-1 text-warning-700">✎ 変更</span>
+                        ) : null}
+                      </span>
+                    ))
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </CardBody>
       </Card>
 
       <p className="text-xs text-foreground-600">
-        シフト・配置表の作成と変更は陸上アプリ（S-10）で行います。船内は参照のみです。
-        デモ: <Link href="/shore/shifts" className="text-primary underline-offset-2 hover:underline">陸上でシフトを変更する →</Link>
-        （変更は同期で本画面に届き、変更通知として表示されます）
+        当直・配置の作成と変更は陸上アプリ（S-10）で行います。船内は参照のみです。
+        デモ:{" "}
+        <Link href="/shore/shifts" className="text-primary underline-offset-2 hover:underline">
+          陸上で当直・配置を変更する →
+        </Link>
       </p>
     </div>
+  );
+}
+
+/** 場面ごとの配置一覧（自分の行は「あなた」と明示する） */
+function StationRows({
+  rows,
+  selfId,
+  changedIds,
+}: {
+  rows: ShiftPlanPayload[];
+  selfId: string;
+  changedIds: Set<string>;
+}) {
+  if (rows.length === 0) return <p className="text-sm text-foreground-600">配置の登録がありません。</p>;
+  return (
+    <table className="w-full text-sm">
+      <tbody>
+        {rows.map((s) => (
+          <tr
+            key={s.id}
+            className={cn(
+              "border-b border-[var(--glass-border)] last:border-b-0",
+              s.crewMemberId === selfId && "bg-content2/60",
+            )}
+          >
+            <td className="px-2 py-2 font-semibold">
+              {personName(s.crewMemberId)}
+              {s.crewMemberId === selfId ? (
+                <span className="ml-1 text-xs text-foreground-600">（あなた）</span>
+              ) : null}
+            </td>
+            <td className="px-2 py-2">{s.station}</td>
+            <td className="px-2 py-2 text-foreground-600">{s.duty}</td>
+            <td className="px-2 py-2 text-right">
+              {changedIds.has(s.id) ? <span className="text-warning-700">✎ 変更</span> : null}
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
   );
 }

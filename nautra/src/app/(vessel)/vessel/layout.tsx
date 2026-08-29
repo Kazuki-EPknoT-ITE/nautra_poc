@@ -7,6 +7,7 @@ import { PRODUCT_NAME, t } from "@/i18n/ja";
 import { DEMO_VESSEL } from "@/lib/crew";
 import { useSessionCrew, useSyncBadge } from "@/lib/vessel-hooks";
 import { signOut } from "@/lib/vessel-session";
+import { useLiveSync } from "@/lib/vessel-live";
 import { ensureInitialSync, isOfflineSim, syncNow } from "@/lib/vessel-sync";
 import {
   AppShell,
@@ -96,6 +97,9 @@ export default function VesselLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const isMenu = pathname === "/vessel";
   const isLogin = pathname === "/vessel/login";
+
+  // 陸上の変更を待たずに反映する通知経路（届かない環境では下の定期同期で追いつく）
+  useLiveSync();
 
   useEffect(() => {
     void ensureInitialSync();

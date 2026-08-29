@@ -8,6 +8,7 @@ import {
   shiftPlanPayloadSchema,
   type ShiftPlanPayload,
   type ShiftType,
+  type StationScenario,
 } from "@/sync-protocol/records";
 import { getRecordsOfKind, pushToStore } from "./store";
 
@@ -45,6 +46,73 @@ export function getShiftWeek(now = new Date()): ShiftWeek {
     .filter((p) => p.supersedesId)
     .sort((a, b) => b.publishedAt.localeCompare(a.publishedAt));
   return { today, days, cells, changes, conflicts: findSupersedeConflicts(all) };
+}
+
+/** 通常配置表（船内の持ち場）。場面ごとに全船員分を返す */
+export function getStationPlans(): Record<string, ShiftPlanPayload[]> {
+  const effective = latestBySupersedes(getRecordsOfKind("shift_plan")).filter(
+    (p) => p.planType === "station",
+  );
+  const byScenario: Record<string, ShiftPlanPayload[]> = {};
+  for (const p of effective) {
+    if (!p.scenario) continue;
+    (byScenario[p.scenario] ??= []).push(p);
+  }
+  return byScenario;
+}
+
+export interface PublishStationChangeInput {
+  /** 置き換える既存の配置ID */
+  supersedesId: string;
+  station: string;
+  duty: string;
+  changeNote?: string;
+  changeId?: string;
+}
+
+/**
+ * 通常配置表の変更を配信する（当直と同じく追記のみ・陸上正本）。
+ * 船内は SSE 通知 → Pull で即座に新しい持ち場を表示する。
+ */
+export function publishStationChange(
+  input: PublishStationChangeInput,
+  now = new Date(),
+): ShiftPlanPayload {
+  const all = getRecordsOfKind("shift_plan");
+  const original = all.find((p) => p.id === input.supersedesId);
+  if (!original || original.planType !== "station" || !original.scenario) {
+    throw new Error("対象の配置が見つかりません");
+  }
+  if (!latestBySupersedes(all).some((p) => p.id === original.id)) {
+    throw new Error("この配置は既に変更済みです。画面を更新して最新の配置を選び直してください");
+  }
+  const station = input.station.trim();
+  const duty = input.duty.trim();
+  if (!station) throw new Error("持ち場を入力してください");
+  const payload: ShiftPlanPayload = shiftPlanPayloadSchema.parse({
+    id: input.changeId?.trim() || `station-${ulid().toLowerCase()}`,
+    tenantId: DEMO_TENANT_ID,
+    vesselId: DEMO_VESSEL.id,
+    occurredAt: now.toISOString(),
+    recordedAt: now.toISOString(),
+    recordedBy: SHORE_PLANNER_ID,
+    deviceId: SHORE_DEVICE,
+    supersedesId: original.id,
+    planType: "station",
+    crewMemberId: original.crewMemberId,
+    scenario: original.scenario as StationScenario,
+    station,
+    duty: duty || original.duty,
+    publishedAt: now.toISOString(),
+    publishedBy: SHORE_PLANNER_ID,
+    changeNote: input.changeNote?.trim() || undefined,
+  });
+  const outcome = pushToStore(SHORE_DEVICE, [makeRecordEvent("shift_plan", payload, SHORE_DEVICE)]);
+  const key = makeIdempotencyKey(SHORE_DEVICE, payload.id);
+  if (!outcome.accepted.includes(key) && !outcome.duplicates.includes(key)) {
+    throw new Error("配信できませんでした（イベントが受理されず隔離されました）");
+  }
+  return payload;
 }
 
 export interface PublishShiftChangeInput {

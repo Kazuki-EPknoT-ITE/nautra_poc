@@ -1,8 +1,9 @@
 import { t } from "@/i18n/ja";
 import { CREW_MEMBERS, personName } from "@/lib/crew";
 import { fmtDateLabel, fmtDateTime } from "@/lib/format";
-import { getShiftWeek } from "@/server/shift-service";
+import { getShiftWeek, getStationPlans } from "@/server/shift-service";
 import { ShiftChangeForm, type ShiftOption } from "./_components/shift-change-form";
+import { StationChangeForm, type StationOption } from "./_components/station-change-form";
 
 export const dynamic = "force-dynamic";
 
@@ -24,6 +25,18 @@ export default function ShoreShiftsPage() {
           to: p.to ?? "",
         });
       }
+    }
+  }
+
+  const stationOptions: StationOption[] = [];
+  for (const [scenario, rows] of Object.entries(getStationPlans())) {
+    for (const p of rows) {
+      stationOptions.push({
+        id: p.id,
+        label: `${t.stationScenario[scenario]} / ${personName(p.crewMemberId)} — ${p.station}`,
+        station: p.station ?? "",
+        duty: p.duty ?? "",
+      });
     }
   }
 
@@ -73,6 +86,8 @@ export default function ShoreShiftsPage() {
       </section>
 
       <ShiftChangeForm options={options} />
+
+      <StationChangeForm options={stationOptions} />
 
       {week.conflicts.length > 0 ? (
         <section aria-label="競合（要確認）" className="glass-tile border border-danger p-4">

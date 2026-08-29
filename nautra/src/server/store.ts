@@ -126,6 +126,16 @@ export function getConflictCount(): number {
   return n;
 }
 
+/**
+ * 版だけを返す軽量版（変更検知の常時監視用）。
+ * getSyncStats は競合件数の算出で全イベントを走査するため、
+ * 1秒ごとのポーリングには使わない。
+ */
+export function getStoreVersion(): { storeId: string; serverVersion: number } {
+  const state = getStore();
+  return { storeId: state.storeId, serverVersion: state.version };
+}
+
 export function getSyncStats() {
   const state = getStore();
   const last = state.events[state.events.length - 1];
