@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { t } from "@/i18n/ja";
 import { fmtDateLabel, fmtDateTime, fmtHoursShort, fmtMinutes } from "@/lib/format";
 import { buildShoreDashboard } from "@/server/labor-service";
@@ -34,6 +35,21 @@ export default function ShoreDashboardPage() {
             <p className="text-sm text-foreground-500">{s.label}</p>
             <p className={`tabular-nums text-3xl font-bold ${s.tone}`}>{s.value}</p>
           </div>
+        ))}
+      </section>
+
+      <section aria-label="次の作業" className="glass-tile flex flex-wrap items-center gap-3 p-4">
+        <span className="text-sm text-foreground-500">よく使う画面:</span>
+        {[
+          { href: "/shore/labor", label: "労務管理・記録簿（承認と第16号の5）" },
+          { href: "/shore/crew", label: "船員一覧" },
+          { href: "/shore/shifts", label: "シフト・配置表の配信" },
+          { href: "/shore/fleet", label: "船舶・保守" },
+          { href: "/shore/notices", label: "お知らせ・速報の配信" },
+        ].map((l) => (
+          <Link key={l.href} href={l.href} className="rounded-medium bg-default-100 px-3 py-1.5 text-sm">
+            {l.label}
+          </Link>
         ))}
       </section>
 
@@ -89,8 +105,18 @@ export default function ShoreDashboardPage() {
             {d.rows.map((row) => (
               <tr key={row.crew.id} className="border-b border-[var(--glass-border)] last:border-b-0">
                 <td className="px-4 py-3">
-                  <p className="font-semibold">{row.crew.name}</p>
-                  <p className="text-xs text-foreground-500">{row.crew.position}</p>
+                  <Link href={`/shore/crew/${row.crew.id}`} className="font-semibold hover:underline">
+                    {row.crew.name}
+                  </Link>
+                  <p className="text-xs text-foreground-500">
+                    {row.crew.position}
+                    <Link
+                      href={`/shore/labor?crew=${row.crew.id}`}
+                      className="ml-2 text-primary underline-offset-2 hover:underline"
+                    >
+                      労務管理
+                    </Link>
+                  </p>
                 </td>
                 {row.days.map((day) => {
                   const approval = row.approvalByDate[day.date];

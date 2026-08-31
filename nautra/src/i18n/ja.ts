@@ -59,6 +59,23 @@ export const t = {
     deck_rating: "甲板部員",
   } as Record<string, string>,
 
+  /** 権限の表示名（権限表は src/domain/authz/roles.ts が唯一の情報源。ここは表示だけ） */
+  permission: {
+    punch: "打刻する",
+    punch_after_entry: "事後入力・再入力",
+    adjust_crew_punch: "他船員の打刻を確認・差戻し",
+    manage_record_templates: "記録項目を追加する",
+    view_own_ledger: "自分の記録簿を見る",
+    approve_labor: "船内承認（労務）",
+    view_all_crew: "他船員の記録を見る",
+    write_logbook: "航海日誌を書く",
+    write_checklist: "点検表を記録する",
+    write_work_report: "作業記録を書く",
+    write_maintenance: "機器の点検・保守を記録する",
+    view_shift: "当直・配置表を見る",
+    view_sync: "同期状態を見る",
+  } as Record<string, string>,
+
   /** 同期イベント種別（V-09 送信キュー表示・S-01 受信状況） */
   syncKind: {
     time_record: "打刻",

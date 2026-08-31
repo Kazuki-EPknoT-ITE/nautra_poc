@@ -3,11 +3,16 @@ import type { ReactNode } from "react";
 import { PRODUCT_NAME } from "@/i18n/ja";
 import { AppShell } from "@/ui";
 
+/** 陸上の画面（括弧内は基本設計書 6.2 の画面ID） */
 const NAV_LINKS = [
-  { href: "/shore", label: "労務ダッシュボード（S-01）" },
-  { href: "/shore/shifts", label: "シフト作成（S-10）" },
+  { href: "/shore", label: "ダッシュボード" },
+  { href: "/shore/labor", label: "労務管理・記録簿" },
+  { href: "/shore/crew", label: "船員" },
+  { href: "/shore/shifts", label: "シフト・配置表" },
+  { href: "/shore/fleet", label: "船舶・保守" },
   { href: "/shore/templates", label: "記録項目の配信" },
   { href: "/shore/notices", label: "お知らせ・速報" },
+  { href: "/shore/settings", label: "設定・権限" },
 ];
 
 /**
@@ -24,7 +29,7 @@ export default function ShoreLayout({ children }: { children: ReactNode }) {
             <span className="text-lg font-bold">{PRODUCT_NAME}</span>
             <span className="text-sm text-foreground-500">陸上</span>
           </Link>
-          <nav aria-label="陸上メニュー" className="flex items-center gap-4 text-sm">
+          <nav aria-label="陸上メニュー" className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
             {NAV_LINKS.map((l) => (
               <Link
                 key={l.href}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { can, canSwitchCrew, ROLE_PERMISSIONS, VESSEL_ROLES, type Permission } from "../roles";
+import { can, canSwitchCrew, PERMISSIONS, ROLE_PERMISSIONS, VESSEL_ROLES, type Permission } from "../roles";
 
 /**
  * 権限マトリクス（基本設計書 11.2）のテーブル駆動テスト。
@@ -40,6 +40,16 @@ describe("船内ロールの権限（基本設計書 11.2）", () => {
       }
     });
   }
+
+  it("権限一覧（PERMISSIONS）は表に出てくる権限をすべて含む（陸上の権限表の抜け防止）", () => {
+    const used = new Set<Permission>();
+    for (const role of VESSEL_ROLES) for (const p of ROLE_PERMISSIONS[role]) used.add(p);
+    for (const p of used) expect(PERMISSIONS).toContain(p);
+    // 一覧に重複がない
+    expect(new Set(PERMISSIONS).size).toBe(PERMISSIONS.length);
+    // 表のテストケースも一覧を網羅している
+    for (const p of PERMISSIONS) expect(cases.map(([k]) => k)).toContain(p);
+  });
 
   it("船長だけが対象船員を切り替えられる（他は本人固定）", () => {
     expect(canSwitchCrew("captain")).toBe(true);

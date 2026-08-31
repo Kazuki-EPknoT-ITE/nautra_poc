@@ -44,6 +44,23 @@ export type Permission =
   | "view_shift"
   | "view_sync";
 
+/** 権限キーの一覧（権限表の行。陸上 S-15 の表もこの並びから生成する） */
+export const PERMISSIONS: Permission[] = [
+  "punch",
+  "punch_after_entry",
+  "adjust_crew_punch",
+  "manage_record_templates",
+  "view_own_ledger",
+  "approve_labor",
+  "view_all_crew",
+  "write_logbook",
+  "write_checklist",
+  "write_work_report",
+  "write_maintenance",
+  "view_shift",
+  "view_sync",
+];
+
 const COMMON: Permission[] = [
   "punch",
   // 事後入力・差戻し再入力は「自分の記録」に対して全ロールが行える（11.2「修正は本人差戻しのみ」）

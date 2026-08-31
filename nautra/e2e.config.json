@@ -59,6 +59,18 @@
     {
       "name": "notices",
       "steps": "お知らせ: 陸上(/shore/notices)で速報を配信 → 船内メニュー右側に再読み込みなしで「未読 ‼速報」が出る →「確認しました」で未読が消える"
+    },
+    {
+      "name": "shore-labor-approval",
+      "steps": "陸上 労務管理(/shore/labor): 船員・対象月を選ぶ → 未承認の日を選んで「承認する」→ 未承認0日になり、記録簿の承認欄が「労務管理責任者」になる。船内(/vessel/ledger)に同期すると「陸上の労務管理責任者の承認が済んでいます」と表示される"
+    },
+    {
+      "name": "shore-ledger-csv",
+      "steps": "記録簿の出力: /api/v1/shore/ledger.csv?crew=&month= で第16号の5相当の CSV（日付・労働時間・休息・分割回数・判定・承認者区分・適用ルール版）が取得できる"
+    },
+    {
+      "name": "shore-crew-fleet-settings",
+      "steps": "陸上 船員(/shore/crew → /shore/crew/[id]): 労務・当直・持ち場・権限・最近の記録が1ページに出る。船舶・保守(/shore/fleet): 要対応の機器と機器別の最新状態。設定・権限(/shore/settings): 役職別の権限表と適用中のルール版"
     }
   ],
   "playwrightTest": ""

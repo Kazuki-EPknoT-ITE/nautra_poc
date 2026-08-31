@@ -75,20 +75,34 @@ export function describeCheck(c: LaborCheck): string {
 }
 
 /** 承認状況の平易な表示（本人向け） */
-export function describeApproval(decision: "approved" | "remanded" | undefined): {
+/**
+ * 承認の状況を平易な一文にする。
+ * 承認は船長と陸上の労務管理責任者の双方が行うため（役割優先は domain 側で解決）、
+ * 「誰が」承認・差戻ししたのかを文言に出す。
+ */
+export function describeApproval(
+  decision: "approved" | "remanded" | undefined,
+  approverRole?: "captain" | "labor_manager",
+): {
   icon: string;
   label: string;
   note: string;
   tone: "ok" | "warn" | "bad";
 } {
+  const who = approverRole === "labor_manager" ? "陸上の労務管理責任者" : "船長";
   if (decision === "approved")
-    return { icon: "✓", label: "承認されました", note: "船長の承認が済んでいます", tone: "ok" };
+    return { icon: "✓", label: "承認されました", note: `${who}の承認が済んでいます`, tone: "ok" };
   if (decision === "remanded")
     return {
       icon: "✕",
       label: "差戻しされました",
-      note: "打刻を正しい時刻で入れ直してください（01 打刻の履歴から再入力）",
+      note: `${who}から差戻しです。打刻を正しい時刻で入れ直してください（01 打刻の履歴から再入力）`,
       tone: "bad",
     };
-  return { icon: "⚠", label: "船長の承認待ちです", note: "記録は船長が確認します", tone: "warn" };
+  return {
+    icon: "⚠",
+    label: "承認待ちです",
+    note: "記録は船長と陸上の労務管理責任者が確認します",
+    tone: "warn",
+  };
 }

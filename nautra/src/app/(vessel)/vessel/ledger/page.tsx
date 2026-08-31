@@ -338,7 +338,7 @@ function ApprovalRow({
       </div>
     );
   }
-  const info = describeApproval(approval?.decision);
+  const info = describeApproval(approval?.decision, approval?.approverRole);
   return (
     <div
       className={cn(
@@ -431,7 +431,7 @@ function CrewOverview({
       <Divider className="bg-[var(--glass-border)]" />
       <CardBody className="flex flex-col gap-2 px-5 pb-5">
         {rows.map(({ crew, summary, approval }) => {
-          const info = describeApproval(approval?.decision);
+          const info = describeApproval(approval?.decision, approval?.approverRole);
           return (
             <button
               key={crew.id}
