@@ -34,11 +34,8 @@ export const FEATURE_GROUPS: Record<string, FeatureGroup> = {
   },
   "03": {
     no: "03",
-    title: "航海日誌・点検",
-    tabs: [
-      { href: "/vessel/logbook", label: "航海日誌" },
-      { href: "/vessel/checklist", label: "点検・操練・検知" },
-    ],
+    title: "航海日誌",
+    tabs: [{ href: "/vessel/logbook", label: "航海日誌" }],
   },
   "04": {
     no: "04",
@@ -48,9 +45,11 @@ export const FEATURE_GROUPS: Record<string, FeatureGroup> = {
   "05": {
     no: "05",
     title: "船内保守・作業記録",
+    // 点検は 03 から移設（機器の保守と内容が重なるため、点検・保守を1画面にまとめる）
     tabs: [
       { href: "/vessel/work", label: "作業・待機・燃料・引継" },
-      { href: "/vessel/maintenance", label: "日常点検・保守" },
+      { href: "/vessel/maintenance", label: "点検・保守" },
+      { href: "/vessel/safety", label: "操練・アルコール検知" },
     ],
   },
   "06": {

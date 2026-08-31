@@ -47,11 +47,8 @@ const FEATURES: Feature[] = [
   },
   {
     no: "03",
-    title: "航海日誌・点検",
-    links: [
-      { label: "航海日誌", href: "/vessel/logbook", primary: true },
-      { label: "点検・操練・検知", href: "/vessel/checklist" },
-    ],
+    title: "航海日誌",
+    links: [{ label: "航海日誌を書く", href: "/vessel/logbook", primary: true }],
   },
   {
     no: "04",
@@ -63,7 +60,8 @@ const FEATURES: Feature[] = [
     title: "船内保守・作業記録",
     links: [
       { label: "作業・待機・燃料・引継", href: "/vessel/work", primary: true },
-      { label: "日常点検・保守", href: "/vessel/maintenance" },
+      { label: "点検・保守", href: "/vessel/maintenance" },
+      { label: "操練・アルコール検知", href: "/vessel/safety" },
     ],
   },
   {

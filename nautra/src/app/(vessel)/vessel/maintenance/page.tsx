@@ -13,10 +13,11 @@ import {
 } from "@/lib/format";
 import { latestByEquipment, openMaintenanceIssues } from "@/lib/maintenance-status";
 import { appendRecord, newRecordBase } from "@/lib/vessel-actions";
-import { useActiveCrew, usePermission, useRecords } from "@/lib/vessel-hooks";
+import { usePermission, useRecordTemplates, useRecords, useSessionCrew } from "@/lib/vessel-hooks";
 import {
   EQUIPMENT_KINDS,
   MAINTENANCE_RECORD_TYPES,
+  type ChecklistResultPayload,
   type EquipmentKind,
   type MaintenanceRecordPayload,
   type MaintenanceRecordType,
@@ -38,11 +39,15 @@ import {
   useDisclosure,
   useGlassModalProps,
 } from "@/ui";
-import { CrewPicker } from "../_components/crew-picker";
+import { ChecklistResultRow, ChecklistSection } from "../_components/checklist-section";
 import { GroupHeader } from "../_components/group-header";
 import { ReadOnlyNote } from "../_components/permission-gate";
 
 type Condition = MaintenanceRecordPayload["condition"];
+
+type HistoryItem =
+  | { kind: "checklist"; at: string; r: ChecklistResultPayload }
+  | { kind: "maintenance"; at: string; r: MaintenanceRecordPayload };
 
 const COND_STYLE: Record<Condition, { color: "success" | "warning" | "danger"; icon: string }> = {
   good: { color: "success", icon: "✓" },
@@ -51,13 +56,34 @@ const COND_STYLE: Record<Condition, { color: "success" | "warning" | "danger"; i
 };
 
 /**
- * 日常点検・保守記録（要件定義書 3.4.1）。エンジン・船体・甲板機器の日常点検記録と
- * 保守・修繕履歴。機器ごとの最新状態を一覧し、要注意・不良を強調する。
+ * 点検・保守（要件定義書 3.3.2 / 3.4.1）。
+ *
+ * **船の点検表**（出港前点検・安全パトロール）と**機器の日常点検・保守**を1画面にまとめる。
+ * どちらも「点検して結果を残す」作業で内容が重なるため、03 の航海日誌から切り離して
+ * ここに統合した（レビュー: 航海日誌は日誌だけにする）。履歴も1つの並びで見せる。
  */
 export default function MaintenancePage() {
-  const { crew, select: selectCrew, canSwitch } = useActiveCrew();
+  // 記録できるのはサインイン中の本人のみ（打刻・日誌と同じ。基本設計書 11.3）
+  const session = useSessionCrew();
   const canWrite = usePermission("write_maintenance"); // 記入は船長・機関長（11.2）
   const records = useRecords("maintenance_record");
+  const checklists = useRecords("checklist_result");
+  const templates = useRecordTemplates("checklist");
+
+  /** 配信テンプレート名（過去の記録は当時のキーしか持たないため、無ければキーを出す） */
+  const templateName = useMemo(() => {
+    const m = new Map(templates.map((tpl) => [tpl.templateKey, tpl.name]));
+    return (key: string) => m.get(key) ?? t.checklistTemplate[key] ?? key;
+  }, [templates]);
+
+  // 点検表の結果と機器の保守記録を1つの履歴にまとめる（同じ「点検」として並べて読む）
+  const history = useMemo<HistoryItem[]>(() => {
+    const items: HistoryItem[] = [
+      ...checklists.map((r) => ({ kind: "checklist" as const, at: r.occurredAt, r })),
+      ...records.map((r) => ({ kind: "maintenance" as const, at: r.occurredAt, r })),
+    ];
+    return items.sort((a, b) => b.at.localeCompare(a.at)).slice(0, 60);
+  }, [checklists, records]);
   const modal = useDisclosure();
   const glassModal = useGlassModalProps();
   const [equipment, setEquipment] = useState<EquipmentKind>("main_engine");
@@ -95,12 +121,13 @@ export default function MaintenancePage() {
       const d = fromLocalInputValue(at);
       if (!d) throw new Error("実施日時を入力してください");
       if (condition !== "good" && !action.trim()) throw new Error("要注意・不良の場合は処置・内容を入力してください");
-      const b = await newRecordBase(crew.id, d);
+      if (!session) throw new Error("サインインが必要です");
+      const b = await newRecordBase(session.id, d);
       await appendRecord("maintenance_record", {
         ...b,
         equipment,
         recordType,
-        crewMemberId: crew.id,
+        crewMemberId: session.id,
         condition,
         runningHours: parseOptionalNumber(runningHours),
         action: action.trim() || undefined,
@@ -118,7 +145,7 @@ export default function MaintenancePage() {
     <div className="flex flex-col gap-4">
       <GroupHeader
         group="05"
-        subtitle="日常点検・保守"
+        subtitle="点検・保守"
         right={
           openIssues.length > 0 ? (
             <Chip size="sm" variant="flat" color="danger" radius="sm">
@@ -127,12 +154,15 @@ export default function MaintenancePage() {
           ) : null
         }
       />
-      {canSwitch ? <CrewPicker selected={crew} onSelect={selectCrew} /> : null}
       <p className="text-sm text-foreground-600">
-        点検者: {crew.name}（{crew.position}）。
-        {canWrite ? "機器をタップして点検・保守を記録します。" : "機器別の最新状態と履歴を参照できます。"}
+        点検者: {session ? `${session.name}（${session.position}）` : "—"}
       </p>
-      {canWrite ? null : <ReadOnlyNote note="日常点検・保守の記録は船長・機関長が行います。" />}
+
+      {/* 船の点検表（出港前点検・安全パトロール）。項目は上司・陸上から配信される */}
+      <ChecklistSection onDone={setDone} />
+
+      <h2 className="text-base font-bold text-foreground-600">機器の日常点検・保守</h2>
+      {canWrite ? null : <ReadOnlyNote note="機器の日常点検・保守の記録は船長・機関長が行います。" />}
 
       <section aria-label="機器別の最新状態" className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         {EQUIPMENT_KINDS.map((eq) => {
@@ -178,41 +208,25 @@ export default function MaintenancePage() {
 
       <section aria-label="点検・保守の履歴" className="flex flex-col gap-2">
         <h2 className="text-base font-bold text-foreground-600">履歴（新しい順）</h2>
-        {records.length === 0 ? (
+        {history.length === 0 ? (
           <Card shadow="none" className="glass-tile">
             <CardBody>
               <p className="text-foreground-600">記録がありません。</p>
             </CardBody>
           </Card>
         ) : null}
-        {records.slice(0, 60).map((r) => {
-          const style = COND_STYLE[r.condition];
-          return (
-            <Card key={r.id} shadow="none" className={cn("glass-tile", r.condition === "defect" && "border border-danger")}>
-              <CardBody className="flex flex-col gap-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="tabular-nums font-bold">{fmtDateTime(r.occurredAt)}</span>
-                  <span className="font-semibold">{t.equipment[r.equipment]}</span>
-                  <Chip size="sm" variant="flat" radius="sm">
-                    {t.maintenanceRecordType[r.recordType]}
-                  </Chip>
-                  <Chip size="sm" variant="flat" color={style.color} radius="sm">
-                    {style.icon} {t.condition[r.condition]}
-                  </Chip>
-                  {r.runningHours !== undefined ? (
-                    <span className="tabular-nums text-sm text-foreground-600">運転 {r.runningHours.toLocaleString()} h</span>
-                  ) : null}
-                  <span className="ml-auto text-sm text-foreground-600">{personName(r.crewMemberId)}</span>
-                </div>
-                {r.action ? <p className="text-pretty">{r.action}</p> : null}
-                {r.remarks ? <p className="text-sm text-foreground-600">{r.remarks}</p> : null}
-                {r.nextDueDate ? <p className="text-sm text-foreground-600">次回予定: {fmtDateLabel(r.nextDueDate)}</p> : null}
+        {history.map((h) =>
+          h.kind === "checklist" ? (
+            <Card key={h.r.id} shadow="none" className="glass-tile">
+              <CardBody>
+                <ChecklistResultRow r={h.r} name={templateName(h.r.templateId)} />
               </CardBody>
             </Card>
-          );
-        })}
+          ) : (
+            <MaintenanceRow key={h.r.id} r={h.r} />
+          ),
+        )}
       </section>
-
       <p className="text-xs text-foreground-600">
         定期保守計画・部品在庫・入渠対応の管理は陸上アプリ（S-11）で行います。船内は点検結果と保守実績を一次記録として残します。
       </p>
@@ -251,5 +265,37 @@ export default function MaintenancePage() {
         </ModalContent>
       </Modal>
     </div>
+  );
+}
+
+/** 機器の点検・保守 1件（履歴の行） */
+function MaintenanceRow({ r }: { r: MaintenanceRecordPayload }) {
+  const style = COND_STYLE[r.condition];
+  return (
+    <Card shadow="none" className={cn("glass-tile", r.condition === "defect" && "border border-danger")}>
+      <CardBody className="flex flex-col gap-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="tabular-nums font-bold">{fmtDateTime(r.occurredAt)}</span>
+          <span className="font-semibold">{t.equipment[r.equipment]}</span>
+          <Chip size="sm" variant="flat" radius="sm">
+            {t.maintenanceRecordType[r.recordType]}
+          </Chip>
+          <Chip size="sm" variant="flat" color={style.color} radius="sm">
+            {style.icon} {t.condition[r.condition]}
+          </Chip>
+          {r.runningHours !== undefined ? (
+            <span className="tabular-nums text-sm text-foreground-600">
+              運転 {r.runningHours.toLocaleString()} h
+            </span>
+          ) : null}
+          <span className="ml-auto text-sm text-foreground-600">{personName(r.crewMemberId)}</span>
+        </div>
+        {r.action ? <p className="text-pretty">{r.action}</p> : null}
+        {r.remarks ? <p className="text-sm text-foreground-600">{r.remarks}</p> : null}
+        {r.nextDueDate ? (
+          <p className="text-sm text-foreground-600">次回予定: {fmtDateLabel(r.nextDueDate)}</p>
+        ) : null}
+      </CardBody>
+    </Card>
   );
 }
