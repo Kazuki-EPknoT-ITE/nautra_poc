@@ -7,6 +7,7 @@ import type { ApprovalPayload } from "@/sync-protocol/events";
 import {
   findSupersedeConflicts,
   latestBySupersedes,
+  type NoticePayload,
   type RecordKind,
   type RecordTemplatePayload,
   type ShiftPlanPayload,
@@ -14,6 +15,7 @@ import {
 } from "@/sync-protocol/records";
 import { can, canSwitchCrew, type Permission } from "@/domain/authz/roles";
 import { CREW_MEMBERS, crewById, type CrewMember } from "./crew";
+import { effectiveNotices, unreadNotices } from "./notices";
 import { builtInChecklistTemplates, effectiveTemplates } from "./record-templates";
 import { setSelectedCrewId } from "./vessel-actions";
 import { getMeta, vesselDb, type VesselRecordRow } from "./vessel-db";
@@ -96,6 +98,23 @@ export function useRecordTemplates(usage: TemplateUsage): RecordTemplatePayload[
     if (effective.length > 0) return effective;
     return usage === "checklist" ? builtInChecklistTemplates() : [];
   }, [all, usage]);
+}
+
+/**
+ * 陸上からのお知らせ・速報（有効なもののみ・新しい順）と未読件数。
+ * 取り消し・訂正は supersedesId で置き換えられ、期限切れは表示しない。
+ */
+export function useNotices(): {
+  notices: NoticePayload[];
+  unread: NoticePayload[];
+  ackAt: string | undefined;
+} {
+  const all = useRecords("notice");
+  const ackAt = useLiveQuery(() => getMeta("noticeAckAt"), [], undefined);
+  return useMemo(() => {
+    const notices = effectiveNotices(all);
+    return { notices, unread: unreadNotices(notices, ackAt), ackAt };
+  }, [all, ackAt]);
 }
 
 /** 有効なシフト計画（訂正で無効化されたものを除く）と変更通知の集計（V-08） */

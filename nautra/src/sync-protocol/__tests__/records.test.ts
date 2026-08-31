@@ -59,6 +59,12 @@ describe("エンティティレジストリ（基本設計書 8.6）", () => {
     expect(checkOriginPolicy("record_template", "shore-planner-device")).toBeNull();
   });
 
+  it("船内へのお知らせ・速報は陸上正本（origin=shore）: 船内端末からの配信は受理しない", () => {
+    expect(SYNC_ENTITY_REGISTRY.notice.origin).toBe("shore");
+    expect(checkOriginPolicy("notice", "shore-planner-device")).toBeNull();
+    expect(checkOriginPolicy("notice", "dev-01abc")).toMatch(/shore-authoritative/);
+  });
+
   it("シフト計画は計画・実績分離ポリシー、陸上発（origin=shore）として宣言される", () => {
     expect(SYNC_ENTITY_REGISTRY.shift_plan.policy).toBe("plan_actual_split");
     expect(SYNC_ENTITY_REGISTRY.shift_plan.origin).toBe("shore");

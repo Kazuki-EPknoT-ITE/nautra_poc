@@ -279,6 +279,30 @@ export const recordTemplatePayloadSchema = z
   .passthrough();
 export type RecordTemplatePayload = z.infer<typeof recordTemplatePayloadSchema>;
 
+/* ─────────────── 船内へのお知らせ・速報（陸上から配信） ─────────────── */
+
+/** 速報は「いま知る必要があるか」で分ける。色ではなく区分と文言で示す */
+export const NOTICE_LEVELS = ["urgent", "info"] as const;
+export type NoticeLevel = (typeof NOTICE_LEVELS)[number];
+
+/**
+ * 船内へのお知らせ（notices 相当）。気象・航行警報などの速報と通常連絡を扱う。
+ * 陸上正本の追記型レコードで、訂正・取り消しは supersedesId 付きの新しいお知らせで表す。
+ */
+export const noticePayloadSchema = z
+  .object({
+    ...recordBase,
+    level: z.enum(NOTICE_LEVELS),
+    title: z.string(),
+    body: z.string().optional(),
+    /** 表示を終える日時（省略時は期限なし） */
+    expiresAt: z.string().optional(),
+    publishedAt: z.string(),
+    publishedBy: z.string(),
+  })
+  .passthrough();
+export type NoticePayload = z.infer<typeof noticePayloadSchema>;
+
 /* ─────────────── 種別 → ペイロード型の対応表 ─────────────── */
 
 export const RECORD_PAYLOAD_SCHEMAS = {
@@ -290,6 +314,7 @@ export const RECORD_PAYLOAD_SCHEMAS = {
   maintenance_record: maintenanceRecordPayloadSchema,
   shift_plan: shiftPlanPayloadSchema,
   record_template: recordTemplatePayloadSchema,
+  notice: noticePayloadSchema,
 } as const;
 
 export type RecordKind = keyof typeof RECORD_PAYLOAD_SCHEMAS;

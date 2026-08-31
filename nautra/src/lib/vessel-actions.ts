@@ -209,6 +209,11 @@ export async function acknowledgeShiftChanges(until: Date = new Date()): Promise
   await setMeta("shiftAckAt", until.toISOString());
 }
 
+/** 陸上からのお知らせを確認済みにする（端末状態。お知らせ自体は記録として保持） */
+export async function acknowledgeNotices(until: Date = new Date()): Promise<void> {
+  await setMeta("noticeAckAt", until.toISOString());
+}
+
 export async function getSelectedCrewId(): Promise<string | undefined> {
   return getMeta("selectedCrewId");
 }

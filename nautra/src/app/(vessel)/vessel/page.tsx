@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { cn } from "@/lib/cn";
-import { openMaintenanceIssues } from "@/lib/maintenance-status";
-import { useRecords, useShiftPlans, useSyncBadge } from "@/lib/vessel-hooks";
-import { Button, CardFooter, CardHeader, Chip, GlassCard } from "@/ui";
+import { useRoutePrefetch } from "@/lib/use-route-prefetch";
+import { useSyncBadge } from "@/lib/vessel-hooks";
+import { NoticePanel } from "./_components/notice-panel";
+import { Button, CardFooter, CardHeader, GlassCard } from "@/ui";
 import { can, type Permission } from "@/domain/authz/roles";
 import { t } from "@/i18n/ja";
 import { useSessionCrew } from "@/lib/vessel-hooks";
@@ -72,24 +73,22 @@ const FEATURES: Feature[] = [
   },
 ];
 
-function FeatureCard({ feature, badge }: { feature: Feature; badge?: string }) {
+function FeatureCard({ feature }: { feature: Feature }) {
   return (
     <GlassCard
       blurred
       aria-label={`${feature.no} ${feature.title}`}
       className="flex h-full flex-col"
     >
-      <CardHeader className="flex items-start justify-between gap-2 px-5 pb-4 pt-5">
-        <div className="flex items-baseline gap-3">
-          <span className="tabular-nums text-3xl font-bold text-foreground-500">{feature.no}</span>
-          <h2 className="text-balance text-xl font-bold">{feature.title}</h2>
-        </div>
-        {/* 通知がある機能だけバッジを出す（常時表示の状態文は置かない） */}
-        {badge ? (
-          <Chip size="sm" variant="flat" color="danger" radius="sm" className="shrink-0">
-            {badge}
-          </Chip>
-        ) : null}
+      {/*
+        通知はカード内に置かない（タイトルと幅を奪い合って崩れるため、右のお知らせ欄に集約する）。
+        番号は見出しの上に置き、タイトルにカード幅をすべて渡す（「労務管理記録簿」等が途中で折れない）。
+      */}
+      <CardHeader className="flex flex-col items-start gap-0.5 px-5 pb-4 pt-4">
+        <span className="tabular-nums text-2xl font-bold leading-none text-foreground-500">
+          {feature.no}
+        </span>
+        <h2 className="text-pretty text-xl font-bold leading-tight">{feature.title}</h2>
       </CardHeader>
       <CardFooter className="mt-auto flex flex-col gap-2 px-5 pb-5 pt-0">
         {feature.links.map((link) => (
@@ -116,25 +115,16 @@ function FeatureCard({ feature, badge }: { feature: Feature; badge?: string }) {
 
 export default function VesselMenuPage() {
   const { pendingCount, offlineSim } = useSyncBadge();
-  const { unread } = useShiftPlans();
   const session = useSessionCrew();
-  const maintenance = useRecords("maintenance_record");
-  // 機器ごとの最新状態が不良のものだけを数える（保守画面のボードと同じ導出。二重実装しない）
-  const openDefects = openMaintenanceIssues(maintenance).filter((m) => m.condition === "defect").length;
-
-  // 当直の変更通知は本人の分だけ数える（他船員の予定は本人にしか表示しない）
-  const myUnread = session ? unread.filter((u) => u.crewMemberId === session.id) : [];
-
-  const badges: Record<string, string | undefined> = {
-    "04": myUnread.length > 0 ? `変更 ${myUnread.length}件` : undefined,
-    "05": openDefects > 0 ? `不良 ${openDefects}件` : undefined,
-  };
 
   // サインイン中のロールで使える導線だけを出す（判定は domain/authz。基本設計書 11.2）
   const visible = FEATURES.map((f) => ({
     ...f,
     links: f.links.filter((l) => !l.permission || (session && can(session.role, l.permission))),
   })).filter((f) => f.links.length > 0);
+
+  // メニューを見ている間に各画面を用意しておく（押してから待たせない）
+  useRoutePrefetch(visible.flatMap((f) => f.links.map((l) => l.href)));
 
   return (
     <div className="flex flex-col gap-4">
@@ -152,10 +142,14 @@ export default function VesselMenuPage() {
           {pendingCount > 0 ? `｜未同期 ${pendingCount}件` : ""}
         </p>
       </div>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {visible.map((f) => (
-          <FeatureCard key={f.no} feature={f} badge={badges[f.no]} />
-        ))}
+      {/* 左=機能カード（3列×2行）、右=お知らせ欄。狭い画面ではお知らせが下に回る */}
+      <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_19rem]">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {visible.map((f) => (
+            <FeatureCard key={f.no} feature={f} />
+          ))}
+        </div>
+        <NoticePanel />
       </div>
     </div>
   );

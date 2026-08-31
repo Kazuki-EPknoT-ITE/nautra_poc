@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, type ReactNode } from "react";
 import { PRODUCT_NAME, t } from "@/i18n/ja";
 import { DEMO_VESSEL } from "@/lib/crew";
+import { useRoutePrefetch } from "@/lib/use-route-prefetch";
 import { useSessionCrew, useSyncBadge } from "@/lib/vessel-hooks";
 import { signOut } from "@/lib/vessel-session";
 import { useLiveSync } from "@/lib/vessel-live";
@@ -100,6 +101,9 @@ export default function VesselLayout({ children }: { children: ReactNode }) {
 
   // 陸上の変更を待たずに反映する通知経路（届かない環境では下の定期同期で追いつく）
   useLiveSync();
+
+  // どの画面からもメニューへ戻れるため、戻り先は常に先読みしておく
+  useRoutePrefetch(isMenu ? [] : ["/vessel"]);
 
   useEffect(() => {
     void ensureInitialSync();

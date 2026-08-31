@@ -112,6 +112,12 @@ export const SYNC_ENTITY_REGISTRY = {
     policy: "plan_actual_split",
     origin: "shore",
   },
+  // 船内へのお知らせ・速報: 陸上が正本（船内は参照のみ）
+  notice: {
+    payload: RECORD_PAYLOAD_SCHEMAS.notice,
+    policy: "append_only",
+    origin: "shore",
+  },
   // 記録項目テンプレート: 船長（船内）と陸上のどちらからも配信できる
   record_template: {
     payload: RECORD_PAYLOAD_SCHEMAS.record_template,
@@ -165,6 +171,7 @@ export const maintenanceRecordEventSchema = eventSchemaFor(
   RECORD_PAYLOAD_SCHEMAS.maintenance_record,
 );
 export const shiftPlanEventSchema = eventSchemaFor("shift_plan", RECORD_PAYLOAD_SCHEMAS.shift_plan);
+export const noticeEventSchema = eventSchemaFor("notice", RECORD_PAYLOAD_SCHEMAS.notice);
 export const recordTemplateEventSchema = eventSchemaFor(
   "record_template",
   RECORD_PAYLOAD_SCHEMAS.record_template,
@@ -182,6 +189,7 @@ export const knownSyncEventSchema = z.discriminatedUnion("kind", [
   maintenanceRecordEventSchema,
   shiftPlanEventSchema,
   recordTemplateEventSchema,
+  noticeEventSchema,
 ]);
 
 export type TimeRecordEvent = z.infer<typeof timeRecordEventSchema>;

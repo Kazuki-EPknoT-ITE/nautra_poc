@@ -71,6 +71,7 @@ export const t = {
     maintenance_record: "日常点検・保守",
     shift_plan: "当直シフト・配置表",
     record_template: "記録項目テンプレート",
+    notice: "船内へのお知らせ",
   } as Record<string, string>,
 
   /* ── 03 航海日誌 ── */

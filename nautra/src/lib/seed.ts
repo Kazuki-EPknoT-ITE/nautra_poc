@@ -12,6 +12,7 @@ import {
 } from "@/sync-protocol/events";
 import type {
   ChecklistResultPayload,
+  NoticePayload,
   RecordTemplatePayload,
   MaintenanceRecordPayload,
   ShiftPlanPayload,
@@ -39,7 +40,7 @@ import type {
  */
 
 /** デモデータ版。上げるとストアが作り直される（PoC の .data/store.json のみ） */
-export const SEED_VERSION = 6;
+export const SEED_VERSION = 7;
 
 const SEED_DEVICE = "seed-shore-device";
 
@@ -265,6 +266,41 @@ function voyageSeed(today: string): SyncEvent[] {
     },
   ];
   return logs.map((p) => makeRecordEvent("voyage_log", p, SEED_DEVICE));
+}
+
+/* ───────────── 陸上からのお知らせ・速報 ───────────── */
+
+/** メニュー右側のお知らせ欄のデモ（速報1件・通常2件） */
+function noticeSeed(today: string): SyncEvent[] {
+  const d1 = addDays(today, -1);
+  const d4 = addDays(today, -4);
+  const notices: NoticePayload[] = [
+    {
+      ...base("sd-notice-1", atLocal(today, "06:30"), SHORE_PLANNER_ID),
+      level: "urgent",
+      title: "低気圧接近: 遠州灘 うねり 3m 予報",
+      body: "本日夕方から東航路が時化る見込み。出港時刻と甲板上の固縛を再確認してください。",
+      publishedAt: atLocal(today, "06:30"),
+      publishedBy: SHORE_PLANNER_ID,
+    },
+    {
+      ...base("sd-notice-2", atLocal(d1, "09:00"), SHORE_PLANNER_ID),
+      level: "info",
+      title: "労務記録の提出期限は毎月5日です",
+      body: "前月分の打刻・休息記録に差戻しが残っていないか確認してください。",
+      publishedAt: atLocal(d1, "09:00"),
+      publishedBy: SHORE_PLANNER_ID,
+    },
+    {
+      ...base("sd-notice-3", atLocal(d4, "13:00"), SHORE_PLANNER_ID),
+      level: "info",
+      title: "安全キャンペーン: 保護具の着用を再徹底",
+      body: "甲板作業時のヘルメット・安全帯の着用を、朝礼で毎日確認してください。",
+      publishedAt: atLocal(d4, "13:00"),
+      publishedBy: SHORE_PLANNER_ID,
+    },
+  ];
+  return notices.map((n) => makeRecordEvent("notice", n, SEED_DEVICE));
 }
 
 /* ───────────── 記録項目テンプレート（陸上・上司が配信） ───────────── */
@@ -631,6 +667,7 @@ function shiftSeed(today: string): SyncEvent[] {
 export function makeSeedEvents(today: string): SyncEvent[] {
   return [
     ...laborSeed(today),
+    ...noticeSeed(today),
     ...templateSeed(today),
     ...voyageSeed(today),
     ...inspectionSeed(today),
