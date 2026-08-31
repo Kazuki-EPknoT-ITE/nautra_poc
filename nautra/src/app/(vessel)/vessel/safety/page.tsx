@@ -150,7 +150,7 @@ export default function SafetyPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <GroupHeader group="05" subtitle="操練・アルコール検知" />
+      <GroupHeader group="05" subtitle="操練・検知" />
       <p className="text-sm text-foreground-600">
         記録者: {session ? `${session.name}（${session.position}）` : "—"}
       </p>

@@ -29,7 +29,7 @@ export const FEATURE_GROUPS: Record<string, FeatureGroup> = {
     title: "労務管理記録簿",
     tabs: [
       { href: "/vessel/ledger", label: "本日の集計" },
-      { href: "/vessel/approve", label: "船内承認（船長）", permission: "approve_labor" },
+      { href: "/vessel/approve", label: "船内承認", permission: "approve_labor" },
     ],
   },
   "03": {
@@ -40,16 +40,16 @@ export const FEATURE_GROUPS: Record<string, FeatureGroup> = {
   "04": {
     no: "04",
     title: "当直・シフト管理",
-    tabs: [{ href: "/vessel/shift", label: "当直シフト・配置表" }],
+    tabs: [{ href: "/vessel/shift", label: "当直・配置表" }],
   },
   "05": {
     no: "05",
     title: "船内保守・作業記録",
     // 点検は 03 から移設（機器の保守と内容が重なるため、点検・保守を1画面にまとめる）
     tabs: [
-      { href: "/vessel/work", label: "作業・待機・燃料・引継" },
+      { href: "/vessel/work", label: "作業・待機" },
       { href: "/vessel/maintenance", label: "点検・保守" },
-      { href: "/vessel/safety", label: "操練・アルコール検知" },
+      { href: "/vessel/safety", label: "操練・検知" },
     ],
   },
   "06": {

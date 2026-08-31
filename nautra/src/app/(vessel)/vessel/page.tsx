@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { cn } from "@/lib/cn";
 import { useRoutePrefetch } from "@/lib/use-route-prefetch";
 import { useSyncBadge } from "@/lib/vessel-hooks";
 import { NoticePanel } from "./_components/notice-panel";
@@ -18,9 +17,9 @@ import { useSessionCrew } from "@/lib/vessel-hooks";
  */
 
 interface FeatureLink {
+  /** ボタンの文言。カード幅で折り返さない長さ（目安9文字まで）にする */
   label: string;
   href: string;
-  primary?: boolean;
   /** この導線を表示するために必要な権限（未指定は全ロール） */
   permission?: Permission;
 }
@@ -35,39 +34,39 @@ const FEATURES: Feature[] = [
   {
     no: "01",
     title: "労働時間・打刻",
-    links: [{ label: "打刻する", href: "/vessel/punch", primary: true }],
+    links: [{ label: "打刻", href: "/vessel/punch" }],
   },
   {
     no: "02",
     title: "労務管理記録簿",
     links: [
-      { label: "本日の集計", href: "/vessel/ledger", primary: true },
-      { label: "船内承認（船長）", href: "/vessel/approve", permission: "approve_labor" },
+      { label: "本日の集計", href: "/vessel/ledger" },
+      { label: "船内承認", href: "/vessel/approve", permission: "approve_labor" },
     ],
   },
   {
     no: "03",
     title: "航海日誌",
-    links: [{ label: "航海日誌を書く", href: "/vessel/logbook", primary: true }],
+    links: [{ label: "航海日誌", href: "/vessel/logbook" }],
   },
   {
     no: "04",
     title: "当直・シフト管理",
-    links: [{ label: "当直シフト・配置表", href: "/vessel/shift", primary: true }],
+    links: [{ label: "当直・配置表", href: "/vessel/shift" }],
   },
   {
     no: "05",
     title: "船内保守・作業記録",
     links: [
-      { label: "作業・待機・燃料・引継", href: "/vessel/work", primary: true },
+      { label: "作業・待機", href: "/vessel/work" },
       { label: "点検・保守", href: "/vessel/maintenance" },
-      { label: "操練・アルコール検知", href: "/vessel/safety" },
+      { label: "操練・検知", href: "/vessel/safety" },
     ],
   },
   {
     no: "06",
     title: "オフライン蓄積・同期",
-    links: [{ label: "同期状態を確認", href: "/vessel/sync", primary: true }],
+    links: [{ label: "同期状態", href: "/vessel/sync" }],
   },
 ];
 
@@ -88,20 +87,20 @@ function FeatureCard({ feature }: { feature: Feature }) {
         </span>
         <h2 className="text-pretty text-xl font-bold leading-tight">{feature.title}</h2>
       </CardHeader>
-      <CardFooter className="mt-auto flex flex-col gap-2 px-5 pb-5 pt-0">
+      {/*
+        導線はどれも同じ重み（機能への入口）なので、見た目を1種類に統一する。
+        下寄せ（mt-auto）にすると、行内でボタン数が違うカードどうしで開始位置がずれるため、
+        見出しの直下から並べて左右のカードと行を揃える。
+      */}
+      <CardFooter className="flex flex-col gap-2 px-5 pb-5 pt-0">
         {feature.links.map((link) => (
           <Button
             key={link.href}
             as={Link}
             href={link.href}
-            color={link.primary ? "primary" : "default"}
-            variant={link.primary ? "solid" : "bordered"}
+            color="primary"
             radius="md"
-            className={cn(
-              // 3列レイアウトでもラベルを1行で読めるよう、カード内では縦積みの全幅ボタンにする
-              "h-auto min-h-12 w-full whitespace-normal py-2 text-center text-base font-semibold leading-tight",
-              !link.primary && "border-[var(--glass-border-strong)] text-foreground",
-            )}
+            className="h-12 w-full text-center text-base font-semibold"
           >
             {link.label}
           </Button>
