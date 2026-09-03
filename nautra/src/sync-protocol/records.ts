@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { MASTER_PAYLOAD_SCHEMAS } from "./masters";
 
 /**
  * 船内記録（voyage / maintenance / manning ドメイン）の同期ペイロード定義。
@@ -315,6 +316,9 @@ export const RECORD_PAYLOAD_SCHEMAS = {
   shift_plan: shiftPlanPayloadSchema,
   record_template: recordTemplatePayloadSchema,
   notice: noticePayloadSchema,
+  // マスタ・計画・事務エンティティ（要件定義書 3.1/3.4〜3.9/6.2/9章/12章）。
+  // 定義は masters.ts。ここに束ねることで Push/Pull・Dexie・適用処理は共通実装のまま増える
+  ...MASTER_PAYLOAD_SCHEMAS,
 } as const;
 
 export type RecordKind = keyof typeof RECORD_PAYLOAD_SCHEMAS;
@@ -369,3 +373,9 @@ export function findSupersedeConflicts<T extends { id: string; supersedesId?: st
     .filter(([, c]) => c.length > 1)
     .map(([supersedesId, candidates]) => ({ supersedesId, candidates }));
 }
+
+/**
+ * マスタ・事務エンティティの型・定数の再輸出。
+ * 画面・サービスは記録種別と同じ入口（@/sync-protocol/records）から取得できるようにする。
+ */
+export * from "./masters";

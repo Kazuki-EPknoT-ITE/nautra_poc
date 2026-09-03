@@ -68,6 +68,14 @@ const FEATURES: Feature[] = [
     title: "オフライン蓄積・同期",
     links: [{ label: "同期状態", href: "/vessel/sync" }],
   },
+  {
+    no: "07",
+    title: "安全・健康",
+    links: [
+      { label: "事故・ヒヤリ", href: "/vessel/incident" },
+      { label: "相談・体調", href: "/vessel/wellbeing" },
+    ],
+  },
 ];
 
 function FeatureCard({ feature }: { feature: Feature }) {

@@ -12,6 +12,7 @@ import {
   toLocalInputValue,
 } from "@/lib/format";
 import { latestByEquipment, openMaintenanceIssues } from "@/lib/maintenance-status";
+import { useLocale } from "@/lib/use-locale";
 import { appendRecord, newRecordBase } from "@/lib/vessel-actions";
 import { usePermission, useRecordTemplates, useRecords, useSessionCrew } from "@/lib/vessel-hooks";
 import {
@@ -65,6 +66,7 @@ const COND_STYLE: Record<Condition, { color: "success" | "warning" | "danger"; i
 export default function MaintenancePage() {
   // 記録できるのはサインイン中の本人のみ（打刻・日誌と同じ。基本設計書 11.3）
   const session = useSessionCrew();
+  const { tr } = useLocale(); // 機器名・状態の表示言語（10.2）
   const canWrite = usePermission("write_maintenance"); // 記入は船長・機関長（11.2）
   const records = useRecords("maintenance_record");
   const checklists = useRecords("checklist_result");
@@ -134,7 +136,7 @@ export default function MaintenancePage() {
         nextDueDate: nextDue || undefined,
         remarks: remarks.trim() || undefined,
       });
-      setDone(`${t.equipment[equipment]} の${t.maintenanceRecordType[recordType]}を記録しました（${t.condition[condition]}）`);
+      setDone(`${tr("equipment", equipment)} の${tr("maintenanceRecordType", recordType)}を記録しました（${tr("condition", condition)}）`);
       modal.onClose();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -182,14 +184,14 @@ export default function MaintenancePage() {
                     : "border-transparent",
               )}
             >
-              <span className="text-balance font-bold leading-tight">{t.equipment[eq]}</span>
+              <span className="text-balance font-bold leading-tight">{tr("equipment", eq)}</span>
               {latest && style ? (
                 <>
                   <Chip size="sm" variant="flat" color={style.color} radius="sm">
-                    {style.icon} {t.condition[latest.condition]}
+                    {style.icon} {tr("condition", latest.condition)}
                   </Chip>
                   <span className="text-xs text-foreground-600">
-                    {t.maintenanceRecordType[latest.recordType]} {fmtDateTime(latest.occurredAt)}
+                    {tr("maintenanceRecordType", latest.recordType)} {fmtDateTime(latest.occurredAt)}
                   </span>
                 </>
               ) : (
@@ -233,20 +235,20 @@ export default function MaintenancePage() {
 
       <Modal {...glassModal} isOpen={modal.isOpen} onOpenChange={modal.onOpenChange} placement="center" scrollBehavior="inside">
         <ModalContent>
-          <ModalHeader>{t.equipment[equipment]} ─ 点検・保守の記録</ModalHeader>
+          <ModalHeader>{tr("equipment", equipment)} ─ 点検・保守の記録</ModalHeader>
           <ModalBody className="flex flex-col gap-3">
             <RadioGroup orientation="horizontal" label="記録種別" value={recordType} onValueChange={(v) => setRecordType(v as MaintenanceRecordType)}>
               {MAINTENANCE_RECORD_TYPES.map((rt) => (
                 <Radio key={rt} value={rt}>
-                  {t.maintenanceRecordType[rt]}
+                  {tr("maintenanceRecordType", rt)}
                 </Radio>
               ))}
             </RadioGroup>
             <Input type="datetime-local" label="実施日時" value={at} max={toLocalInputValue(new Date())} onValueChange={setAt} />
             <RadioGroup orientation="horizontal" label="状態" value={condition} onValueChange={(v) => setCondition(v as Condition)}>
-              <Radio value="good">✓ {t.condition.good}</Radio>
-              <Radio value="attention">⚠ {t.condition.attention}</Radio>
-              <Radio value="defect">✕ {t.condition.defect}</Radio>
+              <Radio value="good">✓ {tr("condition", "good")}</Radio>
+              <Radio value="attention">⚠ {tr("condition", "attention")}</Radio>
+              <Radio value="defect">✕ {tr("condition", "defect")}</Radio>
             </RadioGroup>
             <Input type="number" label="運転時間計（h・任意）" value={runningHours} onValueChange={setRunningHours} />
             <Textarea label="処置・内容（要注意・不良は必須）" value={action} onValueChange={setAction} minRows={2} />
@@ -270,18 +272,19 @@ export default function MaintenancePage() {
 
 /** 機器の点検・保守 1件（履歴の行） */
 function MaintenanceRow({ r }: { r: MaintenanceRecordPayload }) {
+  const { tr } = useLocale();
   const style = COND_STYLE[r.condition];
   return (
     <Card shadow="none" className={cn("glass-tile", r.condition === "defect" && "border border-danger")}>
       <CardBody className="flex flex-col gap-1">
         <div className="flex flex-wrap items-center gap-2">
           <span className="tabular-nums font-bold">{fmtDateTime(r.occurredAt)}</span>
-          <span className="font-semibold">{t.equipment[r.equipment]}</span>
+          <span className="font-semibold">{tr("equipment", r.equipment)}</span>
           <Chip size="sm" variant="flat" radius="sm">
-            {t.maintenanceRecordType[r.recordType]}
+            {tr("maintenanceRecordType", r.recordType)}
           </Chip>
           <Chip size="sm" variant="flat" color={style.color} radius="sm">
-            {style.icon} {t.condition[r.condition]}
+            {style.icon} {tr("condition", r.condition)}
           </Chip>
           {r.runningHours !== undefined ? (
             <span className="tabular-nums text-sm text-foreground-600">

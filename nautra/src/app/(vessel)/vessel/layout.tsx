@@ -7,7 +7,7 @@ import { PRODUCT_NAME, t } from "@/i18n/ja";
 import { DEMO_VESSEL } from "@/lib/crew";
 import { useRoutePrefetch } from "@/lib/use-route-prefetch";
 import { useSessionCrew, useSyncBadge } from "@/lib/vessel-hooks";
-import { signOut } from "@/lib/vessel-session";
+import { signOut, signOutIfIdle, touchSession } from "@/lib/vessel-session";
 import { useLiveSync } from "@/lib/vessel-live";
 import { ensureInitialSync, isOfflineSim, syncNow } from "@/lib/vessel-sync";
 import {
@@ -20,6 +20,7 @@ import {
   NavbarContent,
   Spinner,
 } from "@/ui";
+import { LocaleSwitch } from "./_components/locale-switch";
 
 function SyncHeaderBadges() {
   const { pendingCount, offlineSim } = useSyncBadge();
@@ -63,10 +64,53 @@ function SessionChip() {
   );
 }
 
+/**
+ * 放置による自動サインアウト（レビュー書の懸念事項「毎度ログアウトしないと別のユーザーに
+ * 情報が見られてしまう」への対応）。
+ *
+ * - 操作があったら最終操作時刻を記録し、離れている間に閾値を超えたらサインアウトする
+ * - 判定は**時刻の比較**で行う。タブが背面だと `setInterval` は間引かれるため、
+ *   経過時間をカウンタで数えると当てにならない（復帰時に一度で判定する）
+ * - 記録・未送信の打刻は消さない（サインアウトしても IndexedDB に残る）
+ */
+function useIdleSignOut(enabled: boolean) {
+  useEffect(() => {
+    if (!enabled) return;
+    let alive = true;
+
+    const check = () => {
+      void signOutIfIdle().then((signedOut) => {
+        if (signedOut && alive && typeof window !== "undefined") {
+          // 理由を伝えるため、サインイン画面に印をつけて戻す
+          window.location.replace("/vessel/login?reason=idle");
+        }
+      });
+    };
+    const touch = () => void touchSession();
+
+    // 実際に人が触った合図だけを拾う（描画や同期では延命しない）
+    const events: (keyof WindowEventMap)[] = ["pointerdown", "keydown", "touchstart"];
+    for (const ev of events) window.addEventListener(ev, touch, { passive: true });
+    // 画面に戻ってきたときに、離れていた間の経過をまとめて判定する
+    document.addEventListener("visibilitychange", check);
+
+    touch();
+    const timer = setInterval(check, 60_000);
+    return () => {
+      alive = false;
+      for (const ev of events) window.removeEventListener(ev, touch);
+      document.removeEventListener("visibilitychange", check);
+      clearInterval(timer);
+    };
+  }, [enabled]);
+}
+
 /** 未サインインならサインイン画面へ誘導する（記録の作成者を必ず特定するため） */
 function SessionGate({ isLogin, children }: { isLogin: boolean; children: ReactNode }) {
   const session = useSessionCrew();
   const router = useRouter();
+
+  useIdleSignOut(Boolean(session) && !isLogin);
 
   useEffect(() => {
     if (session === null && !isLogin) router.replace("/vessel/login");
@@ -146,6 +190,8 @@ export default function VesselLayout({ children }: { children: ReactNode }) {
         </NavbarBrand>
         <NavbarContent justify="end" className="!grow-0 basis-auto gap-3">
           <ClientOnly>
+            {/* 言語はサインイン前から切り替えられる（端末に保存。10.2） */}
+            <LocaleSwitch />
             <SessionChip />
             <SyncHeaderBadges />
           </ClientOnly>

@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Nautra">
+  <rect width="512" height="512" rx="96" fill="#ffffff"/>
+  <g fill="none" stroke="#0a0a0a" stroke-width="26" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M256 92v300"/>
+    <path d="M186 162h140"/>
+    <path d="M116 300c0 72 63 122 140 122s140-50 140-122"/>
+    <circle cx="256" cy="92" r="26"/>
+  </g>
+</svg>

@@ -2,7 +2,9 @@ import type {
   CheckLevel,
   DailyLaborSummary,
   LaborCheck,
+  LaborCheckKey,
   LaborRuleSet,
+  LaborRuleValues,
   RestPeriod,
   TimeRecord,
   WorkCategory,
@@ -80,7 +82,13 @@ export function evaluateDaily(params: {
   const intervals = buildIntervals(crewRecords);
 
   // その日に重なる区間へクリップ
-  type Clipped = { start: Date; end: Date; category: WorkCategory; open: boolean };
+  type Clipped = {
+    start: Date;
+    end: Date;
+    category: WorkCategory;
+    open: boolean;
+    exceptional: boolean;
+  };
   const clipped: Clipped[] = [];
   let hasOpenInterval = false;
   for (const iv of intervals) {
@@ -96,6 +104,7 @@ export function evaluateDaily(params: {
       end: new Date(Math.min(end.getTime(), dayEnd.getTime())),
       category: iv.workCategory,
       open: iv.endAt === null,
+      exceptional: Boolean(iv.exceptionKind),
     });
   }
   clipped.sort((a, b) => a.start.getTime() - b.start.getTime());
@@ -114,6 +123,18 @@ export function evaluateDaily(params: {
     (sum, m) => sum + Math.round((m.end.getTime() - m.start.getTime()) / 60000),
     0,
   );
+
+  /**
+   * 上限算定の対象時間（3.2.5⑥ 安全臨時労働・緊急作業の別枠管理）。
+   * 別枠の区間は**記録簿には実績として残しつつ、上限判定からは外す**。
+   * 通常作業と時間帯が重なる部分は通常作業として数えるため、
+   * 「別枠を除いた区間の和集合」で求める（除外による過小計上を防ぐ）。
+   */
+  const countableWorkedMinutes = mergeRanges(clipped.filter((c) => !c.exceptional)).reduce(
+    (sum, m) => sum + Math.round((m.end.getTime() - m.start.getTime()) / 60000),
+    0,
+  );
+  const exceptionalMinutes = workedMinutes - countableWorkedMinutes;
 
   // 休息時間 = 暦日内で労働区間に覆われていない時間帯（now までを対象）
   const restPeriods: RestPeriod[] = [];
@@ -167,8 +188,9 @@ export function evaluateDaily(params: {
   if (hasRecords) {
     checks.push({
       key: "daily_max",
-      level: levelForMax(workedMinutes, rules.dailyMaxMinutes, rules.cautionRatio),
-      actual: workedMinutes,
+      // 上限判定は別枠（安全臨時労働・緊急作業）を除いた時間で行う（3.2.5⑥）
+      level: levelForMax(countableWorkedMinutes, rules.dailyMaxMinutes, rules.cautionRatio),
+      actual: countableWorkedMinutes,
       limit: rules.dailyMaxMinutes,
     });
     checks.push({
@@ -202,6 +224,8 @@ export function evaluateDaily(params: {
     crewMemberId,
     date,
     workedMinutes,
+    countableWorkedMinutes,
+    exceptionalMinutes,
     workedByCategory,
     restPeriods,
     restTotalMinutes,
@@ -231,7 +255,8 @@ export function evaluateWeekly(params: {
       evaluateDaily({ crewMemberId, date: addDays(endDate, -i), records, now, ruleSet }),
     );
   }
-  const totalMinutes = days.reduce((a, d) => a + d.workedMinutes, 0);
+  // 上限判定は別枠（安全臨時労働・緊急作業）を除いた時間で行う（3.2.5⑥）
+  const totalMinutes = days.reduce((a, d) => a + d.countableWorkedMinutes, 0);
   const check: LaborCheck = {
     key: "weekly_max",
     level: levelForMax(totalMinutes, ruleSet.values.weeklyMaxMinutes, ruleSet.values.cautionRatio),
@@ -239,6 +264,210 @@ export function evaluateWeekly(params: {
     limit: ruleSet.values.weeklyMaxMinutes,
   };
   return { check, totalMinutes, days };
+}
+
+/**
+ * 週1日以上の休日付与のチェック（要件定義書 3.2.5⑤）。
+ *
+ * 休日 = その暦日に労働記録が1件も無い日、または休日として付与された日（leaveDates）。
+ * 「あらゆる連続1週間」で1日以上の休日があることを確認する。
+ * 休日の実体（付与・取得）は leave_record が持ち、ここには日付集合として注入する
+ * （ドメインは DB を知らない。ガードレール①）。
+ */
+export function evaluateRestDays(params: {
+  crewMemberId: string;
+  endDate: string;
+  records: TimeRecord[];
+  /** 休日として付与・取得された日（YYYY-MM-DD） */
+  leaveDates?: Set<string>;
+  now: Date;
+  ruleSet: LaborRuleSet;
+}): { check: LaborCheck; restDates: string[]; days: DailyLaborSummary[] } {
+  const { crewMemberId, endDate, records, leaveDates, now, ruleSet } = params;
+  const days: DailyLaborSummary[] = [];
+  for (let i = 6; i >= 0; i--) {
+    days.push(evaluateDaily({ crewMemberId, date: addDays(endDate, -i), records, now, ruleSet }));
+  }
+  const restDates = days
+    .filter((d) => !d.hasRecords || leaveDates?.has(d.date))
+    .map((d) => d.date);
+  const required = ruleSet.values.restDaysPerWeek;
+  const check: LaborCheck = {
+    key: "rest_day",
+    // 休日は「不足＝警告」。1日も無ければ違反、必要日数ちょうどは適合
+    level: restDates.length < required ? "violation" : "ok",
+    actual: restDates.length,
+    limit: required,
+  };
+  return { check, restDates, days };
+}
+
+/** 期間集計の結果（4週・基準労働期間・月次で共用） */
+export interface PeriodLaborSummary {
+  crewMemberId: string;
+  from: string;
+  to: string;
+  days: DailyLaborSummary[];
+  /** 実績の労働時間合計（別枠を含む。記録簿・給与連携で使う） */
+  workedMinutes: number;
+  /** 上限算定の対象時間（別枠を除く） */
+  countableWorkedMinutes: number;
+  exceptionalMinutes: number;
+  /** 労働記録のあった日数 */
+  workedDays: number;
+  /** 休日（記録なし or 付与）の日数 */
+  restDays: number;
+  /** 所定労働時間を超えた分の合計（時間外。給与連携の基礎） */
+  overtimeMinutes: number;
+  /** 週平均の労働時間（分）。基準労働期間の 40h/週 判定に用いる */
+  weeklyAverageMinutes: number;
+  checks: LaborCheck[];
+  level: CheckLevel;
+  appliedRuleVersion: string;
+}
+
+/**
+ * 任意期間の集計と上限判定（要件定義書 3.2.1 自動集計 / 3.2.5③）。
+ * 4週間・基準労働期間・月単位のいずれもこの関数で求める（集計ロジックを重複させない）。
+ *
+ * 判定する項目:
+ * - four_week_max      : 28日窓の労働時間上限
+ * - reference_period   : 基準労働期間の週平均40時間（3.2.4）
+ * - monthly_overtime   : 1月の時間外労働上限（労使協定）
+ * - rest_day           : 期間内の休日日数（週あたり必要数 × 週数）
+ */
+export function evaluatePeriod(params: {
+  crewMemberId: string;
+  /** 期間の開始日（含む） */
+  from: string;
+  /** 期間の終了日（含む） */
+  to: string;
+  records: TimeRecord[];
+  leaveDates?: Set<string>;
+  now: Date;
+  ruleSet: LaborRuleSet;
+  /** 判定に含めるチェック。省略時は期間長から自動選択 */
+  include?: LaborCheckKey[];
+}): PeriodLaborSummary {
+  const { crewMemberId, from, to, records, leaveDates, now, ruleSet } = params;
+  const rules = ruleSet.values;
+
+  const days: DailyLaborSummary[] = [];
+  for (let d = from; d <= to; d = addDays(d, 1)) {
+    days.push({ ...evaluateDaily({ crewMemberId, date: d, records, now, ruleSet }) });
+    if (days.length > 400) break; // 安全弁（不正な期間指定でも停止する）
+  }
+  const dayCount = days.length;
+
+  const workedMinutes = days.reduce((a, d) => a + d.workedMinutes, 0);
+  const countableWorkedMinutes = days.reduce((a, d) => a + d.countableWorkedMinutes, 0);
+  const exceptionalMinutes = workedMinutes - countableWorkedMinutes;
+  const workedDays = days.filter((d) => d.hasRecords).length;
+  const restDays = days.filter((d) => !d.hasRecords || leaveDates?.has(d.date)).length;
+  const overtimeMinutes = days.reduce(
+    (a, d) => a + Math.max(0, d.countableWorkedMinutes - rules.dailyStandardMinutes),
+    0,
+  );
+  const weeks = dayCount / 7;
+  const weeklyAverageMinutes = weeks > 0 ? Math.round(countableWorkedMinutes / weeks) : 0;
+
+  const include =
+    params.include ??
+    ([
+      dayCount >= 28 ? "four_week_max" : null,
+      dayCount >= 28 ? "reference_period" : null,
+      "monthly_overtime",
+      "rest_day",
+    ].filter(Boolean) as LaborCheckKey[]);
+
+  const checks: LaborCheck[] = [];
+  if (include.includes("four_week_max")) {
+    // 28日ぶんに正規化して比較する（月末月初で日数が変わっても基準を揃える）
+    const normalized = dayCount === 28 ? countableWorkedMinutes : Math.round((countableWorkedMinutes / dayCount) * 28);
+    checks.push({
+      key: "four_week_max",
+      level: levelForMax(normalized, rules.fourWeekMaxMinutes, rules.cautionRatio),
+      actual: normalized,
+      limit: rules.fourWeekMaxMinutes,
+    });
+  }
+  if (include.includes("reference_period")) {
+    checks.push({
+      key: "reference_period",
+      level: levelForMax(
+        weeklyAverageMinutes,
+        rules.referenceWeeklyAverageMinutes,
+        rules.cautionRatio,
+      ),
+      actual: weeklyAverageMinutes,
+      limit: rules.referenceWeeklyAverageMinutes,
+    });
+  }
+  if (include.includes("monthly_overtime")) {
+    checks.push({
+      key: "monthly_overtime",
+      level: levelForMax(overtimeMinutes, rules.monthlyOvertimeMaxMinutes, rules.cautionRatio),
+      actual: overtimeMinutes,
+      limit: rules.monthlyOvertimeMaxMinutes,
+    });
+  }
+  if (include.includes("rest_day")) {
+    const required = Math.floor(weeks) * rules.restDaysPerWeek;
+    checks.push({
+      key: "rest_day",
+      level: restDays < required ? "violation" : "ok",
+      actual: restDays,
+      limit: required,
+    });
+  }
+
+  return {
+    crewMemberId,
+    from,
+    to,
+    days,
+    workedMinutes,
+    countableWorkedMinutes,
+    exceptionalMinutes,
+    workedDays,
+    restDays,
+    overtimeMinutes,
+    weeklyAverageMinutes,
+    checks,
+    level: worstLevel(checks.map((c) => c.level)),
+    appliedRuleVersion: ruleSet.version,
+  };
+}
+
+/** YYYY-MM の月初・月末（ローカル日） */
+export function monthRange(month: string): { from: string; to: string } {
+  const [y, m] = month.split("-").map(Number);
+  const from = `${month}-01`;
+  const last = new Date(y, m, 0).getDate();
+  return { from, to: `${month}-${String(last).padStart(2, "0")}` };
+}
+
+/**
+ * 労使協定・船舶マスタによるルールの上書き（要件定義書 6.5「協定内容→アラート閾値への自動反映」）。
+ * 上書き後は版識別子を派生させ、判定結果に「どの協定版で判定したか」が残るようにする。
+ */
+export function applyRuleOverrides(
+  ruleSet: LaborRuleSet,
+  overrides: Partial<LaborRuleValues> | undefined,
+  sourceLabel?: string,
+): LaborRuleSet {
+  if (!overrides || Object.keys(overrides).length === 0) return ruleSet;
+  const values = { ...ruleSet.values };
+  for (const [k, v] of Object.entries(overrides)) {
+    if (typeof v === "number") (values as unknown as Record<string, number>)[k] = v;
+  }
+  return {
+    ...ruleSet,
+    id: `${ruleSet.id}+override`,
+    version: sourceLabel ? `${ruleSet.version}+${sourceLabel}` : `${ruleSet.version}+override`,
+    source: `${ruleSet.source} / 労使協定・船舶設定による上書き`,
+    values,
+  };
 }
 
 /** 直近 n 日の労働時間合計（4週合計の参考表示用。上限判定は基準労働期間の確定後） */

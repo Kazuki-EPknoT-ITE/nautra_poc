@@ -5,22 +5,27 @@ import { useMemo, useState } from "react";
 import {
   addDays,
   evaluateDaily,
+  evaluatePeriod,
   evaluateWeekly,
-  totalWorkedMinutes,
+  monthRange,
   ymdLocal,
+  type PeriodLaborSummary,
 } from "@/domain/labor-law/evaluate";
 import type { LaborCheck } from "@/domain/labor-law/types";
 import { cn } from "@/lib/cn";
 import { CREW_MEMBERS, type CrewMember } from "@/lib/crew";
 import { fmtDateLabel, fmtMinutes, fmtTime } from "@/lib/format";
 import {
-  CHECK_PLAIN_LABEL,
+  checkPlainLabelFor,
   describeApproval,
   describeCheck,
+  describeExceptionalMinutes,
+  describePeriodTotal,
   formatCheckActual,
   formatCheckLimit,
   LEVEL_PLAIN,
 } from "@/lib/labor-plain";
+import { useLocale } from "@/lib/use-locale";
 import {
   useAllRecords,
   useApprovals,
@@ -58,6 +63,7 @@ import { GroupHeader } from "../_components/group-header";
 export default function LedgerPage() {
   const session = useSessionCrew();
   const canViewAll = usePermission("view_all_crew");
+  const { locale, tr } = useLocale();
   const now = useNowTick(30_000);
   const ruleSet = DEFAULT_LABOR_RULE_SET;
   const today = ymdLocal(now);
@@ -78,10 +84,36 @@ export default function LedgerPage() {
     () => evaluateWeekly({ crewMemberId: crew.id, endDate: today, records, now, ruleSet }),
     [crew.id, today, records, now, ruleSet],
   );
+  /**
+   * 期間の自動集計（要件定義書 3.2.1「日単位・週単位・4週単位・月単位」）。
+   * 4週間で 4週上限と基準労働期間の週平均・休日付与を、今月で時間外の上限を判定する。
+   * どちらも別枠（安全臨時労働・緊急作業）を除いた時間で上限を見る（3.2.5⑥）。
+   */
   const fourWeeks = useMemo(
-    () => totalWorkedMinutes({ crewMemberId: crew.id, endDate: today, days: 28, records, now, ruleSet }),
+    () =>
+      evaluatePeriod({
+        crewMemberId: crew.id,
+        from: addDays(today, -27),
+        to: today,
+        records,
+        now,
+        ruleSet,
+        include: ["four_week_max", "reference_period", "rest_day"],
+      }),
     [crew.id, today, records, now, ruleSet],
   );
+  const thisMonth = useMemo(() => {
+    const { from } = monthRange(today.slice(0, 7));
+    return evaluatePeriod({
+      crewMemberId: crew.id,
+      from,
+      to: today, // 月末までではなく「今日まで」で見る（先の予定は積み上がっていない）
+      records,
+      now,
+      ruleSet,
+      include: ["monthly_overtime"],
+    });
+  }, [crew.id, today, records, now, ruleSet]);
 
   const dailyMaxCheck = daily.checks.find((c) => c.key === "daily_max");
   const restChecks = daily.checks.filter((c) => c.key.startsWith("rest_"));
@@ -174,7 +206,8 @@ export default function LedgerPage() {
                   <span aria-hidden="true" className="mr-1">
                     {LEVEL_PLAIN[c.level].icon}
                   </span>
-                  <span className="font-semibold">{CHECK_PLAIN_LABEL[c.key]}</span>: {describeCheck(c)}
+                  <span className="font-semibold">{checkPlainLabelFor(locale, c.key)}</span>:{" "}
+                  {describeCheck(c)}
                 </li>
               ))}
             </ul>
@@ -191,17 +224,49 @@ export default function LedgerPage() {
             actual={daily.workedMinutes}
             limit={ruleSet.values.dailyMaxMinutes}
             check={dailyMaxCheck}
+            tr={tr}
           />
+          {describeExceptionalMinutes(daily.exceptionalMinutes) ? (
+            <p className="text-pretty text-sm text-foreground-600">
+              <span aria-hidden="true">⚑ </span>
+              {describeExceptionalMinutes(daily.exceptionalMinutes)}
+              実績としては記録簿に残ります。
+            </p>
+          ) : null}
           <TimeBar
             title="この7日間"
             actual={weekly.totalMinutes}
             limit={ruleSet.values.weeklyMaxMinutes}
             check={weekly.check}
+            tr={tr}
           />
-          <p className="text-sm text-foreground-600">
-            この4週間の合計: <span className="tabular-nums font-semibold">{fmtMinutes(fourWeeks)}</span>
-            （4週の上限判定は基準労働期間の設定後に有効化 — PoC対象外）
-          </p>
+        </CardBody>
+      </GlassCard>
+
+      {/* まとめて見る（4週間・今月）。日単位・週単位に続く自動集計。要件定義書 3.2.1 */}
+      <GlassCard>
+        <CardHeader className="px-5 pb-2 pt-5 text-base font-bold">まとめて見る</CardHeader>
+        <CardBody className="flex flex-col gap-3 px-5 pb-5">
+          <PeriodBlock
+            title="この4週間"
+            summary={fourWeeks}
+            locale={locale}
+            tr={tr}
+            sentence={describePeriodTotal(
+              "この4週間",
+              fourWeeks,
+              fourWeeks.checks.find((c) => c.key === "four_week_max"),
+            )}
+          />
+          <PeriodBlock
+            title="今月（今日まで）"
+            summary={thisMonth}
+            locale={locale}
+            tr={tr}
+            /* 今月の目安は「残業の上限」なので、合計時間の目安としては書かない
+               （目安は下のチェック行に「今月の残業した時間」として出る） */
+            sentence={describePeriodTotal("今月", thisMonth, undefined)}
+          />
         </CardBody>
       </GlassCard>
 
@@ -214,7 +279,7 @@ export default function LedgerPage() {
               {restChecks.map((c) => (
                 <div key={c.key} className="glass-inset flex flex-col gap-1 p-3">
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <span className="font-semibold">{CHECK_PLAIN_LABEL[c.key]}</span>
+                    <span className="font-semibold">{checkPlainLabelFor(locale, c.key)}</span>
                     <div className="flex items-center gap-2">
                       <span className="tabular-nums">
                         {formatCheckActual(c)}
@@ -222,7 +287,7 @@ export default function LedgerPage() {
                           / 基準 {formatCheckLimit(c)}
                         </span>
                       </span>
-                      <StatusChip level={c.level} size="sm" />
+                      <StatusChip level={c.level} size="sm" label={tr("level", c.level)} />
                     </div>
                   </div>
                   <p className="text-pretty text-sm text-foreground-600">{describeCheck(c)}</p>
@@ -283,11 +348,14 @@ function TimeBar({
   actual,
   limit,
   check,
+  tr,
 }: {
   title: string;
   actual: number;
   limit: number;
   check?: LaborCheck;
+  /** 判定レベルの表示言語（要件定義書 10.2） */
+  tr: (group: string, key: string) => string;
 }) {
   const level = check?.level ?? "ok";
   const remain = Math.max(0, limit - actual);
@@ -312,8 +380,53 @@ function TimeBar({
         <span className={cn("font-semibold", level === "violation" && "text-danger")}>
           {over > 0 ? `${fmtMinutes(over)} 超過しています` : `あと ${fmtMinutes(remain)} 働けます`}
         </span>
-        <StatusChip level={level} size="sm" />
+        <StatusChip level={level} size="sm" label={tr("level", level)} />
       </div>
+    </div>
+  );
+}
+
+/**
+ * 期間（4週間・今月）の集計と上限判定（要件定義書 3.2.1 / 3.2.5③⑥）。
+ * 判定は evaluatePeriod、言い換えは lib/labor-plain が担い、ここは表示だけを行う。
+ */
+function PeriodBlock({
+  title,
+  summary,
+  sentence,
+  locale,
+  tr,
+}: {
+  title: string;
+  summary: PeriodLaborSummary;
+  sentence: string;
+  locale: Parameters<typeof checkPlainLabelFor>[0];
+  tr: (group: string, key: string) => string;
+}) {
+  const exceptional = describeExceptionalMinutes(summary.exceptionalMinutes);
+  return (
+    <div className="glass-inset flex flex-col gap-2 p-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="text-lg font-bold">{title}</span>
+        <StatusChip level={summary.level} size="sm" label={tr("level", summary.level)} />
+      </div>
+      <p className="text-pretty">{sentence}</p>
+      {exceptional ? (
+        <p className="text-pretty text-sm text-foreground-600">
+          <span aria-hidden="true">⚑ </span>
+          {exceptional}実績としては記録簿に残ります。
+        </p>
+      ) : null}
+      <ul className="flex flex-col gap-1">
+        {summary.checks.map((c) => (
+          <li key={c.key} className="flex flex-wrap items-center gap-2 text-sm">
+            <span aria-hidden="true">{LEVEL_PLAIN[c.level].icon}</span>
+            <span className="font-semibold">{checkPlainLabelFor(locale, c.key)}</span>
+            <span className="tabular-nums">{formatCheckActual(c)}</span>
+            <span className="text-foreground-600">{describeCheck(c)}</span>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

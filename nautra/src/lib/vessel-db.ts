@@ -29,10 +29,40 @@ export interface MetaItem {
   value: string;
 }
 
-/** 汎用記録行 = 種別 + ペイロード（ペイロード列をそのまま索引に使う） */
-export type VesselRecordRow<K extends RecordKind = RecordKind> = RecordPayloadByKind[K] & {
-  kind: K;
+/** passthrough スキーマが付ける文字列・数値の索引シグネチャを外す（名前付き列だけを残す） */
+type OmitIndexSignature<T> = {
+  [K in keyof T as string extends K ? never : number extends K ? never : K]: T[K];
 };
+
+/**
+ * 汎用記録行 = 種別 + ペイロード（ペイロード列をそのまま索引に使う）。
+ *
+ * `kind` 列は Dexie の索引に使うためエンティティ種別で固定する。
+ * ただし `incident_report` のようにペイロード自身が `kind`（事故の区分）を持つ種別があり、
+ * そのまま重ねると値が失われるため、退避先の `payloadKind` を用意する
+ * （行の組み立ては必ず `toRecordRow` を通し、退避を1か所に閉じる）。
+ */
+export type VesselRecordRow<K extends RecordKind = RecordKind> = K extends RecordKind
+  ? Omit<OmitIndexSignature<RecordPayloadByKind[K]>, "kind"> & {
+      kind: K;
+      /** ペイロード自身が持っていた区分（`kind` 列に退避される前の値） */
+      payloadKind?: string;
+    }
+  : never;
+
+/**
+ * 同期ペイロードからローカル行を組み立てる。
+ * ペイロードが自前の `kind`（事故の区分など）を持つ場合は `payloadKind` に退避してから
+ * エンティティ種別で上書きする（索引列と業務上の区分を取り違えない）。
+ */
+export function toRecordRow<K extends RecordKind>(
+  kind: K,
+  payload: RecordPayloadByKind[K],
+): VesselRecordRow<K> {
+  const p = payload as unknown as Record<string, unknown>;
+  const own = typeof p.kind === "string" && p.kind !== kind ? { payloadKind: p.kind } : null;
+  return { ...p, ...own, kind } as unknown as VesselRecordRow<K>;
+}
 
 export interface ReplicaArchiveRow {
   seq?: number;

@@ -1,4 +1,10 @@
-import type { EntryType, PunchAction, TimeRecord, WorkCategory } from "@/domain/labor-law/types";
+import type {
+  EntryType,
+  ExceptionalWorkKind,
+  PunchAction,
+  TimeRecord,
+  WorkCategory,
+} from "@/domain/labor-law/types";
 import { DEMO_TENANT_ID, DEMO_VESSEL } from "@/lib/crew";
 import {
   makeIdempotencyKey,
@@ -10,7 +16,7 @@ import {
 } from "@/sync-protocol/events";
 import type { RecordKind, RecordPayloadByKind } from "@/sync-protocol/records";
 import { ulid } from "./ids";
-import { getMeta, setMeta, vesselDb, type VesselRecordRow } from "./vessel-db";
+import { getMeta, setMeta, toRecordRow, vesselDb } from "./vessel-db";
 import { isOfflineSim, syncNow } from "./vessel-sync";
 
 /**
@@ -87,6 +93,12 @@ export interface PunchInput {
   occurredAt?: Date;
   supersedesId?: string;
   note?: string;
+  /**
+   * 安全臨時労働・緊急作業の別枠（要件定義書 3.2.5⑥）。
+   * 開始打刻に付けると、その区間は労働時間として記録されつつ上限算定から除外される。
+   * 誤って常用されないよう、画面側では理由（note）を必須にする。
+   */
+  exceptionKind?: ExceptionalWorkKind;
 }
 
 export async function recordPunch(input: PunchInput): Promise<TimeRecord> {
@@ -109,6 +121,8 @@ export async function recordPunch(input: PunchInput): Promise<TimeRecord> {
     recordedBy: input.crewMemberId,
     deviceId,
     note: input.note,
+    // 別枠は区間の開始側にだけ付く（終了打刻は開始の区分に従う。WorkInterval.exceptionKind）
+    exceptionKind: input.action === "start" ? input.exceptionKind : undefined,
   };
   await vesselDb.transaction("rw", vesselDb.timeRecords, vesselDb.outbox, async () => {
     await vesselDb.timeRecords.add(record); // 一次記録へ追記（ローカルファースト）
@@ -191,7 +205,7 @@ export async function appendRecord<K extends RecordKind>(
 ): Promise<RecordPayloadByKind[K]> {
   // 入力時にスキーマ検証し、陸上で隔離される不正イベントを端末側で早期検出する（8.6）
   SYNC_ENTITY_REGISTRY[kind].payload.parse(payload);
-  const row = { ...payload, kind } as VesselRecordRow;
+  const row = toRecordRow(kind, payload);
   await vesselDb.transaction("rw", vesselDb.records, vesselDb.outbox, async () => {
     await vesselDb.records.add(row);
     await vesselDb.outbox.add({

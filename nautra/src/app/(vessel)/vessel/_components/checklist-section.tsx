@@ -1,11 +1,11 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { t } from "@/i18n/ja";
 import { cn } from "@/lib/cn";
 import { personName } from "@/lib/crew";
 import { fmtDateTime, parseOptionalNumber } from "@/lib/format";
 import { buildTemplateWithAddedItem } from "@/lib/record-templates";
+import { useLocale } from "@/lib/use-locale";
 import { appendRecord, newRecordBase } from "@/lib/vessel-actions";
 import { usePermission, useRecordTemplates, useSessionCrew } from "@/lib/vessel-hooks";
 import type {
@@ -48,6 +48,7 @@ import { RecordTile } from "./record-tile";
  */
 export function ChecklistSection({ onDone }: { onDone?: (message: string) => void }) {
   const session = useSessionCrew();
+  const { tr } = useLocale(); // 良否の表示言語（10.2）
   const canManageTemplates = usePermission("manage_record_templates");
   const templates = useRecordTemplates("checklist");
   const glassModal = useGlassModalProps();
@@ -111,7 +112,7 @@ export function ChecklistSection({ onDone }: { onDone?: (message: string) => voi
         overall,
         remarks: remarks.trim() || undefined,
       });
-      onDone?.(`${template.name} を記録しました（${t.overall[overall]}）`);
+      onDone?.(`${template.name} を記録しました（${tr("overall", overall)}）`);
       checklistModal.onClose();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -326,6 +327,7 @@ export function ChecklistSection({ onDone }: { onDone?: (message: string) => voi
 
 /** 点検表の結果1件（履歴の行）。機器の保守記録と同じ一覧に並べる */
 export function ChecklistResultRow({ r, name }: { r: ChecklistResultPayload; name: string }) {
+  const { tr } = useLocale();
   const ngItems = r.items.filter((i) => i.result === "ng");
   return (
     <Accordion isCompact className="px-0">
@@ -339,7 +341,7 @@ export function ChecklistResultRow({ r, name }: { r: ChecklistResultPayload; nam
               {name}
             </Chip>
             <Chip size="sm" variant="flat" color={r.overall === "pass" ? "success" : "danger"} radius="sm">
-              {r.overall === "pass" ? "✓" : "✕"} {t.overall[r.overall]}
+              {r.overall === "pass" ? "✓" : "✕"} {tr("overall", r.overall)}
             </Chip>
             <span className="text-sm text-foreground-600">
               実施 {personName(r.recordedBy)} / 不良 {ngItems.length}件 / 全 {r.items.length}項目
@@ -363,7 +365,7 @@ export function ChecklistResultRow({ r, name }: { r: ChecklistResultPayload; nam
                     it.result === "ok" ? "text-success" : it.result === "ng" ? "text-danger" : "text-foreground-600",
                   )}
                 >
-                  {it.result === "ok" ? "✓" : it.result === "ng" ? "✕" : "–"} {t.checkResult[it.result]}
+                  {it.result === "ok" ? "✓" : it.result === "ng" ? "✕" : "–"} {tr("checkResult", it.result)}
                 </span>
               )}
               <span className="text-foreground-600">[{it.group}]</span>

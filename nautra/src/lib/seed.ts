@@ -2,6 +2,7 @@ import type { TimeRecord, WorkCategory } from "@/domain/labor-law/types";
 import { addDays, startOfLocalDay, ymdLocal } from "@/domain/labor-law/evaluate";
 import { CHECKLIST_TEMPLATES } from "@/lib/checklist-templates";
 import { DEMO_TENANT_ID, DEMO_VESSEL, SHORE_PLANNER_ID } from "@/lib/crew";
+import { makeMasterSeedEvents } from "@/lib/seed-masters";
 import { DEFAULT_SAFETY_RULE_SET } from "@/rules/safety-rules";
 import {
   makeIdempotencyKey,
@@ -23,9 +24,12 @@ import type {
 } from "@/sync-protocol/records";
 
 /**
- * デモシナリオ（過去6日分の打刻・承認 + 船内記録 + 当直シフト計画）。
+ * デモシナリオ（過去35日分の打刻・承認 + 船内記録 + 当直シフト計画 + マスタ一式）。
  * サーバストア初期化時に一度だけ投入され、船内端末は初回 Pull で受信する
  * （マスタ・履歴配信のPoC表現）。
+ *
+ * 打刻は 35 日ぶん作る。4週（28日）・月次の集計（要件定義書 3.2.1）を成立させるためで、
+ * 船員ごとに曜日をずらして**週1日の休日**を入れてある（3.2.5⑤ の判定が適合になる）。
  *
  * 意図した見どころ:
  * - 佐藤(航海士): 3日前 = 14.5h 労働・休息9.5h → 警告(赤)。船長が打刻誤りを差戻し済み。
@@ -40,7 +44,7 @@ import type {
  */
 
 /** デモデータ版。上げるとストアが作り直される（PoC の .data/store.json のみ） */
-export const SEED_VERSION = 7;
+export const SEED_VERSION = 9;
 
 const SEED_DEVICE = "seed-shore-device";
 
@@ -134,14 +138,36 @@ function base(id: string, occurredAt: string, recordedBy: string) {
 
 /* ───────────── 打刻・承認（労務） ───────────── */
 
+/**
+ * 打刻を作る期間（当日を除く直近 n 日）。
+ *
+ * **35日**にしてある。4週（28日）集計と月次集計を成立させるには最低でも28日必要で、
+ * 月初にデモを開いた場合でも当月に数日ぶんが入るよう余裕を持たせている
+ * （6日ぶんだと `/vessel/ledger` と `/shore/labor` の 4週・今月の欄が空になり、
+ *  3.2.1「4週単位・月単位の自動集計」が確認できない）。
+ */
+const LABOR_SEED_DAYS = 35;
+
+/**
+ * 休日（労働記録を作らない日）。3.2.5⑤「休日付与（週1日以上）」の判定が
+ * 適合になるよう、船員ごとに曜日をずらして週1日ずつ休ませる。
+ * 全員が同じ日に休むと船が動かないため、ずらすのは運用の再現でもある。
+ */
+function isRestDay(crewId: string, offset: number): boolean {
+  const crewIndex = ["crew-kato", "crew-sato", "crew-suzuki", "crew-tanaka"].indexOf(crewId);
+  // offset は負。7日周期で船員ごとに1日ずつずらす
+  return ((-offset + crewIndex) % 7) === 0;
+}
+
 function laborSeed(today: string): SyncEvent[] {
   const events: SyncEvent[] = [];
   const crewIds = ["crew-kato", "crew-sato", "crew-suzuki", "crew-tanaka"];
   let remandTargetId: string | null = null;
 
-  for (let offset = -6; offset <= -1; offset++) {
+  for (let offset = -LABOR_SEED_DAYS; offset <= -1; offset++) {
     const day = addDays(today, offset);
     for (const crewId of crewIds) {
+      if (isRestDay(crewId, offset)) continue; // 週1日の休日
       const shifts = shiftsFor(crewId, offset);
       shifts.forEach(([category, from, to], i) => {
         const b = `sd-${crewId}-${day}-${i}`;
@@ -169,9 +195,12 @@ function laborSeed(today: string): SyncEvent[] {
     }
   }
 
-  for (let offset = -6; offset <= -4; offset++) {
+  // 直近3日（-3〜-1）だけを未承認で残し、それ以前は船長が承認済みにする。
+  // 承認待ちが数十日ぶん積み上がると、S-01 の「承認待ち」が実運用ではありえない数になる。
+  for (let offset = -LABOR_SEED_DAYS; offset <= -4; offset++) {
     const day = addDays(today, offset);
     for (const crewId of crewIds) {
+      if (isRestDay(crewId, offset)) continue; // 記録の無い日は承認の対象にしない
       events.push(
         approvalEvent({
           id: `sd-appr-${crewId}-${day}`,
@@ -673,6 +702,9 @@ export function makeSeedEvents(today: string): SyncEvent[] {
     ...inspectionSeed(today),
     ...workSeed(today),
     ...shiftSeed(today),
+    // マスタ・事務エンティティ（船員/船舶マスタ・資格・届出・手続き・訓練・保守計画・
+    // 入渠・SMS・事故・相談・傭船/請求/経費/給与/補助金・配船/位置・帳票・協定・監査）
+    ...makeMasterSeedEvents(today),
   ];
 }
 

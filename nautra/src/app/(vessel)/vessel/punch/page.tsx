@@ -3,12 +3,18 @@
 import { useMemo, useState } from "react";
 import { startOfLocalDay, ymdLocal } from "@/domain/labor-law/evaluate";
 import { buildIntervals } from "@/domain/labor-law/intervals";
-import { WORK_CATEGORIES, type TimeRecord, type WorkCategory } from "@/domain/labor-law/types";
-import { t } from "@/i18n/ja";
+import {
+  EXCEPTIONAL_WORK_KINDS,
+  WORK_CATEGORIES,
+  type ExceptionalWorkKind,
+  type TimeRecord,
+  type WorkCategory,
+} from "@/domain/labor-law/types";
 import { assignedWorkFor } from "@/lib/assigned-work";
 import { cn } from "@/lib/cn";
 import { CREW_MEMBERS, personName } from "@/lib/crew";
 import { fmtDateTime, fmtDateTimeSec, fmtElapsedClock, fmtTimeSec } from "@/lib/format";
+import { useLocale } from "@/lib/use-locale";
 import { recordPunch } from "@/lib/vessel-actions";
 import {
   useApprovals,
@@ -22,6 +28,7 @@ import {
   Button,
   Card,
   CardBody,
+  Checkbox,
   Chip,
   GlassCard,
   Input,
@@ -30,6 +37,8 @@ import {
   ModalContent,
   ModalFooter,
   ModalHeader,
+  Radio,
+  RadioGroup,
   Select,
   SelectItem,
   useDisclosure,
@@ -65,6 +74,7 @@ export default function PunchPage() {
   const session = useSessionCrew();
   const canAfterEntry = usePermission("punch_after_entry");
   const canAdjustCrew = usePermission("adjust_crew_punch");
+  const { tr } = useLocale();
   const now = useNowTick(1000); // 秒表示のため毎秒更新
   const today = ymdLocal(now);
 
@@ -72,6 +82,20 @@ export default function PunchPage() {
   const [confirmation, setConfirmation] = useState<string | null>(null);
   /** 2段階操作の選択中カード（タップ → 作業開始/終了を押す） */
   const [selected, setSelected] = useState<WorkCategory | null>(null);
+
+  /**
+   * 安全臨時労働・緊急作業の別枠（要件定義書 3.2.5⑥）。
+   * **既定はオフ**。誤って常用されないよう、選んだ場合は理由を必須にする。
+   */
+  const [isExceptional, setIsExceptional] = useState(false);
+  const [exceptionKind, setExceptionKind] = useState<ExceptionalWorkKind>("safety_emergency");
+  const [exceptionNote, setExceptionNote] = useState("");
+
+  function clearException() {
+    setIsExceptional(false);
+    setExceptionKind("safety_emergency");
+    setExceptionNote("");
+  }
 
   const myId = session?.id ?? "";
   const { watches } = useShiftPlans();
@@ -107,12 +131,26 @@ export default function PunchPage() {
   async function punch(workCategory: WorkCategory, action: "start" | "end") {
     setError(null);
     if (!session) return;
+    // 別枠は開始打刻にだけ付く。理由は必須（後から「なぜ除外したのか」を検証できるようにする）
+    const useException = action === "start" && isExceptional;
+    if (useException && !exceptionNote.trim()) {
+      setError("緊急作業として記録するには理由を入力してください");
+      return;
+    }
     try {
-      const rec = await recordPunch({ crewMemberId: session.id, workCategory, action });
+      const rec = await recordPunch({
+        crewMemberId: session.id,
+        workCategory,
+        action,
+        exceptionKind: useException ? exceptionKind : undefined,
+        note: useException ? exceptionNote.trim() : undefined,
+      });
       setConfirmation(
-        `${t.workCategory[workCategory]} を${t.action[action]}しました（${fmtTimeSec(rec.occurredAt)}）`,
+        `${tr("workCategory", workCategory)} を${tr("action", action)}しました（${fmtTimeSec(rec.occurredAt)}）` +
+          (useException ? `／${tr("exceptionalWork", exceptionKind)}として上限の計算から外します` : ""),
       );
       setSelected(null);
+      clearException();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     }
@@ -172,7 +210,7 @@ export default function PunchPage() {
         entryType: "after",
         occurredAt: to,
       });
-      setConfirmation(`${t.workCategory[afterCategory]} を事後入力しました`);
+      setConfirmation(`${tr("workCategory", afterCategory)} を事後入力しました`);
       afterModal.onClose();
     } catch (e) {
       setFormError(e instanceof Error ? e.message : String(e));
@@ -228,7 +266,7 @@ export default function PunchPage() {
           </div>
           <div className="text-right">
             <p className="text-lg font-bold">
-              {session.name}（{t.role[session.role]}）
+              {session.name}（{tr("role", session.role)}）
             </p>
             <p className="text-sm text-foreground-600">打刻できるのはサインイン中の本人のみです</p>
           </div>
@@ -257,7 +295,7 @@ export default function PunchPage() {
                 <CardBody className="flex flex-wrap items-center justify-between gap-3 p-4">
                   <div>
                     <p className="text-xl font-bold">
-                      {t.workCategory[iv.workCategory]}
+                      {tr("workCategory", iv.workCategory)}
                       <Chip size="sm" color="primary" radius="sm" className="ml-2 align-middle">
                         作業中
                       </Chip>
@@ -284,7 +322,7 @@ export default function PunchPage() {
                         className="min-h-14 flex-1 text-lg font-bold"
                         onPress={() => void punch(iv.workCategory, "end")}
                       >
-                        {t.workCategory[iv.workCategory]} を作業終了
+                        {tr("workCategory", iv.workCategory)} を作業終了
                       </Button>
                       <Button
                         variant="bordered"
@@ -328,11 +366,12 @@ export default function PunchPage() {
                 key={a.category}
                 category={a.category}
                 assignment={a.sources
-                  .map((s) => `${t.shiftType[s.shiftType]} ${s.from}–${s.to}`)
+                  .map((s) => `${tr("shiftType", s.shiftType)} ${s.from}–${s.to}`)
                   .join(" / ")}
                 active={openCategories.has(a.category)}
                 selected={selected === a.category}
                 onSelect={() => setSelected(selected === a.category ? null : a.category)}
+                tr={tr}
               />
             ))}
           </div>
@@ -354,6 +393,7 @@ export default function PunchPage() {
                   active={openCategories.has(c)}
                   selected={selected === c}
                   onSelect={() => setSelected(selected === c ? null : c)}
+                  tr={tr}
                 />
               ))}
             </div>
@@ -363,16 +403,59 @@ export default function PunchPage() {
         {/* 2段階目: 選択した作業の開始/終了を確定する */}
         {selected && !openCategories.has(selected) ? (
           <GlassCard blurred className="border-2 border-primary">
-            <CardBody className="flex flex-wrap items-center justify-between gap-3 p-4">
+            <CardBody className="flex flex-col gap-3 p-4">
               <p className="text-lg">
-                <span className="font-bold">{t.workCategory[selected]}</span> を開始します
+                <span className="font-bold">{tr("workCategory", selected)}</span> を開始します
               </p>
-              <div className="flex gap-2">
+
+              {/* 3.2.5⑥ 安全臨時労働・緊急作業の別枠。既定はオフ（誤って常用させない） */}
+              <Checkbox
+                size="lg"
+                isSelected={isExceptional}
+                onValueChange={(v) => {
+                  setIsExceptional(v);
+                  if (!v) clearException();
+                }}
+              >
+                これは緊急作業・安全臨時労働です（労働時間の上限の計算から外します）
+              </Checkbox>
+
+              {isExceptional ? (
+                <div className="glass-inset flex flex-col gap-3 p-3">
+                  <RadioGroup
+                    orientation="horizontal"
+                    label="別枠の区分"
+                    value={exceptionKind}
+                    onValueChange={(v) => setExceptionKind(v as ExceptionalWorkKind)}
+                  >
+                    {EXCEPTIONAL_WORK_KINDS.map((k) => (
+                      <Radio key={k} value={k}>
+                        {tr("exceptionalWork", k)}
+                      </Radio>
+                    ))}
+                  </RadioGroup>
+                  <Input
+                    label="理由（必須）"
+                    placeholder="例: 荒天で係船索の増し取りが必要になったため"
+                    value={exceptionNote}
+                    onValueChange={setExceptionNote}
+                  />
+                  <p className="text-pretty text-sm text-foreground-600">
+                    働いた時間は記録簿に実績として残ります。上限の計算からだけ外れ、理由とあわせて
+                    後から確認できます。
+                  </p>
+                </div>
+              ) : null}
+
+              <div className="flex flex-wrap justify-end gap-2">
                 <Button
                   variant="bordered"
                   radius="md"
                   className="min-h-14 border-[var(--glass-border-strong)] text-foreground"
-                  onPress={() => setSelected(null)}
+                  onPress={() => {
+                    setSelected(null);
+                    clearException();
+                  }}
                 >
                   やめる
                 </Button>
@@ -484,11 +567,17 @@ export default function PunchPage() {
                     {fmtDateTimeSec(r.occurredAt)}
                   </span>
                   <span className={cn("font-semibold", isSuperseded && "line-through opacity-60")}>
-                    {t.workCategory[r.workCategory]} {t.action[r.action]}
+                    {tr("workCategory", r.workCategory)} {tr("action", r.action)}
                   </span>
                   <Chip size="sm" variant="flat" radius="sm">
-                    {t.entryType[r.entryType]}
+                    {tr("entryType", r.entryType)}
                   </Chip>
+                  {/* 別枠（3.2.5⑥）は履歴でも一目で分かるようにする */}
+                  {r.exceptionKind ? (
+                    <Chip size="sm" variant="flat" radius="sm">
+                      <span aria-hidden="true">⚑</span> 別枠 {tr("exceptionalWork", r.exceptionKind)}
+                    </Chip>
+                  ) : null}
                   {isSuperseded ? (
                     <Chip size="sm" variant="flat" radius="sm">
                       訂正済（再入力で無効化・原本保持）
@@ -500,6 +589,9 @@ export default function PunchPage() {
                     </Chip>
                   ) : null}
                 </div>
+                {r.exceptionKind && r.note ? (
+                  <p className="text-sm text-foreground-600">理由: {r.note}</p>
+                ) : null}
                 {remandReason ? (
                   <div className="flex flex-col gap-2">
                     <p className="text-sm text-danger">{remandReason}</p>
@@ -536,7 +628,7 @@ export default function PunchPage() {
               }}
             >
               {WORK_CATEGORIES.map((c) => (
-                <SelectItem key={c}>{t.workCategory[c]}</SelectItem>
+                <SelectItem key={c}>{tr("workCategory", c)}</SelectItem>
               ))}
             </Select>
             <Input type="date" label="対象日" value={afterDate} max={today} onValueChange={setAfterDate} />
@@ -572,7 +664,8 @@ export default function PunchPage() {
           <ModalBody className="flex flex-col gap-3">
             {resubmitTarget ? (
               <p className="text-sm text-foreground-600">
-                対象: {t.workCategory[resubmitTarget.workCategory]} {t.action[resubmitTarget.action]}
+                対象: {tr("workCategory", resubmitTarget.workCategory)}{" "}
+                {tr("action", resubmitTarget.action)}
                 （{fmtDateTime(resubmitTarget.occurredAt)}）。正しい日時で再入力すると、元の打刻は
                 「訂正済」となり集計から除外されます（元レコードは保全されます）。
               </p>
@@ -611,12 +704,15 @@ function WorkTile({
   active,
   selected,
   onSelect,
+  tr,
 }: {
   category: WorkCategory;
   assignment?: string;
   active: boolean;
   selected: boolean;
   onSelect: () => void;
+  /** 作業種別の表示言語（要件定義書 10.2） */
+  tr: (group: string, key: string) => string;
 }) {
   return (
     <button
@@ -626,12 +722,15 @@ function WorkTile({
       className={cn(
         "glass-tile flex min-h-24 flex-col items-start justify-center gap-1 p-4 text-left",
         active
-          ? "border-2 border-primary bg-primary text-primary-foreground"
+          ? // globals.css の材質クラスは utilities より後に定義されるため、
+            // 塗りつぶしは important 付きで指定しないと .glass-tile の背景に負けて
+            // 「白地に白文字」になる（作業中のタイルが読めなくなる）
+            "border-2 border-primary !bg-primary !text-primary-foreground"
           : "border-2 border-transparent",
         selected && !active && "border-primary",
       )}
     >
-      <span className="text-lg font-bold leading-tight">{t.workCategory[category]}</span>
+      <span className="text-lg font-bold leading-tight">{tr("workCategory", category)}</span>
       {assignment ? (
         <span className={cn("text-xs", active ? "opacity-90" : "text-foreground-600")}>
           {assignment}

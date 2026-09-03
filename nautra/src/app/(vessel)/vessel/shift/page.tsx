@@ -4,11 +4,11 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { addDays, ymdLocal } from "@/domain/labor-law/evaluate";
 import { buildIntervals } from "@/domain/labor-law/intervals";
-import { t } from "@/i18n/ja";
 import { SHIFT_TO_WORK } from "@/lib/assigned-work";
 import { cn } from "@/lib/cn";
 import { personName } from "@/lib/crew";
 import { fmtDateLabel, fmtDateTime, fmtTime } from "@/lib/format";
+import { useLocale } from "@/lib/use-locale";
 import {
   describeActual,
   describeShiftChange,
@@ -40,6 +40,7 @@ import { GroupHeader } from "../_components/group-header";
  */
 export default function ShiftPage() {
   const session = useSessionCrew();
+  const { tr } = useLocale(); // 当直種別・配置場面の表示言語（10.2）
   const canViewAll = usePermission("view_all_crew"); // 全員の当直表は船長のみ
   const { watches, stations, changes, unread, byId, ackAt } = useShiftPlans();
   const now = useNowTick(30_000);
@@ -143,7 +144,7 @@ export default function ShiftPage() {
                 {status.current.plan.from}–{status.current.plan.to}
               </span>
               <span className="text-lg">
-                {status.current.plan.shiftType ? t.shiftType[status.current.plan.shiftType] : ""}
+                {status.current.plan.shiftType ? tr("shiftType", status.current.plan.shiftType) : ""}
               </span>
               <Button
                 as={Link}
@@ -176,7 +177,7 @@ export default function ShiftPage() {
                   <span className="tabular-nums text-2xl font-bold">
                     {plan.from}–{plan.to}
                   </span>
-                  <span className="text-lg">{plan.shiftType ? t.shiftType[plan.shiftType] : "—"}</span>
+                  <span className="text-lg">{plan.shiftType ? tr("shiftType", plan.shiftType) : "—"}</span>
                   {onDuty ? (
                     <Chip size="sm" color="primary" variant="solid" radius="sm">
                       ● 当直中
@@ -283,7 +284,7 @@ export default function ShiftPage() {
             const mine = myStations.find((s) => s.scenario === sc);
             return (
               <div key={sc} className="glass-inset flex flex-wrap items-center gap-3 p-4">
-                <span className="w-44 shrink-0 text-foreground-600">{t.stationScenario[sc]}</span>
+                <span className="w-44 shrink-0 text-foreground-600">{tr("stationScenario", sc)}</span>
                 <span className="text-xl font-bold">{mine?.station ?? "配置なし"}</span>
                 {mine?.duty ? <span className="text-foreground-600">{mine.duty}</span> : null}
                 {mine && changedIds.has(mine.id) ? (
@@ -304,7 +305,7 @@ export default function ShiftPage() {
         <CardBody className="flex flex-col gap-4">
           {STATION_SCENARIOS.map((sc) => (
             <div key={sc} className="flex flex-col gap-1">
-              <h3 className="font-bold text-foreground-600">{t.stationScenario[sc]}</h3>
+              <h3 className="font-bold text-foreground-600">{tr("stationScenario", sc)}</h3>
               <StationRows
                 rows={stations.filter((s) => s.scenario === sc)}
                 selfId={selfId}
@@ -356,7 +357,7 @@ export default function ShiftPage() {
                   ) : (
                     plans.map((p) => (
                       <span key={p.id} className="tabular-nums">
-                        {p.shiftType ? t.shiftType[p.shiftType] : ""} {p.from}–{p.to}
+                        {p.shiftType ? tr("shiftType", p.shiftType) : ""} {p.from}–{p.to}
                         {changedIds.has(p.id) ? (
                           <span className="ml-1 text-warning-700">✎ 変更</span>
                         ) : null}

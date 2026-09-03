@@ -2,17 +2,29 @@ import Link from "next/link";
 import { t } from "@/i18n/ja";
 import { fmtDateLabel, fmtDateTime, fmtHoursShort, fmtMinutes } from "@/lib/format";
 import { buildShoreDashboard } from "@/server/labor-service";
+import { requireShore } from "@/server/shore-session";
 import { StatusChip } from "@/ui";
+import { ShoreGuardNotice } from "./_components/guard";
 import { RefreshButton } from "./_components/refresh-button";
 
 export const dynamic = "force-dynamic";
 
+/** 期限接近一覧の種別ラベル（見出しは i18n から、種別名だけここで短く添える） */
+const DEADLINE_KIND: Record<string, string> = {
+  credential: "証書",
+  procedure: "手続き",
+  leave: "休暇",
+};
+
 /**
- * S-01 労務ダッシュボード（PoC 簡易版）。
- * 法令遵守アラート集計（黄/赤件数）・承認状況・同期受信状況を表示する。
- * 判定は船内と同一のドメイン純関数＋同一ルール版で行う（二重実装しない。要件定義書 12.3）。
+ * S-01 労務ダッシュボード（基本設計書 6.2）。
+ * 法令遵守アラート集計（黄/赤件数）・**期限接近一覧**・未同期/競合・承認待ちを1画面に集める。
+ * 判定は船内と同一のドメイン純関数＋労使協定を反映したルール版で行う（要件定義書 12.3 / 6.5）。
  */
-export default function ShoreDashboardPage() {
+export default async function ShoreDashboardPage() {
+  const guard = await requireShore("view_dashboard");
+  if (!guard.ok) return <ShoreGuardNotice guard={guard} screen="労務ダッシュボード" />;
+
   const d = buildShoreDashboard();
 
   const stats = [
@@ -20,6 +32,8 @@ export default function ShoreDashboardPage() {
     { label: "注意（黄）日数 / 7日間", value: d.totals.cautionDays, tone: "text-warning-700" },
     { label: "承認待ち", value: d.totals.pendingApprovals, tone: "text-foreground" },
     { label: "差戻し中", value: d.totals.remandedDays, tone: "text-danger" },
+    { label: "期限が過ぎた・迫っている", value: d.totals.deadlineUrgent, tone: "text-danger" },
+    { label: "配乗できない船員", value: d.totals.manningBlocked, tone: "text-danger" },
   ];
 
   return (
@@ -29,7 +43,7 @@ export default function ShoreDashboardPage() {
         <RefreshButton />
       </div>
 
-      <section aria-label="法令遵守アラート集計" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <section aria-label="法令遵守アラート集計" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {stats.map((s) => (
           <div key={s.label} className="glass-tile p-4">
             <p className="text-sm text-foreground-500">{s.label}</p>
@@ -38,14 +52,86 @@ export default function ShoreDashboardPage() {
         ))}
       </section>
 
+      {/* 期限接近一覧（証書の期限 12.4 ＋ 手続きの着手期限 6.6② ＋ 休暇の時効 3.2.4） */}
+      <section aria-label="期限接近一覧" className="glass-tile overflow-x-auto">
+        <div className="flex flex-wrap items-center justify-between gap-2 px-4 pt-4">
+          <h2 className="font-bold">期限が近いもの（急ぐ順）</h2>
+          <p className="text-xs text-foreground-500">
+            証書・手続き・休暇の期限をまとめています。行から担当の画面へ移動できます。
+          </p>
+        </div>
+        {d.deadlines.length === 0 ? (
+          <p className="px-4 py-3 text-sm text-foreground-500">期限が近いものはありません。</p>
+        ) : (
+          <table className="mt-2 w-full min-w-[760px] text-sm">
+            <thead>
+              <tr className="border-b border-[var(--glass-border)] text-left text-foreground-500">
+                <th className="px-4 py-2 font-medium">状態</th>
+                <th className="px-2 py-2 font-medium">対象</th>
+                <th className="px-2 py-2 font-medium">内容</th>
+                <th className="px-2 py-2 font-medium">あと</th>
+                <th className="px-2 py-2 font-medium">やること</th>
+              </tr>
+            </thead>
+            <tbody>
+              {d.deadlines.slice(0, 20).map((item) => (
+                <tr key={item.key} className="border-b border-[var(--glass-border)] last:border-b-0">
+                  <td className="px-4 py-2">
+                    <StatusChip level={item.level} size="sm" />
+                  </td>
+                  <td className="px-2 py-2">
+                    <p className="font-semibold">{item.subject}</p>
+                    <p className="text-xs text-foreground-500">{DEADLINE_KIND[item.kind]}</p>
+                  </td>
+                  <td className="px-2 py-2">
+                    <p>{item.title}</p>
+                    <p className="text-xs text-foreground-600">{item.message}</p>
+                  </td>
+                  <td className="px-2 py-2 tabular-nums">
+                    {item.days === null
+                      ? "—"
+                      : item.days < 0
+                        ? `${Math.abs(item.days)}日 超過`
+                        : `${item.days}日`}
+                  </td>
+                  <td className="px-2 py-2">
+                    <Link
+                      href={item.href}
+                      className="text-primary underline-offset-2 hover:underline"
+                    >
+                      開く
+                    </Link>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+        {d.deadlines.length > 20 ? (
+          <p className="px-4 py-3 text-xs text-foreground-500">
+            ほかに {d.deadlines.length - 20}件 あります。
+            <Link href="/shore/procedures" className="ml-1 text-primary underline-offset-2 hover:underline">
+              手続き・期限
+            </Link>
+            で全部見られます。
+          </p>
+        ) : null}
+      </section>
+
       <section aria-label="次の作業" className="glass-tile flex flex-wrap items-center gap-3 p-4">
         <span className="text-sm text-foreground-500">よく使う画面:</span>
         {[
-          { href: "/shore/labor", label: "労務管理・記録簿（承認と第16号の5）" },
-          { href: "/shore/crew", label: "船員一覧" },
-          { href: "/shore/shifts", label: "シフト・配置表の配信" },
+          { href: "/shore/labor", label: "労務・記録簿" },
+          { href: "/shore/crew", label: "船員" },
+          { href: "/shore/manning", label: "配乗計画" },
+          { href: "/shore/shifts", label: "シフト・配置表" },
+          { href: "/shore/filings", label: "届出" },
+          { href: "/shore/procedures", label: "手続き・期限" },
+          { href: "/shore/training", label: "訓練" },
           { href: "/shore/fleet", label: "船舶・保守" },
-          { href: "/shore/notices", label: "お知らせ・速報の配信" },
+          { href: "/shore/dispatch", label: "配船・位置" },
+          { href: "/shore/documents", label: "帳票" },
+          { href: "/shore/notices", label: "お知らせ・速報" },
         ].map((l) => (
           <Link key={l.href} href={l.href} className="rounded-medium bg-default-100 px-3 py-1.5 text-sm">
             {l.label}
@@ -98,7 +184,7 @@ export default function ShoreDashboardPage() {
                   {fmtDateLabel(day.date)}
                 </th>
               ))}
-              <th className="px-4 py-3 text-right font-medium">週合計 / 72h</th>
+              <th className="px-4 py-3 text-right font-medium">週合計 / 上限</th>
             </tr>
           </thead>
           <tbody>
@@ -154,6 +240,7 @@ export default function ShoreDashboardPage() {
       <p className="text-xs text-foreground-400">
         適用ルール版: {d.appliedRuleVersion} / 集計時刻: {fmtDateTime(d.generatedAt)}。
         判定は船内アプリと同一のドメイン関数（packages/domain 相当）で行われ、二重実装はありません。
+        労使協定を登録すると、その適用期間から判定の基準が変わります。
       </p>
     </div>
   );

@@ -7,8 +7,15 @@ import {
   type ApprovalPayload,
   type SyncEvent,
 } from "@/sync-protocol/events";
-import type { AnyRecordPayload } from "@/sync-protocol/records";
-import { getMeta, setMeta, vesselDb, type ReplicaArchiveRow, type VesselRecordRow } from "./vessel-db";
+import type { RecordKind } from "@/sync-protocol/records";
+import {
+  getMeta,
+  setMeta,
+  toRecordRow,
+  vesselDb,
+  type ReplicaArchiveRow,
+  type VesselRecordRow,
+} from "./vessel-db";
 
 /**
  * 船内→陸上 Push / 陸上→船内 Pull の同期クライアント（基本設計書 8.1）。
@@ -111,7 +118,8 @@ async function applyPulledEvents(events: { event: SyncEvent }[], receivedAt: str
     } else if (kind === "approval") {
       approvals.push(event.payload as ApprovalPayload);
     } else if (isRecordKind(kind)) {
-      records.push({ ...(event.payload as AnyRecordPayload), kind } as VesselRecordRow);
+      // ペイロード自身の kind（事故の区分など）は toRecordRow が payloadKind へ退避する
+      records.push(toRecordRow(kind as RecordKind, event.payload as never) as VesselRecordRow);
     } else if (!(SYNC_KINDS as string[]).includes(kind)) {
       unknown.push({
         kind,

@@ -64,6 +64,8 @@ export function buildIntervals(records: TimeRecord[]): WorkInterval[] {
           startAt: at,
           endAt: null,
           startRecordId: r.id,
+          // 別枠区分は開始打刻に付く（3.2.5⑥ 安全臨時労働・緊急作業の上限算定除外）
+          exceptionKind: r.exceptionKind,
         });
       } else if (current) {
         current.endAt = at;

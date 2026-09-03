@@ -124,6 +124,94 @@ export const SYNC_ENTITY_REGISTRY = {
     policy: "append_only",
     origin: "both",
   },
+
+  /* ── マスタ・計画（要件定義書 12.5「船員・船舶マスター/配乗計画は陸上を優先」） ──
+     船内での変更は「変更依頼」として起票し、陸上の承認を経て反映する。
+     船内端末から直接 Push された場合は checkOriginPolicy で隔離される（破棄しない）。 */
+  crew_master: { payload: RECORD_PAYLOAD_SCHEMAS.crew_master, policy: "shore_priority", origin: "shore" },
+  credential: { payload: RECORD_PAYLOAD_SCHEMAS.credential, policy: "shore_priority", origin: "shore" },
+  vessel_master: {
+    payload: RECORD_PAYLOAD_SCHEMAS.vessel_master,
+    policy: "shore_priority",
+    origin: "shore",
+  },
+  // 乗下船・配乗計画は「計画は陸上・実績は船内の別レコード」（12.5 計画/実績分離）
+  embarkation: {
+    payload: RECORD_PAYLOAD_SCHEMAS.embarkation,
+    policy: "plan_actual_split",
+    origin: "shore",
+  },
+  evaluation: { payload: RECORD_PAYLOAD_SCHEMAS.evaluation, policy: "shore_priority", origin: "shore" },
+  leave_record: {
+    payload: RECORD_PAYLOAD_SCHEMAS.leave_record,
+    policy: "shore_priority",
+    origin: "shore",
+  },
+  maintenance_plan: {
+    payload: RECORD_PAYLOAD_SCHEMAS.maintenance_plan,
+    policy: "plan_actual_split",
+    origin: "shore",
+  },
+  part_stock: { payload: RECORD_PAYLOAD_SCHEMAS.part_stock, policy: "shore_priority", origin: "shore" },
+  dock_plan: { payload: RECORD_PAYLOAD_SCHEMAS.dock_plan, policy: "shore_priority", origin: "shore" },
+  filing: { payload: RECORD_PAYLOAD_SCHEMAS.filing, policy: "shore_priority", origin: "shore" },
+  procedure_task: {
+    payload: RECORD_PAYLOAD_SCHEMAS.procedure_task,
+    policy: "shore_priority",
+    origin: "shore",
+  },
+  training_plan: {
+    payload: RECORD_PAYLOAD_SCHEMAS.training_plan,
+    policy: "shore_priority",
+    origin: "shore",
+  },
+  sms_document: {
+    payload: RECORD_PAYLOAD_SCHEMAS.sms_document,
+    policy: "shore_priority",
+    origin: "shore",
+  },
+  charter_contract: {
+    payload: RECORD_PAYLOAD_SCHEMAS.charter_contract,
+    policy: "shore_priority",
+    origin: "shore",
+  },
+  invoice: { payload: RECORD_PAYLOAD_SCHEMAS.invoice, policy: "shore_priority", origin: "shore" },
+  expense: { payload: RECORD_PAYLOAD_SCHEMAS.expense, policy: "shore_priority", origin: "shore" },
+  payroll: { payload: RECORD_PAYLOAD_SCHEMAS.payroll, policy: "shore_priority", origin: "shore" },
+  subsidy: { payload: RECORD_PAYLOAD_SCHEMAS.subsidy, policy: "shore_priority", origin: "shore" },
+  // 位置情報は外部（AIS/GPS）を陸上のアダプタが取り込む。船内からは配信しない
+  vessel_position: {
+    payload: RECORD_PAYLOAD_SCHEMAS.vessel_position,
+    policy: "shore_priority",
+    origin: "shore",
+  },
+  voyage_schedule: {
+    payload: RECORD_PAYLOAD_SCHEMAS.voyage_schedule,
+    policy: "plan_actual_split",
+    origin: "shore",
+  },
+  generated_document: {
+    payload: RECORD_PAYLOAD_SCHEMAS.generated_document,
+    policy: "shore_priority",
+    origin: "shore",
+  },
+  agreement: { payload: RECORD_PAYLOAD_SCHEMAS.agreement, policy: "shore_priority", origin: "shore" },
+
+  /* ── 双方向の追記型（船内が起票し、陸上が追記で応答する） ── */
+  // 事故・ヒヤリハット報告: 船内の一次記録。原因分析・行政報告の追記は陸上から
+  incident_report: {
+    payload: RECORD_PAYLOAD_SCHEMAS.incident_report,
+    policy: "append_only",
+    origin: "both",
+  },
+  // 健康アンケート・匿名相談: 船内が回答し、陸上の窓口が対応状況を追記する
+  wellbeing_response: {
+    payload: RECORD_PAYLOAD_SCHEMAS.wellbeing_response,
+    policy: "append_only",
+    origin: "both",
+  },
+  // 監査証跡（12.6）: 陸上・船内・外部連携のいずれからも積まれる追記専用ログ
+  audit_log: { payload: RECORD_PAYLOAD_SCHEMAS.audit_log, policy: "append_only", origin: "both" },
 } as const satisfies Record<
   string,
   { payload: z.ZodTypeAny; policy: ConflictPolicy; origin: "vessel" | "shore" | "both" }
@@ -155,47 +243,47 @@ export function checkOriginPolicy(kind: string, deviceId: string): string | null
 
 export const timeRecordEventSchema = eventSchemaFor("time_record", timeRecordPayloadSchema);
 export const approvalEventSchema = eventSchemaFor("approval", approvalPayloadSchema);
-export const voyageLogEventSchema = eventSchemaFor("voyage_log", RECORD_PAYLOAD_SCHEMAS.voyage_log);
-export const checklistResultEventSchema = eventSchemaFor(
-  "checklist_result",
-  RECORD_PAYLOAD_SCHEMAS.checklist_result,
-);
-export const drillRecordEventSchema = eventSchemaFor("drill_record", RECORD_PAYLOAD_SCHEMAS.drill_record);
-export const alcoholCheckEventSchema = eventSchemaFor(
-  "alcohol_check",
-  RECORD_PAYLOAD_SCHEMAS.alcohol_check,
-);
-export const workReportEventSchema = eventSchemaFor("work_report", RECORD_PAYLOAD_SCHEMAS.work_report);
-export const maintenanceRecordEventSchema = eventSchemaFor(
-  "maintenance_record",
-  RECORD_PAYLOAD_SCHEMAS.maintenance_record,
-);
-export const shiftPlanEventSchema = eventSchemaFor("shift_plan", RECORD_PAYLOAD_SCHEMAS.shift_plan);
-export const noticeEventSchema = eventSchemaFor("notice", RECORD_PAYLOAD_SCHEMAS.notice);
-export const recordTemplateEventSchema = eventSchemaFor(
-  "record_template",
-  RECORD_PAYLOAD_SCHEMAS.record_template,
+
+/**
+ * 既知イベント種別の判別ユニオン（レジストリの全種別）。
+ *
+ * **レジストリから生成する**。以前は種別ごとに手で列挙しており、登録漏れがあると
+ * その種別が「未知種別」として隔離され続ける事故が起きえた（ガードレール⑧の注意書き）。
+ * ここで導出することで、SYNC_ENTITY_REGISTRY に足すだけで Push/Pull の受理まで完了する
+ * （ガードレール⑨「登録するだけで完了させる」）。登録漏れ検査のテストも引き続き通る。
+ */
+const registryEventSchemas = (Object.keys(SYNC_ENTITY_REGISTRY) as SyncKind[]).map((kind) =>
+  eventSchemaFor(kind, SYNC_ENTITY_REGISTRY[kind].payload),
 );
 
-/** 既知イベント種別の判別ユニオン（レジストリの全種別） */
-export const knownSyncEventSchema = z.discriminatedUnion("kind", [
-  timeRecordEventSchema,
-  approvalEventSchema,
-  voyageLogEventSchema,
-  checklistResultEventSchema,
-  drillRecordEventSchema,
-  alcoholCheckEventSchema,
-  workReportEventSchema,
-  maintenanceRecordEventSchema,
-  shiftPlanEventSchema,
-  recordTemplateEventSchema,
-  noticeEventSchema,
-]);
+export const knownSyncEventSchema = z.discriminatedUnion(
+  "kind",
+  registryEventSchemas as unknown as [
+    (typeof registryEventSchemas)[number],
+    (typeof registryEventSchemas)[number],
+    ...(typeof registryEventSchemas)[number][],
+  ],
+);
 
 export type TimeRecordEvent = z.infer<typeof timeRecordEventSchema>;
 export type ApprovalEvent = z.infer<typeof approvalEventSchema>;
-export type SyncEvent = z.infer<typeof knownSyncEventSchema>;
 export type ApprovalPayload = z.infer<typeof approvalPayloadSchema>;
+
+/**
+ * 同期イベントの型。判別ユニオンをレジストリ上の写像として定義するため、
+ * 種別を1つ足すと型も自動で広がる（実行時スキーマと型定義が乖離しない）。
+ */
+export type SyncEvent = {
+  [K in SyncKind]: {
+    kind: K;
+    schemaVersion: number;
+    eventId: string;
+    deviceId: string;
+    idempotencyKey: string;
+    occurredAt: string;
+    payload: z.infer<(typeof SYNC_ENTITY_REGISTRY)[K]["payload"]>;
+  };
+}[SyncKind];
 
 /** 船内記録イベント（time_record / approval 以外の追記型エンティティ） */
 export type RecordSyncEvent = Extract<SyncEvent, { kind: RecordKind }>;

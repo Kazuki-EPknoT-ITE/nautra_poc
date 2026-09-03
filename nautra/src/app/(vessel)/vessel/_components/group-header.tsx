@@ -57,6 +57,15 @@ export const FEATURE_GROUPS: Record<string, FeatureGroup> = {
     title: "オフライン蓄積・同期",
     tabs: [{ href: "/vessel/sync", label: "同期状態" }],
   },
+  // 3.5.2 事故・インシデント報告 / 3.5.3 健康・ハラスメント相談（V-10）
+  "07": {
+    no: "07",
+    title: "安全・健康",
+    tabs: [
+      { href: "/vessel/incident", label: "事故・ヒヤリ" },
+      { href: "/vessel/wellbeing", label: "相談・体調" },
+    ],
+  },
 };
 
 export function GroupHeader({

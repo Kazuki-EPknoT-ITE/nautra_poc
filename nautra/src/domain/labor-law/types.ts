@@ -46,7 +46,18 @@ export interface TimeRecord {
   recordedBy: string;
   deviceId: string;
   note?: string;
+  /**
+   * 安全臨時労働・緊急作業の別枠管理（要件定義書 3.2.5⑥）。
+   * 指定された区間は**労働時間としては記録しつつ、上限算定から除外**する。
+   * 記録簿には実績として残るため、除外の事実と理由が後から検証できる。
+   */
+  exceptionKind?: ExceptionalWorkKind;
 }
+
+/** 上限算定から除外する労働の区分（3.2.5⑥） */
+export type ExceptionalWorkKind = "safety_emergency" | "drill";
+
+export const EXCEPTIONAL_WORK_KINDS: ExceptionalWorkKind[] = ["safety_emergency", "drill"];
 
 /** 打刻ペアから構成した作業区間 */
 export interface WorkInterval {
@@ -57,6 +68,8 @@ export interface WorkInterval {
   endAt: Date | null;
   startRecordId: string;
   endRecordId?: string;
+  /** 開始打刻に付いていた別枠区分（上限算定から除外する） */
+  exceptionKind?: ExceptionalWorkKind;
 }
 
 /**
@@ -76,6 +89,24 @@ export interface LaborRuleValues {
   restSplitMax: number;
   /** 上限接近＝注意（黄）とみなす比率。例: 0.9 */
   cautionRatio: number;
+  /**
+   * 週あたりに与える休日の最低日数（要件定義書 3.2.5⑤「休日付与（週1日以上）」）。
+   * 休日 = その暦日に労働記録が無い日、または休日として付与された日。
+   */
+  restDaysPerWeek: number;
+  /**
+   * 基準労働期間の日数（航行区域等により1月〜1年。要件定義書 3.2.4）。
+   * 船舶マスタの referencePeriodDays で上書きできる。
+   */
+  referencePeriodDays: number;
+  /** 基準労働期間における週平均の労働時間上限（分）。例: 40h = 2400 */
+  referenceWeeklyAverageMinutes: number;
+  /** 4週間の労働時間上限（分）。基準労働期間より短い窓での監視に用いる */
+  fourWeekMaxMinutes: number;
+  /** 1月あたりの時間外労働の上限（分）。労使協定により変動する */
+  monthlyOvertimeMaxMinutes: number;
+  /** 1日の所定労働時間（分）。時間外の算定基準。例: 8h = 480 */
+  dailyStandardMinutes: number;
 }
 
 /** rule_sets 相当（有効期間つき版管理。基本設計書 5.3(6)） */
@@ -96,7 +127,15 @@ export type LaborCheckKey =
   | "weekly_max"
   | "rest_total"
   | "rest_split"
-  | "rest_longest";
+  | "rest_longest"
+  /** 週1日以上の休日付与（3.2.5⑤） */
+  | "rest_day"
+  /** 4週間の労働時間上限（3.2.5③） */
+  | "four_week_max"
+  /** 基準労働期間の週平均40時間（3.2.4 / 3.2.5③） */
+  | "reference_period"
+  /** 1月の時間外労働上限（労使協定。3.2.5③） */
+  | "monthly_overtime";
 
 export interface LaborCheck {
   key: LaborCheckKey;
@@ -118,7 +157,12 @@ export interface DailyLaborSummary {
   crewMemberId: string;
   /** YYYY-MM-DD（ローカル日） */
   date: string;
+  /** 労働時間の合計（別枠の安全臨時労働・緊急作業を含む実績。記録簿に載る値） */
   workedMinutes: number;
+  /** 上限算定の対象となる労働時間（別枠を除いた値。3.2.5⑥） */
+  countableWorkedMinutes: number;
+  /** 上限算定から除外した労働時間（安全臨時労働・緊急作業） */
+  exceptionalMinutes: number;
   workedByCategory: Partial<Record<WorkCategory, number>>;
   restPeriods: RestPeriod[];
   restTotalMinutes: number;

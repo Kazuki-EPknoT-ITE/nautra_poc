@@ -32,10 +32,23 @@ const base = (id: string, occurredAt = "2026-08-21T06:00:00.000Z") => ({
 
 describe("エンティティレジストリ（基本設計書 8.6）", () => {
   it("船内記録の全種別がレジストリに登録され、判別ユニオンで受理される", () => {
+    // 8.3 の競合ポリシーは4種。どの種別も必ずいずれかを宣言していること
+    // （船内の一次記録は append_only、マスタは shore_priority、計画は plan_actual_split）
+    const policies = ["append_only", "shore_priority", "role_priority", "plan_actual_split"];
     for (const kind of RECORD_KINDS) {
       expect(SYNC_KINDS).toContain(kind);
       expect(isRecordKind(kind)).toBe(true);
-      expect(SYNC_ENTITY_REGISTRY[kind].policy).toMatch(/append_only|plan_actual_split/);
+      expect(policies, `${kind} のポリシー宣言が不正`).toContain(SYNC_ENTITY_REGISTRY[kind].policy);
+    }
+    // 船内で作られる一次記録は追記のみ（事後改変不可。要件定義書 3.2.1 / 12.5）
+    for (const kind of ["voyage_log", "checklist_result", "drill_record", "work_report"] as const) {
+      expect(SYNC_ENTITY_REGISTRY[kind].policy).toBe("append_only");
+      expect(SYNC_ENTITY_REGISTRY[kind].origin).toBe("vessel");
+    }
+    // マスタは陸上優先（12.5「船員・船舶マスターは陸上を優先」）
+    for (const kind of ["crew_master", "credential", "vessel_master"] as const) {
+      expect(SYNC_ENTITY_REGISTRY[kind].policy).toBe("shore_priority");
+      expect(SYNC_ENTITY_REGISTRY[kind].origin).toBe("shore");
     }
     const log: VoyageLogPayload = { ...base("vl-1"), logType: "departure", port: "横浜" };
     const ev = makeRecordEvent("voyage_log", log, "dev-1");

@@ -71,7 +71,7 @@ export function applyPush(
       quarantined.push(eventId);
       continue;
     }
-    const event = parsed.data;
+    const event = parsed.data as SyncEvent;
     if (seen.has(event.idempotencyKey)) {
       duplicates.push(event.idempotencyKey);
       continue;

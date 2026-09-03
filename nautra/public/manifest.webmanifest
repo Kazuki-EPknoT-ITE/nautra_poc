@@ -1,0 +1,16 @@
+{
+  "name": "Nautra 船員業務管理",
+  "short_name": "Nautra",
+  "description": "船内アプリ（打刻・記録・当直）。通信が切れても記録できます。",
+  "start_url": "/vessel",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff",
+  "lang": "ja",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/icon-maskable.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}

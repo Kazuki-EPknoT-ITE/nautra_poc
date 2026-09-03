@@ -20,5 +20,17 @@ export const DEFAULT_LABOR_RULE_SET: LaborRuleSet = {
     restLongestMinMinutes: 6 * 60,
     restSplitMax: 2,
     cautionRatio: 0.9,
+    /** 週1日以上の休日（要件定義書 3.2.5⑤） */
+    restDaysPerWeek: 1,
+    /** 基準労働期間（PoC 既定 = 1月相当の28日。船舶マスタ・労使協定で上書きする） */
+    referencePeriodDays: 28,
+    /** 週平均 40 時間（3.2.4 基準労働期間に応じた算定） */
+    referenceWeeklyAverageMinutes: 40 * 60,
+    /** 4週間の上限（= 週平均40時間 × 4週。PoC 既定値） */
+    fourWeekMaxMinutes: 4 * 40 * 60,
+    /** 1月の時間外上限（PoC 既定値。労使協定の締結内容で上書きされる） */
+    monthlyOvertimeMaxMinutes: 80 * 60,
+    /** 1日の所定労働時間 8h（船員法の原則。超過分を時間外として算定する） */
+    dailyStandardMinutes: 8 * 60,
   },
 };

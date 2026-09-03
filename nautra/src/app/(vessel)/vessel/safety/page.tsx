@@ -1,10 +1,10 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { t } from "@/i18n/ja";
 import { cn } from "@/lib/cn";
 import { CREW_MEMBERS, personName } from "@/lib/crew";
 import { fmtDateTime, fromLocalInputValue, parseOptionalNumber, toLocalInputValue } from "@/lib/format";
+import { useLocale } from "@/lib/use-locale";
 import { appendRecord, newRecordBase } from "@/lib/vessel-actions";
 import { useRecords, useSessionCrew } from "@/lib/vessel-hooks";
 import { judgeAlcohol } from "@/domain/safety/alcohol";
@@ -51,6 +51,7 @@ type HistoryItem =
  */
 export default function SafetyPage() {
   const session = useSessionCrew();
+  const { tr } = useLocale(); // 操練種別・結果の表示言語（10.2）
   const drills = useRecords("drill_record");
   const alcohols = useRecords("alcohol_check");
   const [done, setDone] = useState<string | null>(null);
@@ -89,7 +90,7 @@ export default function SafetyPage() {
         durationMinutes: minutes,
         remarks: drillRemarks.trim() || undefined,
       });
-      setDone(`${t.drillType[drillType]} を記録しました（参加 ${participants.length}名）`);
+      setDone(`${tr("drillType", drillType)} を記録しました（参加 ${participants.length}名）`);
       drillModal.onClose();
     } catch (e) {
       setDrillError(e instanceof Error ? e.message : String(e));
@@ -133,7 +134,7 @@ export default function SafetyPage() {
         appliedRuleSetId: DEFAULT_SAFETY_RULE_SET.id,
         appliedRuleVersion: DEFAULT_SAFETY_RULE_SET.version,
       });
-      setDone(`${personName(subject)} のアルコール検知を記録しました（${t.alcoholResult[result]}）`);
+      setDone(`${personName(subject)} のアルコール検知を記録しました（${tr("alcoholResult", result)}）`);
       alcoholModal.onClose();
     } catch (e) {
       setAlcoholError(e instanceof Error ? e.message : String(e));
@@ -184,7 +185,7 @@ export default function SafetyPage() {
                   <Chip size="sm" variant="flat" radius="sm">
                     操練
                   </Chip>
-                  <span className="font-semibold">{t.drillType[h.r.drillType]}</span>
+                  <span className="font-semibold">{tr("drillType", h.r.drillType)}</span>
                   <span className="text-sm text-foreground-600">
                     指揮 {personName(h.r.leader)} / 参加 {h.r.participants.length}名 / {h.r.durationMinutes}分
                   </span>
@@ -199,7 +200,7 @@ export default function SafetyPage() {
                   <span className="font-semibold">{personName(h.r.crewMemberId)}</span>
                   <span className="tabular-nums">{h.r.valueMgPerL.toFixed(2)} mg/L</span>
                   <Chip size="sm" variant="flat" color={h.r.result === "pass" ? "success" : "danger"} radius="sm">
-                    {h.r.result === "pass" ? "✓" : "✕"} {t.alcoholResult[h.r.result]}
+                    {h.r.result === "pass" ? "✓" : "✕"} {tr("alcoholResult", h.r.result)}
                   </Chip>
                   <span className="ml-auto text-sm text-foreground-600">
                     確認者 {personName(h.r.checkedBy)} / 基準 {h.r.limitMgPerL} mg/L
@@ -225,7 +226,7 @@ export default function SafetyPage() {
             <RadioGroup label="操練種別" value={drillType} onValueChange={(v) => setDrillType(v as DrillType)}>
               {DRILL_TYPES.map((d) => (
                 <Radio key={d} value={d}>
-                  {t.drillType[d]}
+                  {tr("drillType", d)}
                 </Radio>
               ))}
             </RadioGroup>
@@ -290,11 +291,11 @@ export default function SafetyPage() {
               value={alcoholMethod}
               onValueChange={(v) => setAlcoholMethod(v as "detector" | "visual")}
             >
-              <Radio value="detector">{t.alcoholMethod.detector}</Radio>
-              <Radio value="visual">{t.alcoholMethod.visual}</Radio>
+              <Radio value="detector">{tr("alcoholMethod", "detector")}</Radio>
+              <Radio value="visual">{tr("alcoholMethod", "visual")}</Radio>
             </RadioGroup>
             <div className={cn("rounded-medium p-3", previewResult === "fail" ? "bg-danger/15 text-danger" : "glass-inset")}>
-              判定: {previewResult ? t.alcoholResult[previewResult] : "—"}
+              判定: {previewResult ? tr("alcoholResult", previewResult) : "—"}
               <span className="ml-2 text-sm text-foreground-600">
                 （基準値 {limit} mg/L 以上で乗務不可。安全ルール版 {DEFAULT_SAFETY_RULE_SET.version}）
               </span>
