@@ -13,7 +13,7 @@ import {
   Card,
   CardBody,
   Chip,
-  GlassCard,
+  SurfaceCard,
   Modal,
   ModalBody,
   ModalContent,
@@ -23,7 +23,7 @@ import {
   RadioGroup,
   Textarea,
   useDisclosure,
-  useGlassModalProps,
+  useModalProps,
 } from "@/ui";
 import { GroupHeader } from "../_components/group-header";
 import { RecordTile } from "../_components/record-tile";
@@ -53,7 +53,7 @@ export default function WellbeingPage() {
   const session = useSessionCrew();
   const { tr } = useLocale();
   const responses = useRecords("wellbeing_response");
-  const glassModal = useGlassModalProps();
+  const modalProps = useModalProps();
   const [done, setDone] = useState<string | null>(null);
 
   const surveyModal = useDisclosure();
@@ -152,7 +152,7 @@ export default function WellbeingPage() {
     <div className="flex flex-col gap-4">
       <GroupHeader group="07" subtitle="相談・体調" />
 
-      <GlassCard blurred>
+      <SurfaceCard>
         <CardBody className="flex flex-col gap-2 p-5">
           <p className="text-pretty text-lg font-bold">匿名で送れます</p>
           <p className="text-pretty text-foreground-600">
@@ -166,7 +166,7 @@ export default function WellbeingPage() {
             書いたことで不利益な扱いを受けることはありません。
           </p>
         </CardBody>
-      </GlassCard>
+      </SurfaceCard>
 
       <div className="grid gap-2 sm:grid-cols-3">
         <RecordTile
@@ -197,7 +197,7 @@ export default function WellbeingPage() {
           あなたが氏名を伝えて送ったもの（新しい順）
         </h2>
         {mine.length === 0 ? (
-          <Card shadow="none" className="glass-tile">
+          <Card shadow="none" className="ui-card">
             <CardBody>
               <p className="text-foreground-600">
                 氏名を伝えて送ったものはありません。
@@ -209,7 +209,7 @@ export default function WellbeingPage() {
           </Card>
         ) : null}
         {mine.map((r) => (
-          <Card key={r.id} shadow="none" className="glass-tile">
+          <Card key={r.id} shadow="none" className="ui-card">
             <CardBody className="flex flex-col gap-2">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="tabular-nums font-bold">{fmtDateTime(r.occurredAt)}</span>
@@ -238,7 +238,7 @@ export default function WellbeingPage() {
               ) : null}
               {r.message ? <p className="text-pretty">{r.message}</p> : null}
               {r.response ? (
-                <div className="glass-inset flex flex-col gap-1 p-3">
+                <div className="ui-inset flex flex-col gap-1 p-3">
                   <span className="text-sm font-semibold">
                     陸上からの回答
                     {r.respondedAt ? `（${fmtDateTime(r.respondedAt)}）` : ""}
@@ -253,7 +253,7 @@ export default function WellbeingPage() {
 
       {/* 健康アンケート / ストレスチェック */}
       <Modal
-        {...glassModal}
+        {...modalProps}
         isOpen={surveyModal.isOpen}
         onOpenChange={surveyModal.onOpenChange}
         placement="center"
@@ -284,7 +284,7 @@ export default function WellbeingPage() {
                         onPress={() => setAnswers((prev) => ({ ...prev, [key]: v }))}
                         className={cn(
                           "min-h-16 w-full tabular-nums text-2xl font-bold",
-                          !active && "border-[var(--glass-border-strong)] text-foreground",
+                          !active && "border-[var(--ui-hairline-strong)] text-foreground",
                         )}
                       >
                         {v}
@@ -320,7 +320,7 @@ export default function WellbeingPage() {
 
       {/* 相談・通報（ハラスメント相談窓口） */}
       <Modal
-        {...glassModal}
+        {...modalProps}
         isOpen={consultModal.isOpen}
         onOpenChange={consultModal.onOpenChange}
         placement="center"
@@ -379,7 +379,7 @@ function AnonymityChoice({
   crewName: string;
 }) {
   return (
-    <div className="glass-inset flex flex-col gap-2 p-3">
+    <div className="ui-inset flex flex-col gap-2 p-3">
       <RadioGroup
         label="送り方"
         value={value ? "anonymous" : "named"}

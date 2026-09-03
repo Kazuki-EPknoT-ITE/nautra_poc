@@ -6,7 +6,7 @@ import { Avatar, ScrollShadow } from "@/ui";
 
 /**
  * 打刻者選択（共用端末: 顔写真リストから選択する方式の PoC 表現。基本設計書 11.3）。
- * 選択中はガラス面を明るくし、枠線とチェック記号で「色だけに依存しない」表示にする（6.3）。
+ * 選択中は面を反転させ、枠線とチェック記号で「色だけに依存しない」表示にする（6.3）。
  */
 export function CrewPicker({
   selected,
@@ -28,10 +28,10 @@ export function CrewPicker({
               aria-checked={active}
               onClick={() => onSelect(c.id)}
               className={cn(
-                "glass-tile flex min-w-24 shrink-0 flex-col items-center gap-1 px-3 py-2",
+                "ui-card flex min-w-24 shrink-0 flex-col items-center gap-1 px-3 py-2",
                 active
                   ? "border-2 border-primary bg-primary/10"
-                  : "border-[var(--glass-border)]",
+                  : "border-[var(--ui-hairline)]",
               )}
             >
               <Avatar

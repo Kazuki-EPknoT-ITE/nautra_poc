@@ -39,6 +39,19 @@ import { AgreementForm, type OverrideField } from "./_components/agreement-form"
 
 export const dynamic = "force-dynamic";
 
+/** 画面内の節（目次の並びと各 section の id を1か所で持つ） */
+const SECTIONS = [
+  { id: "tenant", label: "事業者の設定" },
+  { id: "connectivity", label: "回線の運用" },
+  { id: "punch-auth", label: "打刻の本人確認" },
+  { id: "tiers", label: "導入の構成" },
+  { id: "staff", label: "担当者" },
+  { id: "permissions", label: "権限表" },
+  { id: "agreements", label: "労使協定" },
+  { id: "thresholds", label: "判定に使う値" },
+  { id: "audit", label: "監査ログ" },
+];
+
 /** 監査ログの実施者名（陸上スタッフ・船員のどちらでも解決する） */
 function actorName(id: string): string {
   return shoreStaffById(id)?.name ?? crewNameOf(id);
@@ -71,7 +84,15 @@ export default async function ShoreSettingsPage({
   const today = new Date().toISOString().slice(0, 10);
 
   const auditFilter = sp.audit && sp.audit !== "all" ? sp.audit : null;
-  const auditLogs = listAuditLogs(200).filter((l) => !auditFilter || l.action === auditFilter);
+  const auditMatched = listAuditLogs(500).filter((l) => !auditFilter || l.action === auditFilter);
+  /**
+   * 監査ログは追記され続ける（要配慮情報は**参照するたび**に1件増える。12.6）ため、
+   * 画面には新しい順に一定件数だけ出す。全件を出すと設定画面がログで埋まり、
+   * 上にある設定そのものが見えなくなる。絞り込みで目的の操作だけに寄せられる。
+   */
+  const AUDIT_VIEW_LIMIT = 25;
+  const auditLogs = auditMatched.slice(0, AUDIT_VIEW_LIMIT);
+  const auditHidden = auditMatched.length - auditLogs.length;
   const auditActions = Object.keys(t.auditAction);
 
   /** 協定フォームの入力欄（単位は分ではなく時間で入力させる） */
@@ -92,8 +113,24 @@ export default async function ShoreSettingsPage({
         </p>
       </div>
 
+      {/*
+        節への近道。この画面は8つの主題を1ページに載せているため、
+        目的の節まで延々とめくらずに飛べるようにする（見出しは下の各 section の id と対応）。
+      */}
+      <nav aria-label="この画面の目次" className="ui-card flex flex-wrap gap-2 p-3">
+        {SECTIONS.map((s) => (
+          <a
+            key={s.id}
+            href={`#${s.id}`}
+            className="rounded-medium bg-default-100 px-3 py-1.5 text-sm hover:bg-default-200"
+          >
+            {s.label}
+          </a>
+        ))}
+      </nav>
+
       {/* ── テナント設定 ── */}
-      <section aria-label="事業者の設定" className="glass-tile p-4">
+      <section id="tenant" aria-label="事業者の設定" className="ui-card scroll-mt-20 p-4">
         <h2 className="mb-2 font-bold">事業者の設定</h2>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {[
@@ -102,7 +139,7 @@ export default async function ShoreSettingsPage({
             { k: t.tenant.vessels, v: vessels.map((v) => v.name).join(" / ") || "—" },
             { k: t.tenant.ruleLabor, v: labor.version },
           ].map((row) => (
-            <div key={row.k} className="glass-inset p-3">
+            <div key={row.k} className="ui-inset p-3">
               <p className="text-xs text-foreground-500">{row.k}</p>
               <p className="font-semibold">{row.v}</p>
             </div>
@@ -118,7 +155,7 @@ export default async function ShoreSettingsPage({
               s: credential.source,
             },
           ].map((row) => (
-            <div key={row.k} className="glass-inset p-3">
+            <div key={row.k} className="ui-inset p-3">
               <p className="text-sm font-semibold">{row.k}</p>
               <p className="text-sm tabular-nums">{row.v}</p>
               <p className="mt-1 text-xs text-foreground-500">{row.s}</p>
@@ -132,7 +169,7 @@ export default async function ShoreSettingsPage({
       </section>
 
       {/* ── 10.1 接続4類型ごとの運用構成 ── */}
-      <section aria-label="回線の状況に合わせた運用" className="glass-tile p-4">
+      <section id="connectivity" aria-label="回線の状況に合わせた運用" className="ui-card scroll-mt-20 p-4">
         <h2 className="mb-1 font-bold">回線の状況に合わせた運用</h2>
         <p className="mb-3 text-sm text-foreground-500">
           船と陸の回線の使えかたは船によって違います。どの型でも
@@ -143,7 +180,7 @@ export default async function ShoreSettingsPage({
           {CONNECTIVITY_PROFILE_LIST.map((p) => (
             <div
               key={p.id}
-              className={`glass-inset p-3 ${p.id === DEFAULT_CONNECTIVITY_PROFILE ? "border border-primary" : ""}`}
+              className={`ui-inset p-3 ${p.id === DEFAULT_CONNECTIVITY_PROFILE ? "border border-primary" : ""}`}
             >
               <p className="font-semibold">
                 {p.label}
@@ -165,7 +202,7 @@ export default async function ShoreSettingsPage({
       </section>
 
       {/* ── 3.2.1 打刻認証の方式 ── */}
-      <section aria-label="打刻のときの本人確認" className="glass-tile p-4">
+      <section id="punch-auth" aria-label="打刻のときの本人確認" className="ui-card scroll-mt-20 p-4">
         <h2 className="mb-1 font-bold">打刻のときの本人確認</h2>
         <p className="mb-3 text-sm text-foreground-500">
           共用端末の使いかたに合わせて選べます。どの方式でも
@@ -175,7 +212,7 @@ export default async function ShoreSettingsPage({
           {PUNCH_AUTH_METHODS.map((m) => (
             <div
               key={m.id}
-              className={`glass-inset p-3 ${m.id === DEFAULT_PUNCH_AUTH_METHOD ? "border border-primary" : ""}`}
+              className={`ui-inset p-3 ${m.id === DEFAULT_PUNCH_AUTH_METHOD ? "border border-primary" : ""}`}
             >
               <p className="font-semibold">
                 {m.label}
@@ -196,7 +233,7 @@ export default async function ShoreSettingsPage({
       </section>
 
       {/* ── 10.5 段階的実装・縮退構成 ── */}
-      <section aria-label="導入の構成" className="glass-tile p-4">
+      <section id="tiers" aria-label="導入の構成" className="ui-card scroll-mt-20 p-4">
         <h2 className="mb-1 font-bold">導入の構成（段階的に増やせます）</h2>
         <p className="mb-3 text-sm text-foreground-500">
           法令に直結する機能と、効率化の機能を分けてあります。慣れに応じて構成を上げられ、
@@ -208,7 +245,7 @@ export default async function ShoreSettingsPage({
             return (
               <div
                 key={tier.id}
-                className={`glass-inset p-3 ${tier.id === DEFAULT_DEPLOYMENT_TIER ? "border border-primary" : ""}`}
+                className={`ui-inset p-3 ${tier.id === DEFAULT_DEPLOYMENT_TIER ? "border border-primary" : ""}`}
               >
                 <p className="font-semibold">
                   {tier.label}
@@ -234,7 +271,7 @@ export default async function ShoreSettingsPage({
           <table className="w-full min-w-[36rem] text-sm">
             <caption className="sr-only">機能群と法令直結の区分</caption>
             <thead>
-              <tr className="border-b border-[var(--glass-border)] text-left">
+              <tr className="border-b border-[var(--ui-hairline)] text-left">
                 <th className="py-2 pr-3 font-semibold">機能</th>
                 <th className="py-2 pr-3 font-semibold">法令に直結</th>
                 <th className="py-2 font-semibold">根拠</th>
@@ -242,7 +279,7 @@ export default async function ShoreSettingsPage({
             </thead>
             <tbody>
               {FEATURE_GROUPS.map((f) => (
-                <tr key={f.id} className="border-b border-[var(--glass-border)] last:border-b-0">
+                <tr key={f.id} className="border-b border-[var(--ui-hairline)] last:border-b-0">
                   <td className="py-1.5 pr-3">{f.label}</td>
                   <td className="py-1.5 pr-3">
                     {f.required ? (
@@ -260,13 +297,13 @@ export default async function ShoreSettingsPage({
       </section>
 
       {/* ── ユーザ・ロール（陸上） ── */}
-      <section aria-label="陸上の担当者" className="glass-tile p-4">
+      <section id="staff" aria-label="陸上の担当者" className="ui-card scroll-mt-20 p-4">
         <h2 className="mb-2 font-bold">陸上の担当者</h2>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {SHORE_STAFF_ACCOUNTS.map((s) => (
             <div
               key={s.id}
-              className={`glass-inset p-3 ${s.id === guard.staff.id ? "ring-1 ring-primary" : ""}`}
+              className={`ui-inset p-3 ${s.id === guard.staff.id ? "ring-1 ring-primary" : ""}`}
             >
               <p className="font-semibold">
                 {s.name}
@@ -285,7 +322,7 @@ export default async function ShoreSettingsPage({
         </p>
       </section>
 
-      <section aria-label="陸上ロールの権限表" className="glass-tile overflow-x-auto">
+      <section id="permissions" aria-label="陸上ロールの権限表" className="ui-card scroll-mt-20 overflow-x-auto">
         <h2 className="px-4 pt-4 font-bold">できること（陸上）</h2>
         <p className="px-4 pb-2 pt-1 text-xs text-foreground-500">
           要件定義書 10.3 のロールベース閲覧権限。判定は
@@ -293,7 +330,7 @@ export default async function ShoreSettingsPage({
         </p>
         <table className="w-full min-w-[720px] text-sm">
           <thead>
-            <tr className="border-b border-[var(--glass-border)] text-left text-foreground-500">
+            <tr className="border-b border-[var(--ui-hairline)] text-left text-foreground-500">
               <th className="px-4 py-2 font-medium">できること</th>
               {SHORE_ROLES.map((role) => (
                 <th key={role} className="px-3 py-2 text-center font-medium">
@@ -304,7 +341,7 @@ export default async function ShoreSettingsPage({
           </thead>
           <tbody>
             {SHORE_PERMISSIONS.map((p) => (
-              <tr key={p} className="border-b border-[var(--glass-border)] last:border-b-0">
+              <tr key={p} className="border-b border-[var(--ui-hairline)] last:border-b-0">
                 <td className="px-4 py-2">
                   {t.shorePermission[p] ?? p}
                   <span className="ml-2 text-xs text-foreground-500">{p}</span>
@@ -328,7 +365,7 @@ export default async function ShoreSettingsPage({
         </p>
       </section>
 
-      <section aria-label="船内ロールの権限表" className="glass-tile overflow-x-auto">
+      <section aria-label="船内ロールの権限表" className="ui-card overflow-x-auto">
         <h2 className="px-4 pt-4 font-bold">できること（船内アプリ）</h2>
         <p className="px-4 pb-2 pt-1 text-xs text-foreground-500">
           基本設計書 11.2 の権限マトリクスを船内画面に展開したもの。判定は
@@ -336,7 +373,7 @@ export default async function ShoreSettingsPage({
         </p>
         <table className="w-full min-w-[720px] text-sm">
           <thead>
-            <tr className="border-b border-[var(--glass-border)] text-left text-foreground-500">
+            <tr className="border-b border-[var(--ui-hairline)] text-left text-foreground-500">
               <th className="px-4 py-2 font-medium">できること</th>
               {VESSEL_ROLES.map((role) => (
                 <th key={role} className="px-3 py-2 text-center font-medium">
@@ -347,7 +384,7 @@ export default async function ShoreSettingsPage({
           </thead>
           <tbody>
             {PERMISSIONS.map((p) => (
-              <tr key={p} className="border-b border-[var(--glass-border)] last:border-b-0">
+              <tr key={p} className="border-b border-[var(--ui-hairline)] last:border-b-0">
                 <td className="px-4 py-2">
                   {t.permission[p] ?? p}
                   <span className="ml-2 text-xs text-foreground-500">{p}</span>
@@ -374,7 +411,7 @@ export default async function ShoreSettingsPage({
 
       <section aria-label="船内ロール別の一覧" className="grid gap-3 sm:grid-cols-2">
         {VESSEL_ROLES.map((role) => (
-          <div key={role} className="glass-tile p-4">
+          <div key={role} className="ui-card p-4">
             <h3 className="font-bold">{t.role[role]}</h3>
             <div className="mt-2 flex flex-wrap gap-2 text-sm">
               {ROLE_PERMISSIONS[role].map((p) => (
@@ -388,7 +425,7 @@ export default async function ShoreSettingsPage({
       </section>
 
       {/* ── 労使協定 → 判定閾値（6.5） ── */}
-      <section aria-label="協定・就業規則" className="glass-tile p-4">
+      <section id="agreements" aria-label="協定・就業規則" className="ui-card scroll-mt-20 p-4">
         <h2 className="mb-2 font-bold">労使協定・就業規則</h2>
         {agreements.length === 0 ? (
           <p className="text-sm text-foreground-500">登録されている協定・規則はありません。</p>
@@ -396,7 +433,7 @@ export default async function ShoreSettingsPage({
           <div className="overflow-x-auto">
             <table className="w-full min-w-[720px] text-sm">
               <thead>
-                <tr className="border-b border-[var(--glass-border)] text-left text-foreground-500">
+                <tr className="border-b border-[var(--ui-hairline)] text-left text-foreground-500">
                   <th className="px-2 py-2 font-medium">種類</th>
                   <th className="px-2 py-2 font-medium">標題</th>
                   <th className="px-2 py-2 font-medium">版</th>
@@ -411,7 +448,7 @@ export default async function ShoreSettingsPage({
                     a.effectiveFrom <= today && (!a.effectiveTo || a.effectiveTo >= today);
                   const overrideCount = Object.keys(a.overrideValues ?? {}).length;
                   return (
-                    <tr key={a.id} className="border-b border-[var(--glass-border)] last:border-b-0">
+                    <tr key={a.id} className="border-b border-[var(--ui-hairline)] last:border-b-0">
                       <td className="px-2 py-2">{t.agreementKind[a.kind] ?? a.kind}</td>
                       <td className="px-2 py-2">
                         <p className="font-semibold">{a.title}</p>
@@ -446,7 +483,7 @@ export default async function ShoreSettingsPage({
         )}
       </section>
 
-      <section aria-label="判定に使う値" className="glass-tile overflow-x-auto">
+      <section id="thresholds" aria-label="判定に使う値" className="ui-card scroll-mt-20 overflow-x-auto">
         <h2 className="px-4 pt-4 font-bold">いま判定に使っている値</h2>
         <p className="px-4 pb-2 pt-1 text-xs text-foreground-500">
           左が法令の既定値、右が労使協定を反映したあとの値です。判定結果には適用した版（
@@ -454,7 +491,7 @@ export default async function ShoreSettingsPage({
         </p>
         <table className="w-full min-w-[720px] text-sm">
           <thead>
-            <tr className="border-b border-[var(--glass-border)] text-left text-foreground-500">
+            <tr className="border-b border-[var(--ui-hairline)] text-left text-foreground-500">
               <th className="px-4 py-2 font-medium">項目</th>
               <th className="px-2 py-2 text-right font-medium">法令の既定値</th>
               <th className="px-2 py-2 text-right font-medium">いまの値</th>
@@ -463,7 +500,7 @@ export default async function ShoreSettingsPage({
           </thead>
           <tbody>
             {ruleRows.map((r) => (
-              <tr key={r.key} className="border-b border-[var(--glass-border)] last:border-b-0">
+              <tr key={r.key} className="border-b border-[var(--ui-hairline)] last:border-b-0">
                 <td className="px-4 py-2">{t.laborRuleValue[r.key] ?? r.key}</td>
                 <td className="px-2 py-2 text-right tabular-nums text-foreground-600">
                   {formatRuleValue(r.key, r.base)}
@@ -503,7 +540,7 @@ export default async function ShoreSettingsPage({
       />
 
       {/* ── 監査ログ（12.6） ── */}
-      <section aria-label="監査ログ" className="glass-tile overflow-x-auto">
+      <section id="audit" aria-label="監査ログ" className="ui-card scroll-mt-20 overflow-x-auto">
         <div className="flex flex-wrap items-center justify-between gap-2 px-4 pt-4">
           <h2 className="font-bold">監査ログ</h2>
           <p className="text-xs text-foreground-500">
@@ -534,7 +571,7 @@ export default async function ShoreSettingsPage({
         </div>
         <table className="w-full min-w-[860px] text-sm">
           <thead>
-            <tr className="border-b border-[var(--glass-border)] text-left text-foreground-500">
+            <tr className="border-b border-[var(--ui-hairline)] text-left text-foreground-500">
               <th className="px-4 py-2 font-medium">日時</th>
               <th className="px-2 py-2 font-medium">操作</th>
               <th className="px-2 py-2 font-medium">対象</th>
@@ -545,7 +582,7 @@ export default async function ShoreSettingsPage({
           </thead>
           <tbody>
             {auditLogs.map((log) => (
-              <tr key={log.id} className="border-b border-[var(--glass-border)] last:border-b-0">
+              <tr key={log.id} className="border-b border-[var(--ui-hairline)] last:border-b-0">
                 <td className="px-4 py-2 tabular-nums">{fmtDateTime(log.occurredAt)}</td>
                 <td className="px-2 py-2">
                   <span
@@ -589,11 +626,13 @@ export default async function ShoreSettingsPage({
           </tbody>
         </table>
         <p className="px-4 py-3 text-xs text-foreground-500">
-          監査ログは追記のみで、あとから書き換えられません（要件定義書 10.4）。
+          新しい順に {auditLogs.length} 件を表示しています
+          {auditHidden > 0 ? `（この条件でさらに ${auditHidden} 件あります。絞り込みで目的の操作に寄せてください）` : ""}
+          。監査ログは追記のみで、あとから書き換えられません（要件定義書 10.4）。
         </p>
       </section>
 
-      <section aria-label="同期" className="glass-tile p-4">
+      <section aria-label="同期" className="ui-card p-4">
         <h2 className="mb-2 font-bold">同期</h2>
         <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm">
           <span>

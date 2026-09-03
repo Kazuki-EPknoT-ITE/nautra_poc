@@ -49,7 +49,7 @@ export default function ShoreTemplatesPage() {
       <TemplateItemForm options={options} />
 
       {overview.map((o) => (
-        <section key={o.usage} aria-label={`${USAGE_LABEL[o.usage]}のテンプレート`} className="glass-tile p-4">
+        <section key={o.usage} aria-label={`${USAGE_LABEL[o.usage]}のテンプレート`} className="ui-card p-4">
           <h2 className="mb-3 font-bold">{USAGE_LABEL[o.usage]}（有効な版）</h2>
           {o.templates.length === 0 ? (
             <p className="text-sm text-foreground-500">配信済みの項目はありません。</p>
@@ -82,7 +82,7 @@ export default function ShoreTemplatesPage() {
         </section>
       ))}
 
-      <section aria-label="配信履歴" className="glass-tile p-4">
+      <section aria-label="配信履歴" className="ui-card p-4">
         <h2 className="mb-2 font-bold">配信履歴（新しい順）</h2>
         <ul className="flex flex-col gap-1 text-sm">
           {overview

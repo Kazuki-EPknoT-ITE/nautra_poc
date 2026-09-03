@@ -64,7 +64,7 @@ export default async function ShoreDocumentsPage({
         </p>
       </div>
 
-      <section aria-label="種別の絞り込み" className="glass-tile flex flex-wrap items-center gap-2 p-4">
+      <section aria-label="種別の絞り込み" className="ui-card flex flex-wrap items-center gap-2 p-4">
         <span className="text-sm text-foreground-500">種別</span>
         <Link
           href="/shore/documents"
@@ -87,14 +87,14 @@ export default async function ShoreDocumentsPage({
         ))}
       </section>
 
-      <section aria-label="書類の一覧" className="glass-tile overflow-x-auto">
+      <section aria-label="書類の一覧" className="ui-card overflow-x-auto">
         <h2 className="px-4 pt-4 font-bold">作成した書類（新しい順）</h2>
         {rows.length === 0 ? (
           <p className="px-4 py-3 text-sm text-foreground-500">この種別の書類はありません。</p>
         ) : (
           <table className="mt-3 w-full min-w-[980px] text-sm">
             <thead>
-              <tr className="border-b border-[var(--glass-border)] text-left text-foreground-500">
+              <tr className="border-b border-[var(--ui-hairline)] text-left text-foreground-500">
                 <th className="px-4 py-2 font-medium">種別</th>
                 <th className="px-2 py-2 font-medium">標題</th>
                 <th className="px-2 py-2 font-medium">対象</th>
@@ -106,7 +106,7 @@ export default async function ShoreDocumentsPage({
             </thead>
             <tbody>
               {rows.map(({ record, submitted }) => (
-                <tr key={record.id} className="border-b border-[var(--glass-border)] last:border-b-0">
+                <tr key={record.id} className="border-b border-[var(--ui-hairline)] last:border-b-0">
                   <td className="px-4 py-2">{t.documentKind[record.kind] ?? record.kind}</td>
                   <td className="px-2 py-2 font-semibold">{record.title}</td>
                   <td className="px-2 py-2 text-foreground-600">{record.subjectLabel ?? "—"}</td>
@@ -125,7 +125,7 @@ export default async function ShoreDocumentsPage({
                   <td className="px-2 py-2">
                     <Link
                       href={`/shore/documents/${record.id}/print`}
-                      className="rounded-medium border border-[var(--glass-border)] px-3 py-1.5 text-sm"
+                      className="rounded-medium border border-[var(--ui-hairline)] px-3 py-1.5 text-sm"
                       prefetch={false}
                     >
                       印刷する
@@ -152,12 +152,12 @@ export default async function ShoreDocumentsPage({
 
       <ReportForm months={months} />
 
-      <section aria-label="待機時間と荷役時間の実績" className="glass-tile overflow-x-auto">
+      <section aria-label="待機時間と荷役時間の実績" className="ui-card overflow-x-auto">
         <div className="flex flex-wrap items-center justify-between gap-2 px-4 pt-4">
           <h2 className="font-bold">待機時間・荷役時間の実績（月別・港別）</h2>
           <Link
             href="/api/v1/shore/standby.csv"
-            className="rounded-medium border border-[var(--glass-border)] px-3 py-1.5 text-sm font-semibold"
+            className="rounded-medium border border-[var(--ui-hairline)] px-3 py-1.5 text-sm font-semibold"
             prefetch={false}
           >
             CSV で出力
@@ -174,7 +174,7 @@ export default async function ShoreDocumentsPage({
         ) : (
           <table className="mt-3 w-full min-w-[820px] text-sm">
             <thead>
-              <tr className="border-b border-[var(--glass-border)] text-left text-foreground-500">
+              <tr className="border-b border-[var(--ui-hairline)] text-left text-foreground-500">
                 <th className="px-4 py-2 font-medium">月</th>
                 <th className="px-2 py-2 font-medium">港</th>
                 <th className="px-2 py-2 font-medium">待機の回数</th>
@@ -188,7 +188,7 @@ export default async function ShoreDocumentsPage({
               {standbyRows.map((r) => (
                 <tr
                   key={`${r.month}-${r.port}`}
-                  className="border-b border-[var(--glass-border)] last:border-b-0"
+                  className="border-b border-[var(--ui-hairline)] last:border-b-0"
                 >
                   <td className="px-4 py-2 tabular-nums">{r.month}</td>
                   <td className="px-2 py-2">{r.port}</td>

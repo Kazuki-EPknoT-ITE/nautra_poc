@@ -126,7 +126,7 @@ export default function ShiftPage() {
       />
 
       {/* いまの状態（初めてでも一目で分かる大きな表示） */}
-      <Card shadow="none" className="glass-tile">
+      <Card shadow="none" className="ui-card">
         <CardBody className="flex flex-col gap-3 p-5">
           <div className="flex flex-wrap items-baseline gap-3">
             <span aria-hidden="true" className="text-3xl">
@@ -139,7 +139,7 @@ export default function ShiftPage() {
           </div>
           {plain.detail ? <p className="text-lg text-foreground-600">{plain.detail}</p> : null}
           {status.state === "on_duty" && status.current ? (
-            <div className="glass-inset flex flex-wrap items-center gap-3 p-4">
+            <div className="ui-inset flex flex-wrap items-center gap-3 p-4">
               <span className="tabular-nums text-3xl font-bold">
                 {status.current.plan.from}–{status.current.plan.to}
               </span>
@@ -161,7 +161,7 @@ export default function ShiftPage() {
       </Card>
 
       {/* 本日の予定と打刻 */}
-      <Card shadow="none" className="glass-tile">
+      <Card shadow="none" className="ui-card">
         <CardHeader className="font-bold">本日の当直（あなたの分）</CardHeader>
         <Divider />
         <CardBody className="flex flex-col gap-2">
@@ -171,7 +171,7 @@ export default function ShiftPage() {
             withActual.map(({ plan, matched, started, onDuty }) => (
               <div
                 key={plan.id}
-                className={cn("glass-inset flex flex-col gap-1 p-4", onDuty && "border-2 border-primary")}
+                className={cn("ui-inset flex flex-col gap-1 p-4", onDuty && "border-2 border-primary")}
               >
                 <div className="flex flex-wrap items-center gap-3">
                   <span className="tabular-nums text-2xl font-bold">
@@ -222,7 +222,7 @@ export default function ShiftPage() {
       </Card>
 
       {/* 変更通知 */}
-      <Card shadow="none" className={cn("glass-tile", myUnread.length > 0 && "border-2 border-warning")}>
+      <Card shadow="none" className={cn("ui-card", myUnread.length > 0 && "border-2 border-warning")}>
         <CardHeader className="flex flex-wrap items-center justify-between gap-2">
           <span className="font-bold">陸上からのお知らせ（予定の変更）</span>
           {myUnread.length > 0 ? (
@@ -249,7 +249,7 @@ export default function ShiftPage() {
               const prev = c.supersedesId ? byId.get(c.supersedesId) : undefined;
               const isUnread = myUnread.some((u) => u.id === c.id);
               return (
-                <div key={c.id} className="glass-inset flex flex-col gap-1 p-4">
+                <div key={c.id} className="ui-inset flex flex-col gap-1 p-4">
                   <div className="flex flex-wrap items-center gap-2">
                     {isUnread ? (
                       <Chip size="sm" color="warning" variant="flat" radius="sm">
@@ -276,14 +276,14 @@ export default function ShiftPage() {
       </Card>
 
       {/* 通常配置表: あなたの持ち場 */}
-      <Card shadow="none" className="glass-tile">
+      <Card shadow="none" className="ui-card">
         <CardHeader className="font-bold">あなたの持ち場（通常配置表）</CardHeader>
         <Divider />
         <CardBody className="flex flex-col gap-2">
           {STATION_SCENARIOS.map((sc) => {
             const mine = myStations.find((s) => s.scenario === sc);
             return (
-              <div key={sc} className="glass-inset flex flex-wrap items-center gap-3 p-4">
+              <div key={sc} className="ui-inset flex flex-wrap items-center gap-3 p-4">
                 <span className="w-44 shrink-0 text-foreground-600">{tr("stationScenario", sc)}</span>
                 <span className="text-xl font-bold">{mine?.station ?? "配置なし"}</span>
                 {mine?.duty ? <span className="text-foreground-600">{mine.duty}</span> : null}
@@ -299,7 +299,7 @@ export default function ShiftPage() {
       </Card>
 
       {/* 通常配置表: 船内全員 */}
-      <Card shadow="none" className="glass-tile">
+      <Card shadow="none" className="ui-card">
         <CardHeader className="font-bold">船内の配置（全員）</CardHeader>
         <Divider />
         <CardBody className="flex flex-col gap-4">
@@ -320,14 +320,14 @@ export default function ShiftPage() {
       </Card>
 
       {/* 今週の当直（本人。船長は全員表示に切替可） */}
-      <Card shadow="none" className="glass-tile">
+      <Card shadow="none" className="ui-card">
         <CardHeader className="flex flex-wrap items-center justify-between gap-2">
           <span className="font-bold">今週の当直{canViewAll && showAll ? "（全員）" : "（あなたの分）"}</span>
           {canViewAll ? (
             <Button
               size="sm"
               variant="bordered"
-              className="min-h-10 border-[var(--glass-border-strong)]"
+              className="min-h-10 border-[var(--ui-hairline-strong)]"
               onPress={() => setShowAll((v) => !v)}
             >
               {showAll ? "自分の分だけ表示" : "全員の当直表を見る"}
@@ -345,7 +345,7 @@ export default function ShiftPage() {
                   key={date}
                   className={cn(
                     "flex flex-wrap items-center gap-3 rounded-medium px-3 py-2",
-                    date === today && "glass-inset font-semibold",
+                    date === today && "ui-inset font-semibold",
                   )}
                 >
                   <span className="w-28 shrink-0 tabular-nums">
@@ -400,7 +400,7 @@ function StationRows({
           <tr
             key={s.id}
             className={cn(
-              "border-b border-[var(--glass-border)] last:border-b-0",
+              "border-b border-[var(--ui-hairline)] last:border-b-0",
               s.crewMemberId === selfId && "bg-content2/60",
             )}
           >

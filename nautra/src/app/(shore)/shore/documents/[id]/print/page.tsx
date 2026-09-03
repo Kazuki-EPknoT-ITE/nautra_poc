@@ -25,7 +25,7 @@ export const dynamic = "force-dynamic";
 const PRINT_CSS = `
 @media print {
   /* 画面用のヘッダ・操作ボタンは紙に出さない */
-  .glass-bar, [data-print="hide"] { display: none !important; }
+  .ui-bar, [data-print="hide"] { display: none !important; }
   main { max-width: none !important; padding: 0 !important; }
   .print-sheet { box-shadow: none !important; background: #fff !important; }
   .print-sheet table { page-break-inside: auto; }
@@ -61,7 +61,7 @@ function StandbyTable({ rows }: { rows: StandbyPortRow[] }) {
     <div className="overflow-x-auto">
       <table className="w-full min-w-[640px] text-sm">
         <thead>
-          <tr className="border-b border-[var(--glass-border)] text-left text-foreground-500">
+          <tr className="border-b border-[var(--ui-hairline)] text-left text-foreground-500">
             <th className="py-2 pr-3 font-medium">月</th>
             <th className="py-2 pr-3 font-medium">港</th>
             <th className="py-2 pr-3 font-medium">待機の回数</th>
@@ -72,7 +72,7 @@ function StandbyTable({ rows }: { rows: StandbyPortRow[] }) {
         </thead>
         <tbody>
           {rows.map((r) => (
-            <tr key={`${r.month}-${r.port}`} className="border-b border-[var(--glass-border)]">
+            <tr key={`${r.month}-${r.port}`} className="border-b border-[var(--ui-hairline)]">
               <td className="py-2 pr-3 tabular-nums">{r.month}</td>
               <td className="py-2 pr-3">{r.port}</td>
               <td className="py-2 pr-3 tabular-nums">{r.standbyCount}回</td>
@@ -95,7 +95,7 @@ function LaborTable({ rows, ruleVersion }: { rows: LaborEvidenceRow[]; ruleVersi
     <div className="overflow-x-auto">
       <table className="w-full min-w-[640px] text-sm">
         <thead>
-          <tr className="border-b border-[var(--glass-border)] text-left text-foreground-500">
+          <tr className="border-b border-[var(--ui-hairline)] text-left text-foreground-500">
             <th className="py-2 pr-3 font-medium">船員</th>
             <th className="py-2 pr-3 font-medium">労働時間の合計</th>
             <th className="py-2 pr-3 font-medium">うち時間外</th>
@@ -106,7 +106,7 @@ function LaborTable({ rows, ruleVersion }: { rows: LaborEvidenceRow[]; ruleVersi
         </thead>
         <tbody>
           {rows.map((r) => (
-            <tr key={r.crewMemberId} className="border-b border-[var(--glass-border)]">
+            <tr key={r.crewMemberId} className="border-b border-[var(--ui-hairline)]">
               <td className="py-2 pr-3">{r.crewName}</td>
               <td className="py-2 pr-3 tabular-nums">{fmtMinutes(r.workedMinutes)}</td>
               <td className="py-2 pr-3 tabular-nums">{fmtMinutes(r.overtimeMinutes)}</td>
@@ -135,7 +135,7 @@ export default async function DocumentPrintPage({ params }: { params: Promise<{ 
 
   if (!record) {
     return (
-      <div className="glass-tile flex flex-col items-start gap-3 p-6">
+      <div className="ui-card flex flex-col items-start gap-3 p-6">
         <h1 className="text-xl font-bold">この書類は見つかりません</h1>
         <p className="text-sm text-foreground-600">
           訂正・更新されて別の版に置き換わった可能性があります。一覧から開き直してください。
@@ -163,8 +163,8 @@ export default async function DocumentPrintPage({ params }: { params: Promise<{ 
         <PrintButton />
       </div>
 
-      <article className="print-sheet glass-tile flex flex-col gap-5 p-8">
-        <header className="print-block flex flex-col gap-1 border-b border-[var(--glass-border)] pb-4">
+      <article className="print-sheet ui-card flex flex-col gap-5 p-8">
+        <header className="print-block flex flex-col gap-1 border-b border-[var(--ui-hairline)] pb-4">
           <p className="text-xs text-foreground-500">{t.documentKind[record.kind] ?? record.kind}</p>
           <h1 className="text-balance text-2xl font-bold">{record.title}</h1>
           <p className="text-sm text-foreground-600">{record.subjectLabel ?? ""}</p>
@@ -226,7 +226,7 @@ export default async function DocumentPrintPage({ params }: { params: Promise<{ 
                 <div className="overflow-x-auto">
                   <table className="w-full min-w-[760px] text-sm">
                     <thead>
-                      <tr className="border-b border-[var(--glass-border)] text-left text-foreground-500">
+                      <tr className="border-b border-[var(--ui-hairline)] text-left text-foreground-500">
                         <th className="py-2 pr-3 font-medium">船</th>
                         <th className="py-2 pr-3 font-medium">航海番号</th>
                         <th className="py-2 pr-3 font-medium">出港</th>
@@ -238,7 +238,7 @@ export default async function DocumentPrintPage({ params }: { params: Promise<{ 
                     </thead>
                     <tbody>
                       {snapshot.voyages.map((v) => (
-                        <tr key={`${v.voyageNo}-${v.departureAt}`} className="border-b border-[var(--glass-border)]">
+                        <tr key={`${v.voyageNo}-${v.departureAt}`} className="border-b border-[var(--ui-hairline)]">
                           <td className="py-2 pr-3">{v.vesselName}</td>
                           <td className="py-2 pr-3 tabular-nums">{v.voyageNo}</td>
                           <td className="py-2 pr-3">
@@ -340,7 +340,7 @@ export default async function DocumentPrintPage({ params }: { params: Promise<{ 
           </section>
         )}
 
-        <footer className="print-block border-t border-[var(--glass-border)] pt-3 text-xs text-foreground-500">
+        <footer className="print-block border-t border-[var(--ui-hairline)] pt-3 text-xs text-foreground-500">
           {PRODUCT_NAME} で作成 / 書類ID {record.id}
           {record.supersedesId ? `（前の版 ${record.supersedesId} を置き換え）` : ""}
         </footer>

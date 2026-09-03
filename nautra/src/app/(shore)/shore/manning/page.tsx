@@ -49,7 +49,7 @@ export default async function ShoreManningPage() {
         {vessels.map((v) => {
           const gap = v.requiredCrew === null ? null : v.onBoard.length - v.requiredCrew;
           return (
-            <div key={v.vesselId} className="glass-tile flex flex-col gap-2 p-4">
+            <div key={v.vesselId} className="ui-card flex flex-col gap-2 p-4">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <h2 className="font-bold">{v.vesselName}</h2>
                 <p className="text-sm text-foreground-600">
@@ -149,7 +149,7 @@ export default async function ShoreManningPage() {
       </section>
 
       {/* ── 60日の見通し（簡易ガント） ── */}
-      <section aria-label="これから60日の見通し" className="glass-tile p-4">
+      <section aria-label="これから60日の見通し" className="ui-card p-4">
         <h2 className="mb-1 font-bold">これから60日の見通し</h2>
         <p className="mb-3 text-sm text-foreground-600">
           横棒の高さがその日に乗っている人数です。定員に足りない日は棒の下に ✕ を付けています。
@@ -175,7 +175,7 @@ export default async function ShoreManningPage() {
             </thead>
             <tbody>
               {gantt.rows.map((row) => (
-                <tr key={row.vesselId} className="border-t border-[var(--glass-border)]">
+                <tr key={row.vesselId} className="border-t border-[var(--ui-hairline)]">
                   <th
                     scope="row"
                     className="sticky left-0 z-10 whitespace-nowrap bg-content1 px-2 py-1 text-left font-semibold"
@@ -230,7 +230,7 @@ export default async function ShoreManningPage() {
       </section>
 
       {/* ── 配乗待ちの船員（ブロック該当者も理由つきで出す） ── */}
-      <section aria-label="配乗待ちの船員" className="glass-tile p-4">
+      <section aria-label="配乗待ちの船員" className="ui-card p-4">
         <h2 className="mb-1 font-bold">
           配乗待ちの船員 <span className="tabular-nums text-foreground-500">{ashore.length}名</span>
         </h2>
@@ -244,7 +244,7 @@ export default async function ShoreManningPage() {
             {ashore.map((row) => (
               <li
                 key={row.crewMemberId}
-                className="border-b border-[var(--glass-border)] pb-3 last:border-b-0 last:pb-0"
+                className="border-b border-[var(--ui-hairline)] pb-3 last:border-b-0 last:pb-0"
               >
                 <div className="flex flex-wrap items-center gap-2">
                   <StatusChip
@@ -294,7 +294,7 @@ export default async function ShoreManningPage() {
 
       <EmbarkForm candidates={candidates} vessels={listVessels()} today={today} />
 
-      <section aria-label="最近の乗下船" className="glass-tile p-4">
+      <section aria-label="最近の乗下船" className="ui-card p-4">
         <h2 className="mb-2 font-bold">最近の乗下船（予定・実績）</h2>
         {recent.length === 0 ? (
           <p className="text-sm text-foreground-500">乗下船の記録はありません。</p>

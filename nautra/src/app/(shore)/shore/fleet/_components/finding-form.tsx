@@ -47,7 +47,7 @@ export function FindingForm({
   }
 
   return (
-    <form action={formAction} className="glass-inset flex flex-col gap-3 p-3">
+    <form action={formAction} className="ui-inset flex flex-col gap-3 p-3">
       <h4 className="text-sm font-bold">指摘事項を追加・更新（{dockTitle}）</h4>
       <input type="hidden" name="dockId" value={dockId} />
       <input type="hidden" name="key" value={key} />

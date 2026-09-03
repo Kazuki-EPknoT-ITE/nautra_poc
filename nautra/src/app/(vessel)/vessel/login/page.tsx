@@ -12,7 +12,7 @@ import {
   signIn,
   signInWithBiometric,
 } from "@/lib/vessel-session";
-import { Avatar, Button, CardBody, CardHeader, GlassCard } from "@/ui";
+import { Avatar, Button, CardBody, CardHeader, SurfaceCard } from "@/ui";
 
 const PIN_LENGTH = 4;
 const KEYS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "clear", "0", "back"] as const;
@@ -140,7 +140,7 @@ export default function VesselLoginPage() {
 
       {/* 放置で自動サインアウトしたときは、故障と間違われないよう理由を出す */}
       {idle ? (
-        <p className="glass-inset p-3 text-base">
+        <p className="ui-inset p-3 text-base">
           <span aria-hidden="true">⏱ </span>
           しばらく操作がなかったため、サインアウトしました。
           <span className="text-foreground-600">
@@ -150,7 +150,7 @@ export default function VesselLoginPage() {
         </p>
       ) : null}
 
-      <GlassCard blurred>
+      <SurfaceCard>
         <CardHeader className="px-5 pb-2 pt-5 text-base font-bold">
           1. 自分を選ぶ
         </CardHeader>
@@ -170,7 +170,7 @@ export default function VesselLoginPage() {
                     setError(null);
                   }}
                   className={cn(
-                    "glass-tile flex min-h-32 flex-col items-center justify-center gap-1 px-3 py-4",
+                    "ui-card flex min-h-32 flex-col items-center justify-center gap-1 px-3 py-4",
                     active ? "border-2 border-primary bg-primary/10" : "border-2 border-transparent",
                   )}
                 >
@@ -190,12 +190,12 @@ export default function VesselLoginPage() {
             })}
           </div>
         </CardBody>
-      </GlassCard>
+      </SurfaceCard>
 
       {/* 生体認証（3.2.1 の認証方式の選択制）。対応端末でのみ出す。
           登録済みなら1タップでサインインでき、未登録なら PIN のあとで登録できる */}
       {bioAvailable && selected ? (
-        <GlassCard blurred>
+        <SurfaceCard>
           <CardHeader className="px-5 pb-2 pt-5 text-base font-bold">
             {bioRegistered ? "2. 顔・指紋でサインイン" : "顔・指紋を使う（任意）"}
           </CardHeader>
@@ -220,7 +220,7 @@ export default function VesselLoginPage() {
                 <Button
                   variant="bordered"
                   size="lg"
-                  className="min-h-14 border-[var(--glass-border-strong)]"
+                  className="min-h-14 border-[var(--ui-hairline-strong)]"
                   isDisabled={busy}
                   onPress={() => void register()}
                 >
@@ -236,10 +236,10 @@ export default function VesselLoginPage() {
               顔・指紋の情報はこの端末の中だけで照合され、アプリにも陸上にも送られません。
             </p>
           </CardBody>
-        </GlassCard>
+        </SurfaceCard>
       ) : null}
 
-      <GlassCard blurred>
+      <SurfaceCard>
         <CardHeader className="px-5 pb-2 pt-5 text-base font-bold">
           {bioAvailable && selected && bioRegistered ? "3. PIN（4桁）を入力" : "2. PIN（4桁）を入力"}
         </CardHeader>
@@ -268,7 +268,7 @@ export default function VesselLoginPage() {
                 className={cn(
                   "min-h-14 text-xl font-bold",
                   (k === "clear" || k === "back") &&
-                    "border-[var(--glass-border-strong)] text-base text-foreground",
+                    "border-[var(--ui-hairline-strong)] text-base text-foreground",
                 )}
                 onPress={() => press(k)}
               >
@@ -285,7 +285,7 @@ export default function VesselLoginPage() {
             デモ用 PIN: 加藤 1111 / 佐藤 2222 / 鈴木 3333 / 田中 4444
           </p>
         </CardBody>
-      </GlassCard>
+      </SurfaceCard>
 
       <p className="text-pretty text-xs text-foreground-600">
         共用端末での本人特定は「顔写真リストから選択 + PIN」方式です（基本設計書 11.3）。

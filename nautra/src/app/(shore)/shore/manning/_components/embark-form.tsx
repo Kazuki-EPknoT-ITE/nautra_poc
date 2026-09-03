@@ -38,7 +38,7 @@ export function EmbarkForm({
   const needsAck = eventType === "on" && blockIssues.length > 0;
 
   return (
-    <form action={formAction} className="glass-tile flex flex-col gap-3 p-4">
+    <form action={formAction} className="ui-card flex flex-col gap-3 p-4">
       <h2 className="font-bold">乗下船を登録する</h2>
       <p className="text-sm text-foreground-600">
         登録すると、この出来事から必要な手続き一式（届出・保険・記帳・チェック）が自動で起票されます。
@@ -106,7 +106,7 @@ export function EmbarkForm({
       </div>
 
       {selected && selected.issues.length > 0 ? (
-        <div className="glass-inset flex flex-col gap-2 p-3">
+        <div className="ui-inset flex flex-col gap-2 p-3">
           {/* Chip は div を描くため p に入れない（不正なネストはハイドレーションを壊す） */}
           <div className="flex items-center gap-2 text-sm font-semibold">
             <StatusChip
@@ -157,7 +157,7 @@ export function EmbarkForm({
       </div>
 
       {state.ok && state.procedureTitles && state.procedureTitles.length > 0 ? (
-        <ul className="glass-inset flex flex-col gap-1 p-3 text-sm">
+        <ul className="ui-inset flex flex-col gap-1 p-3 text-sm">
           {state.procedureTitles.map((title) => (
             <li key={title}>・{title}</li>
           ))}

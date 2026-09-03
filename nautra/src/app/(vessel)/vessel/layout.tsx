@@ -48,14 +48,14 @@ function SessionChip() {
   if (!session) return null;
   return (
     <div className="flex shrink-0 items-center gap-2">
-      <Chip size="sm" variant="bordered" radius="sm" className="border-[var(--glass-border-strong)]">
+      <Chip size="sm" variant="bordered" radius="sm" className="border-[var(--ui-hairline-strong)]">
         {session.name}（{t.role[session.role]}）
       </Chip>
       <Button
         size="sm"
         variant="bordered"
         radius="md"
-        className="min-h-10 border-[var(--glass-border-strong)] text-foreground"
+        className="min-h-10 border-[var(--ui-hairline-strong)] text-foreground"
         onPress={() => void signOut()}
       >
         サインアウト
@@ -164,7 +164,7 @@ export default function VesselLayout({ children }: { children: ReactNode }) {
         isBordered={false}
         maxWidth="full"
         height="4.25rem"
-        className="glass-bar"
+        className="ui-bar"
         classNames={{ wrapper: "mx-auto max-w-5xl px-4 gap-3" }}
       >
         <NavbarBrand className="min-w-0 gap-3">
@@ -174,7 +174,7 @@ export default function VesselLayout({ children }: { children: ReactNode }) {
               href="/vessel"
               variant="bordered"
               radius="md"
-              className="min-h-11 shrink-0 border-[var(--glass-border-strong)] px-3 text-base font-semibold text-foreground"
+              className="min-h-11 shrink-0 border-[var(--ui-hairline-strong)] px-3 text-base font-semibold text-foreground"
               startContent={<span aria-hidden="true">←</span>}
             >
               メニュー

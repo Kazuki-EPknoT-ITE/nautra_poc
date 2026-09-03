@@ -27,13 +27,20 @@ export default async function ShoreDashboardPage() {
 
   const d = buildShoreDashboard();
 
-  const stats = [
-    { label: "警告（赤）日数 / 7日間", value: d.totals.violationDays, tone: "text-danger" },
-    { label: "注意（黄）日数 / 7日間", value: d.totals.cautionDays, tone: "text-warning-700" },
-    { label: "承認待ち", value: d.totals.pendingApprovals, tone: "text-foreground" },
-    { label: "差戻し中", value: d.totals.remandedDays, tone: "text-danger" },
-    { label: "期限が過ぎた・迫っている", value: d.totals.deadlineUrgent, tone: "text-danger" },
-    { label: "配乗できない船員", value: d.totals.manningBlocked, tone: "text-danger" },
+  /**
+   * 集計の数値。
+   *
+   * `alert` は「0 でなければ対処が要る」件数で、**0 のときは色を付けない**。
+   * 常に赤い数字が並んでいると、本当に赤くなったときに気づけなくなるため
+   * （DESIGN.md も赤はエラー状態に限ると定めている）。
+   */
+  const stats: { label: string; value: number; alert?: "danger" | "caution" }[] = [
+    { label: "警告（赤）日数 / 7日間", value: d.totals.violationDays, alert: "danger" },
+    { label: "注意（黄）日数 / 7日間", value: d.totals.cautionDays, alert: "caution" },
+    { label: "承認待ち", value: d.totals.pendingApprovals },
+    { label: "差戻し中", value: d.totals.remandedDays, alert: "caution" },
+    { label: "期限が過ぎた・迫っている", value: d.totals.deadlineUrgent, alert: "danger" },
+    { label: "配乗できない船員", value: d.totals.manningBlocked, alert: "danger" },
   ];
 
   return (
@@ -44,16 +51,25 @@ export default async function ShoreDashboardPage() {
       </div>
 
       <section aria-label="法令遵守アラート集計" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {stats.map((s) => (
-          <div key={s.label} className="glass-tile p-4">
-            <p className="text-sm text-foreground-500">{s.label}</p>
-            <p className={`tabular-nums text-3xl font-bold ${s.tone}`}>{s.value}</p>
-          </div>
-        ))}
+        {stats.map((s) => {
+          const lit = s.alert && s.value > 0;
+          return (
+            <div key={s.label} className="ui-card p-4">
+              <p className="text-sm text-foreground-500">{s.label}</p>
+              <p
+                className={`tabular-nums text-3xl font-semibold ${
+                  lit ? (s.alert === "danger" ? "text-danger" : "text-warning-700") : "text-foreground"
+                }`}
+              >
+                {s.value}
+              </p>
+            </div>
+          );
+        })}
       </section>
 
       {/* 期限接近一覧（証書の期限 12.4 ＋ 手続きの着手期限 6.6② ＋ 休暇の時効 3.2.4） */}
-      <section aria-label="期限接近一覧" className="glass-tile overflow-x-auto">
+      <section aria-label="期限接近一覧" className="ui-card overflow-x-auto">
         <div className="flex flex-wrap items-center justify-between gap-2 px-4 pt-4">
           <h2 className="font-bold">期限が近いもの（急ぐ順）</h2>
           <p className="text-xs text-foreground-500">
@@ -65,7 +81,7 @@ export default async function ShoreDashboardPage() {
         ) : (
           <table className="mt-2 w-full min-w-[760px] text-sm">
             <thead>
-              <tr className="border-b border-[var(--glass-border)] text-left text-foreground-500">
+              <tr className="border-b border-[var(--ui-hairline)] text-left text-foreground-500">
                 <th className="px-4 py-2 font-medium">状態</th>
                 <th className="px-2 py-2 font-medium">対象</th>
                 <th className="px-2 py-2 font-medium">内容</th>
@@ -75,7 +91,7 @@ export default async function ShoreDashboardPage() {
             </thead>
             <tbody>
               {d.deadlines.slice(0, 20).map((item) => (
-                <tr key={item.key} className="border-b border-[var(--glass-border)] last:border-b-0">
+                <tr key={item.key} className="border-b border-[var(--ui-hairline)] last:border-b-0">
                   <td className="px-4 py-2">
                     <StatusChip level={item.level} size="sm" />
                   </td>
@@ -118,7 +134,7 @@ export default async function ShoreDashboardPage() {
         ) : null}
       </section>
 
-      <section aria-label="次の作業" className="glass-tile flex flex-wrap items-center gap-3 p-4">
+      <section aria-label="次の作業" className="ui-card flex flex-wrap items-center gap-3 p-4">
         <span className="text-sm text-foreground-500">よく使う画面:</span>
         {[
           { href: "/shore/labor", label: "労務・記録簿" },
@@ -141,7 +157,7 @@ export default async function ShoreDashboardPage() {
 
       <section
         aria-label="同期受信状況"
-        className="glass-tile flex flex-wrap items-center gap-x-6 gap-y-1 px-4 py-3 text-sm"
+        className="ui-card flex flex-wrap items-center gap-x-6 gap-y-1 px-4 py-3 text-sm"
       >
         <span>
           受信イベント <span className="tabular-nums font-bold">{d.sync.eventCount}</span> 件
@@ -163,7 +179,7 @@ export default async function ShoreDashboardPage() {
         </span>
       </section>
 
-      <section aria-label="船内記録の受信状況（種別別）" className="glass-tile px-4 py-3">
+      <section aria-label="船内記録の受信状況（種別別）" className="ui-card px-4 py-3">
         <p className="mb-2 text-sm font-semibold">船内記録の受信状況（種別別・累計）</p>
         <div className="flex flex-wrap gap-2 text-sm">
           {Object.entries(t.syncKind).map(([kind, label]) => (
@@ -174,10 +190,10 @@ export default async function ShoreDashboardPage() {
         </div>
       </section>
 
-      <section aria-label="船員別の遵守状況（直近7日）" className="glass-tile overflow-x-auto">
+      <section aria-label="船員別の遵守状況（直近7日）" className="ui-card overflow-x-auto">
         <table className="w-full min-w-[720px] text-sm">
           <thead>
-            <tr className="border-b border-[var(--glass-border)] text-left text-foreground-500">
+            <tr className="border-b border-[var(--ui-hairline)] text-left text-foreground-500">
               <th className="px-4 py-3 font-medium">船員</th>
               {d.rows[0]?.days.map((day) => (
                 <th key={day.date} className="px-2 py-3 text-center font-medium tabular-nums">
@@ -189,7 +205,7 @@ export default async function ShoreDashboardPage() {
           </thead>
           <tbody>
             {d.rows.map((row) => (
-              <tr key={row.crew.id} className="border-b border-[var(--glass-border)] last:border-b-0">
+              <tr key={row.crew.id} className="border-b border-[var(--ui-hairline)] last:border-b-0">
                 <td className="px-4 py-3">
                   <Link href={`/shore/crew/${row.crew.id}`} className="font-semibold hover:underline">
                     {row.crew.name}

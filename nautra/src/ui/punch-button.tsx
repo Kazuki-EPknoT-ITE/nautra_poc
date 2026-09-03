@@ -30,8 +30,9 @@ export function PunchButton({
       radius="lg"
       className={cn(
         "min-h-16 h-auto w-full py-3 text-xl font-bold",
-        // 未選択はガラス面（主要な操作の判別は色ではなく塗り/枠の差で示す。基本設計書 6.3）
-        !active && !danger && "glass border-[var(--glass-border-strong)] text-foreground",
+        // 未選択は白の紙面 + ヘアラインの輪郭（DESIGN.md「Outline Button」）。
+        // 作業中との違いは色相ではなく**明度の反転**で示す（黒塗り ⇔ 白地）
+        !active && !danger && "bg-content1 border-[var(--ui-hairline)] text-foreground",
       )}
     >
       <span className="flex flex-col items-center gap-0.5">

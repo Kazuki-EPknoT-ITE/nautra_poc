@@ -21,7 +21,7 @@ export function CredentialForm({ crewMemberId }: { crewMemberId: string }) {
   const [state, formAction, pending] = useActionState(createCredentialAction, INITIAL);
 
   return (
-    <form action={formAction} className="glass-tile flex flex-col gap-3 p-4">
+    <form action={formAction} className="ui-card flex flex-col gap-3 p-4">
       <h2 className="font-bold">資格・証書を登録する</h2>
       <input type="hidden" name="crewMemberId" value={crewMemberId} />
       <div className="grid gap-3 sm:grid-cols-2">

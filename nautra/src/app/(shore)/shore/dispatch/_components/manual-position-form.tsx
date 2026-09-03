@@ -27,7 +27,7 @@ export function ManualPositionForm({ vessels }: { vessels: VesselOption[] }) {
     useState<NonNullable<VesselPositionPayload["navStatus"]>>("underway");
 
   return (
-    <form action={formAction} className="glass-tile flex flex-col gap-3 p-4">
+    <form action={formAction} className="ui-card flex flex-col gap-3 p-4">
       <h2 className="font-bold">位置を手で入れる</h2>
       <p className="text-sm text-foreground-500">
         AIS を積んでいない船や、受信が途切れた船の位置を補うための入力です。無線・電話で聞いた

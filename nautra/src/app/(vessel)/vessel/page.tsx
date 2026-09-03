@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRoutePrefetch } from "@/lib/use-route-prefetch";
 import { useSyncBadge } from "@/lib/vessel-hooks";
 import { NoticePanel } from "./_components/notice-panel";
-import { Button, CardFooter, CardHeader, GlassCard } from "@/ui";
+import { Button, CardFooter, CardHeader, SurfaceCard } from "@/ui";
 import { can, type Permission } from "@/domain/authz/roles";
 import { t } from "@/i18n/ja";
 import { useSessionCrew } from "@/lib/vessel-hooks";
@@ -80,8 +80,8 @@ const FEATURES: Feature[] = [
 
 function FeatureCard({ feature }: { feature: Feature }) {
   return (
-    <GlassCard
-      blurred
+    <SurfaceCard
+     
       aria-label={`${feature.no} ${feature.title}`}
       className="flex h-full flex-col"
     >
@@ -114,7 +114,7 @@ function FeatureCard({ feature }: { feature: Feature }) {
           </Button>
         ))}
       </CardFooter>
-    </GlassCard>
+    </SurfaceCard>
   );
 }
 
@@ -149,7 +149,9 @@ export default function VesselMenuPage() {
       </div>
       {/* 左=機能カード（3列×2行）、右=お知らせ欄。狭い画面ではお知らせが下に回る */}
       <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_19rem]">
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        {/* items-start: カードは中身の高さのままにする。行の高さに引き伸ばすと
+            ボタンが1本のカードに大きな空白ができ、押す場所が探しにくくなる */}
+        <div className="grid items-start gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {visible.map((f) => (
             <FeatureCard key={f.no} feature={f} />
           ))}

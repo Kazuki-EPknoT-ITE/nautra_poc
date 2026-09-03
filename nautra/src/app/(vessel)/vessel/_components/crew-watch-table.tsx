@@ -40,7 +40,7 @@ export function CrewWatchTable({
     <div className="overflow-x-auto">
       <table className="w-full min-w-[720px] text-sm">
         <thead>
-          <tr className="border-b border-[var(--glass-border)] text-left text-foreground-600">
+          <tr className="border-b border-[var(--ui-hairline)] text-left text-foreground-600">
             <th className="px-3 py-2 font-medium">船員</th>
             {days.map((d) => (
               <th
@@ -57,7 +57,7 @@ export function CrewWatchTable({
           {CREW_MEMBERS.map((c) => (
             <tr
               key={c.id}
-              className={cn("border-b border-[var(--glass-border)] last:border-b-0", c.id === selfId && "bg-content2/60")}
+              className={cn("border-b border-[var(--ui-hairline)] last:border-b-0", c.id === selfId && "bg-content2/60")}
             >
               <td className="px-3 py-2">
                 <p className="font-semibold">
@@ -78,7 +78,7 @@ export function CrewWatchTable({
                           <span
                             key={p.id}
                             className={cn(
-                              "glass-inset rounded-small px-1.5 py-0.5 text-xs tabular-nums",
+                              "ui-inset rounded-small px-1.5 py-0.5 text-xs tabular-nums",
                               changedIds.has(p.id) && "ring-1 ring-warning",
                             )}
                           >

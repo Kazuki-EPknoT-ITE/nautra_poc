@@ -71,7 +71,7 @@ export default async function ShoreShiftsPage() {
         </p>
       </div>
 
-      <section aria-label="関連する画面" className="glass-tile flex flex-wrap items-center gap-3 p-4">
+      <section aria-label="関連する画面" className="ui-card flex flex-wrap items-center gap-3 p-4">
         <span className="text-sm text-foreground-500">関連:</span>
         <Link href="/shore/dispatch" className="rounded-medium bg-default-100 px-3 py-1.5 text-sm">
           運航スケジュール（配船・位置）
@@ -84,11 +84,11 @@ export default async function ShoreShiftsPage() {
         </Link>
       </section>
 
-      <section aria-label="週間当直表" className="glass-tile overflow-x-auto">
+      <section aria-label="週間当直表" className="ui-card overflow-x-auto">
         <h2 className="px-4 pt-4 font-bold">今週の当直</h2>
         <table className="mt-2 w-full min-w-[760px] text-sm">
           <thead>
-            <tr className="border-b border-[var(--glass-border)] text-left text-foreground-500">
+            <tr className="border-b border-[var(--ui-hairline)] text-left text-foreground-500">
               <th className="px-4 py-3 font-medium">船員</th>
               {week.days.map((d) => (
                 <th
@@ -103,7 +103,7 @@ export default async function ShoreShiftsPage() {
           </thead>
           <tbody>
             {boardCrews.map((crew) => (
-              <tr key={crew.id} className="border-b border-[var(--glass-border)] last:border-b-0">
+              <tr key={crew.id} className="border-b border-[var(--ui-hairline)] last:border-b-0">
                 <td className="px-4 py-3">
                   <p className="font-semibold">{crew.name}</p>
                   <p className="text-xs text-foreground-500">
@@ -132,7 +132,7 @@ export default async function ShoreShiftsPage() {
       </section>
 
       {/* 3.2.3 公平な配分の可視化 */}
-      <section aria-label="当直の配分" className="glass-tile p-4">
+      <section aria-label="当直の配分" className="ui-card p-4">
         <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
           <h2 className="font-bold">当直の配分（直近2週間）</h2>
           <p className="text-xs text-foreground-500">
@@ -178,7 +178,7 @@ export default async function ShoreShiftsPage() {
       <StationChangeForm options={stationOptions} />
 
       {week.conflicts.length > 0 ? (
-        <section aria-label="競合（要確認）" className="glass-tile border border-danger p-4">
+        <section aria-label="競合（要確認）" className="ui-card border border-danger p-4">
           <h2 className="mb-2 font-bold text-danger">競合（要確認） {week.conflicts.length}件</h2>
           <p className="mb-2 text-sm text-foreground-500">
             同一のシフトに対して複数の変更が配信されています。自動では解決せず双方を保持しています（基本設計書 8.3）。
@@ -194,7 +194,7 @@ export default async function ShoreShiftsPage() {
         </section>
       ) : null}
 
-      <section aria-label="配信済みの変更" className="glass-tile p-4">
+      <section aria-label="配信済みの変更" className="ui-card p-4">
         <h2 className="mb-2 font-bold">配信済みの変更（新しい順）</h2>
         {week.changes.length === 0 ? (
           <p className="text-sm text-foreground-500">変更はありません。</p>

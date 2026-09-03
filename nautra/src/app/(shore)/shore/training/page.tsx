@@ -61,7 +61,7 @@ export default async function ShoreTrainingPage() {
       </div>
 
       {/* ① 船員ごとの修了状況と未修了アラート */}
-      <section aria-label="船員ごとの修了状況" className="glass-tile p-4">
+      <section aria-label="船員ごとの修了状況" className="ui-card p-4">
         <h2 className="mb-1 font-bold">船員ごとの修了状況</h2>
         {riskCount > 0 ? (
           <p className="mb-2 text-sm font-semibold text-danger">
@@ -77,7 +77,7 @@ export default async function ShoreTrainingPage() {
         <div className="overflow-x-auto">
           <table className="w-full min-w-[840px] text-sm">
             <thead>
-              <tr className="border-b border-[var(--glass-border)] text-left text-foreground-500">
+              <tr className="border-b border-[var(--ui-hairline)] text-left text-foreground-500">
                 <th className="px-2 py-2 font-medium">船員</th>
                 <th className="px-2 py-2 font-medium">全体</th>
                 <th className="px-2 py-2 font-medium">基本訓練</th>
@@ -87,7 +87,7 @@ export default async function ShoreTrainingPage() {
             </thead>
             <tbody>
               {crewRows.map((row) => (
-                <tr key={row.crewMemberId} className="border-b border-[var(--glass-border)] last:border-b-0">
+                <tr key={row.crewMemberId} className="border-b border-[var(--ui-hairline)] last:border-b-0">
                   <td className="px-2 py-2">
                     <Link
                       href={`/shore/crew/${row.crewMemberId}`}
@@ -134,7 +134,7 @@ export default async function ShoreTrainingPage() {
       </section>
 
       {/* ② 受講手配 */}
-      <section aria-label="受講の手配" className="glass-tile p-4">
+      <section aria-label="受講の手配" className="ui-card p-4">
         <h2 className="mb-2 font-bold">
           受講の手配 <span className="tabular-nums font-normal text-foreground-500">{plans.length}件</span>
         </h2>
@@ -144,7 +144,7 @@ export default async function ShoreTrainingPage() {
           <div className="overflow-x-auto">
             <table className="w-full min-w-[760px] text-sm">
               <thead>
-                <tr className="border-b border-[var(--glass-border)] text-left text-foreground-500">
+                <tr className="border-b border-[var(--ui-hairline)] text-left text-foreground-500">
                   <th className="px-2 py-2 font-medium">船員</th>
                   <th className="px-2 py-2 font-medium">訓練の種類</th>
                   <th className="px-2 py-2 font-medium">名前</th>
@@ -155,7 +155,7 @@ export default async function ShoreTrainingPage() {
               </thead>
               <tbody>
                 {plans.map((p) => (
-                  <tr key={p.id} className="border-b border-[var(--glass-border)] last:border-b-0">
+                  <tr key={p.id} className="border-b border-[var(--ui-hairline)] last:border-b-0">
                     <td className="px-2 py-2 font-semibold">{p.crewName}</td>
                     <td className="px-2 py-2">{t.trainingKind[p.trainingKind]}</td>
                     <td className="px-2 py-2">{p.title}</td>
@@ -174,7 +174,7 @@ export default async function ShoreTrainingPage() {
       <CompleteTrainingForm plans={openPlans} today={today} />
 
       {/* ③ 船内操練の実施記録と次回期日 */}
-      <section aria-label="船内操練の次回期日" className="glass-tile p-4">
+      <section aria-label="船内操練の次回期日" className="ui-card p-4">
         <h2 className="mb-1 font-bold">船内操練の次回期日</h2>
         <p className="mb-2 text-sm text-foreground-600">
           船内で記録された操練から、種別ごとの最後の実施日と次回の期日を出しています。
@@ -182,7 +182,7 @@ export default async function ShoreTrainingPage() {
         <div className="overflow-x-auto">
           <table className="w-full min-w-[820px] text-sm">
             <thead>
-              <tr className="border-b border-[var(--glass-border)] text-left text-foreground-500">
+              <tr className="border-b border-[var(--ui-hairline)] text-left text-foreground-500">
                 <th className="px-2 py-2 font-medium">状態</th>
                 <th className="px-2 py-2 font-medium">操練の種別</th>
                 <th className="px-2 py-2 font-medium">最後の実施</th>
@@ -193,7 +193,7 @@ export default async function ShoreTrainingPage() {
             </thead>
             <tbody>
               {drills.statuses.map((s) => (
-                <tr key={s.drillType} className="border-b border-[var(--glass-border)] last:border-b-0">
+                <tr key={s.drillType} className="border-b border-[var(--ui-hairline)] last:border-b-0">
                   <td className="px-2 py-2">
                     <StatusChip size="sm" level={s.level} label={t.drillState[s.state]} />
                   </td>
@@ -235,7 +235,7 @@ export default async function ShoreTrainingPage() {
       </section>
 
       {/* ④ 教材・手順書の配信 */}
-      <section aria-label="教材・手順書" className="glass-tile p-4">
+      <section aria-label="教材・手順書" className="ui-card p-4">
         <h2 className="mb-2 font-bold">
           配信した教材・手順書{" "}
           <span className="tabular-nums font-normal text-foreground-500">{materials.length}件</span>
@@ -245,7 +245,7 @@ export default async function ShoreTrainingPage() {
         ) : (
           <ul className="flex flex-col gap-2 text-sm">
             {materials.map((m) => (
-              <li key={m.id} className="border-b border-[var(--glass-border)] pb-2 last:border-b-0">
+              <li key={m.id} className="border-b border-[var(--ui-hairline)] pb-2 last:border-b-0">
                 <p className="font-semibold">
                   {m.materialName}
                   <span className="ml-2 font-normal text-foreground-600">

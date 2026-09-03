@@ -40,7 +40,7 @@ export function ApprovalForm({
 
   if (days.length === 0) {
     return (
-      <div className="glass-tile p-4">
+      <div className="ui-card p-4">
         <h2 className="font-bold">労務管理責任者の承認</h2>
         <p className="mt-1 text-sm text-foreground-500">
           未承認の日はありません（{crewName}）。
@@ -50,7 +50,7 @@ export function ApprovalForm({
   }
 
   return (
-    <form action={formAction} className="glass-tile flex flex-col gap-3 p-4">
+    <form action={formAction} className="ui-card flex flex-col gap-3 p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="font-bold">労務管理責任者の承認（{crewName}）</h2>
         <span className="text-sm text-foreground-500">未承認 {days.length}日</span>

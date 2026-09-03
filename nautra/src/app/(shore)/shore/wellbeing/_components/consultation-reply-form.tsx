@@ -24,7 +24,7 @@ export function ConsultationReplyForm({ consultations }: { consultations: Consul
 
   if (consultations.length === 0) {
     return (
-      <div className="glass-tile p-4">
+      <div className="ui-card p-4">
         <h3 className="font-bold">相談に回答する</h3>
         <p className="mt-1 text-sm text-foreground-500">届いている相談はありません。</p>
       </div>
@@ -34,7 +34,7 @@ export function ConsultationReplyForm({ consultations }: { consultations: Consul
   const selected = consultations.find((c) => c.id === responseId);
 
   return (
-    <form action={formAction} className="glass-tile flex flex-col gap-3 p-4">
+    <form action={formAction} className="ui-card flex flex-col gap-3 p-4">
       <h3 className="font-bold">相談に回答する</h3>
       <input type="hidden" name="responseId" value={responseId} />
       <input type="hidden" name="mode" value={mode} />

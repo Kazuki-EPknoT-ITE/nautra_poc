@@ -106,7 +106,7 @@ export default async function ShoreLaborPage({
       </div>
 
       {/* 対象の切替（サーバ側で組み立てるためリンクで切り替える） */}
-      <section aria-label="対象の切替" className="glass-tile flex flex-wrap items-center gap-4 p-4">
+      <section aria-label="対象の切替" className="ui-card flex flex-wrap items-center gap-4 p-4">
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-sm text-foreground-500">船員</span>
           {crews.map((c) => (
@@ -160,7 +160,7 @@ export default async function ShoreLaborPage({
           { label: "警告（赤）", value: `${period.totals.violationDays}日`, tone: "text-danger" },
           { label: "未承認", value: `${period.totals.pendingDays}日`, tone: "text-warning-700" },
         ].map((s) => (
-          <div key={s.label} className="glass-tile p-4">
+          <div key={s.label} className="ui-card p-4">
             <p className="text-sm text-foreground-500">{s.label}</p>
             <p className={`tabular-nums text-2xl font-bold ${s.tone}`}>{s.value}</p>
           </div>
@@ -168,7 +168,7 @@ export default async function ShoreLaborPage({
       </section>
 
       {/* 4週単位・月単位の集計（3.2.1「日単位・週単位・4週単位・月単位」） */}
-      <section aria-label="4週間・1か月の集計" className="glass-tile p-4">
+      <section aria-label="4週間・1か月の集計" className="ui-card p-4">
         <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
           <h2 className="font-bold">4週間・1か月のまとめ</h2>
           <p className="text-xs text-foreground-500">
@@ -180,7 +180,7 @@ export default async function ShoreLaborPage({
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
           {periodChecks.map(({ check, range }) => (
-            <div key={`${check.key}-${range}`} className="glass-inset flex items-center gap-3 p-3">
+            <div key={`${check.key}-${range}`} className="ui-inset flex items-center gap-3 p-3">
               <StatusChip level={check.level} size="sm" />
               <div className="min-w-0 flex-1">
                 <p className="font-semibold">{checkLabel(check.key)}</p>
@@ -195,7 +195,7 @@ export default async function ShoreLaborPage({
             </div>
           ))}
           {/* 週1日以上の休日付与（3.2.5⑤）。休暇記録の日付を含めて判定する */}
-          <div className="glass-inset flex items-center gap-3 p-3">
+          <div className="ui-inset flex items-center gap-3 p-3">
             <StatusChip level={period.aggregates.restDay.level} size="sm" />
             <div className="min-w-0 flex-1">
               <p className="font-semibold">{checkLabel("rest_day")}</p>
@@ -218,13 +218,13 @@ export default async function ShoreLaborPage({
       {canApprove ? (
         <ApprovalForm crewMemberId={crewMemberId} crewName={period.crewName} days={pendingDays} />
       ) : (
-        <p className="glass-tile p-4 text-sm text-foreground-600">
+        <p className="ui-card p-4 text-sm text-foreground-600">
           承認・差戻しは労務管理責任者の担当です。ここでは記録の確認のみ行えます。
         </p>
       )}
 
       {/* タイムチャート（0〜24時） */}
-      <section aria-label="船員別タイムチャート" className="glass-tile p-4">
+      <section aria-label="船員別タイムチャート" className="ui-card p-4">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <h2 className="font-bold">
             タイムチャート — {period.crewName}（{period.position}）
@@ -283,7 +283,7 @@ export default async function ShoreLaborPage({
       </section>
 
       {/* 休日・有給休暇・補償休日（3.2.4） */}
-      <section aria-label="休日・有給休暇・補償休日" className="glass-tile flex flex-col gap-4 p-4">
+      <section aria-label="休日・有給休暇・補償休日" className="ui-card flex flex-col gap-4 p-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="font-bold">休日・有給休暇・補償休日</h2>
           <p className="text-xs text-foreground-500">
@@ -292,7 +292,7 @@ export default async function ShoreLaborPage({
         </div>
 
         {leaveBoard.some((b) => b.expiringGrants.length > 0) ? (
-          <div className="glass-inset border border-warning p-3">
+          <div className="ui-inset border border-warning p-3">
             <p className="text-sm font-semibold text-warning-700">
               ⚠ 使わないまま期限が来る休みがあります
             </p>
@@ -313,7 +313,7 @@ export default async function ShoreLaborPage({
         <div className="overflow-x-auto">
           <table className="w-full min-w-[640px] text-sm">
             <thead>
-              <tr className="border-b border-[var(--glass-border)] text-left text-foreground-500">
+              <tr className="border-b border-[var(--ui-hairline)] text-left text-foreground-500">
                 <th className="px-2 py-2 font-medium">船員</th>
                 {["paid_leave", "statutory_holiday", "compensatory", "special"].map((k) => (
                   <th key={k} className="px-2 py-2 text-right font-medium">
@@ -326,7 +326,7 @@ export default async function ShoreLaborPage({
               {leaveBoard.map((b) => (
                 <tr
                   key={b.crewMemberId}
-                  className={`border-b border-[var(--glass-border)] last:border-b-0 ${
+                  className={`border-b border-[var(--ui-hairline)] last:border-b-0 ${
                     b.crewMemberId === crewMemberId ? "font-semibold" : ""
                   }`}
                 >
@@ -403,7 +403,7 @@ export default async function ShoreLaborPage({
       </section>
 
       {/* 労務管理記録簿（第16号の5 相当） */}
-      <section aria-label="労務管理記録簿" className="glass-tile overflow-x-auto">
+      <section aria-label="労務管理記録簿" className="ui-card overflow-x-auto">
         <div className="flex flex-wrap items-center justify-between gap-2 px-4 pt-4">
           <h2 className="font-bold">労務管理記録簿（第16号の5書式に相当）</h2>
           <p className="text-xs text-foreground-500">
@@ -412,7 +412,7 @@ export default async function ShoreLaborPage({
         </div>
         <table className="mt-3 w-full min-w-[900px] text-sm">
           <thead>
-            <tr className="border-b border-[var(--glass-border)] text-left text-foreground-500">
+            <tr className="border-b border-[var(--ui-hairline)] text-left text-foreground-500">
               <th className="px-4 py-2 font-medium">日付</th>
               <th className="px-2 py-2 font-medium">労働時間</th>
               <th className="px-2 py-2 font-medium">休息の合計</th>
@@ -437,7 +437,7 @@ export default async function ShoreLaborPage({
                 );
                 const isRest = !d.summary.hasRecords || restDates.has(d.date);
                 return (
-                  <tr key={d.date} className="border-b border-[var(--glass-border)] last:border-b-0">
+                  <tr key={d.date} className="border-b border-[var(--ui-hairline)] last:border-b-0">
                     <td className="px-4 py-2 tabular-nums">{fmtDateLabel(d.date)}</td>
                     <td className="px-2 py-2 tabular-nums">{fmtMinutes(d.summary.workedMinutes)}</td>
                     <td className="px-2 py-2 tabular-nums">{fmtMinutes(d.summary.restTotalMinutes)}</td>
@@ -484,7 +484,7 @@ export default async function ShoreLaborPage({
 
       {/* 国交省 Excel マクロ様式の取込（3.2.2） */}
       {canApprove ? (
-        <section aria-label="記録簿の取込" className="glass-tile flex flex-col gap-3 p-4">
+        <section aria-label="記録簿の取込" className="ui-card flex flex-col gap-3 p-4">
           <h2 className="font-bold">これまでの記録簿を取り込む（Excel様式 → CSV）</h2>
           <LedgerImportForm />
         </section>

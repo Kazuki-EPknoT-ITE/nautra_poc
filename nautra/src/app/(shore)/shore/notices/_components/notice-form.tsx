@@ -19,7 +19,7 @@ export function NoticeForm({ options }: { options: NoticeOption[] }) {
   const [supersedesId, setSupersedesId] = useState("");
 
   return (
-    <form action={formAction} className="glass-tile flex flex-col gap-3 p-4">
+    <form action={formAction} className="ui-card flex flex-col gap-3 p-4">
       <h2 className="font-bold">お知らせ・速報を配信</h2>
       <input type="hidden" name="level" value={level} />
       <input type="hidden" name="supersedesId" value={supersedesId} />

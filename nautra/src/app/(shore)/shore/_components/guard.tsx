@@ -13,7 +13,7 @@ export function ShoreGuardNotice({ guard, screen }: { guard: ShoreGuard; screen:
 
   if (guard.reason === "signed_out") {
     return (
-      <div className="glass-tile flex flex-col items-start gap-3 p-6">
+      <div className="ui-card flex flex-col items-start gap-3 p-6">
         <h1 className="text-xl font-bold">サインインしてください</h1>
         <p className="text-sm text-foreground-600">
           {screen} を開くにはサインインが必要です。担当者を選ぶと、その役職で使える機能だけが
@@ -30,7 +30,7 @@ export function ShoreGuardNotice({ guard, screen }: { guard: ShoreGuard; screen:
   }
 
   return (
-    <div className="glass-tile flex flex-col items-start gap-3 p-6">
+    <div className="ui-card flex flex-col items-start gap-3 p-6">
       <h1 className="text-xl font-bold">この画面を開く権限がありません</h1>
       <p className="text-sm text-foreground-600">
         {screen} は、いまサインインしている
@@ -48,7 +48,7 @@ export function ShoreGuardNotice({ guard, screen }: { guard: ShoreGuard; screen:
         </Link>
         <Link
           href="/shore/login"
-          className="rounded-medium border border-[var(--glass-border)] px-4 py-2 text-sm"
+          className="rounded-medium border border-[var(--ui-hairline)] px-4 py-2 text-sm"
         >
           担当者を切り替える
         </Link>

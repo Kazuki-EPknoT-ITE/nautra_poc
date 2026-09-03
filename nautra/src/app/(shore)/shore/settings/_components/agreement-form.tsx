@@ -39,7 +39,7 @@ export function AgreementForm({
   const [supersedesId, setSupersedesId] = useState("");
 
   return (
-    <form action={formAction} className="glass-tile flex flex-col gap-3 p-4">
+    <form action={formAction} className="ui-card flex flex-col gap-3 p-4">
       <h2 className="font-bold">協定・就業規則の新しい版を登録</h2>
       <p className="text-sm text-foreground-600">
         入力した値は、適用開始日からそのまま判定の基準になります。空欄の項目は法令の既定値のままです。
@@ -67,7 +67,7 @@ export function AgreementForm({
         <Input type="date" name="effectiveTo" label="適用終了日（無期限なら空欄）" />
       </div>
 
-      <div className="glass-inset p-3">
+      <div className="ui-inset p-3">
         <p className="mb-2 text-sm font-semibold">判定の基準にする値（空欄はそのまま）</p>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {fields.map((f) => (

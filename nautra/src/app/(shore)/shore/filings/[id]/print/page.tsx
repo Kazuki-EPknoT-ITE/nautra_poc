@@ -79,7 +79,7 @@ function FilingSheet({ doc, snap }: { doc: GeneratedDocumentPayload; snap: Filin
   const practical = crew.credentials?.find((c) => c.category === "stcw_practical");
 
   return (
-    <section aria-label={doc.title} className="print-sheet glass-tile p-6">
+    <section aria-label={doc.title} className="print-sheet ui-card p-6">
       <h2 className="mb-1 text-center text-lg font-bold">{doc.title}</h2>
       <p className="mb-4 text-center text-xs">
         船員法第37条（雇入契約成立等の届出）／作成日 {doc.generatedOn}
@@ -144,7 +144,7 @@ function FilingSheet({ doc, snap }: { doc: GeneratedDocumentPayload; snap: Filin
 function CrewListSheet({ doc, snap }: { doc: GeneratedDocumentPayload; snap: FilingDocSnapshot }) {
   const rows = snap.rows ?? [];
   return (
-    <section aria-label={doc.title} className="print-sheet glass-tile p-6">
+    <section aria-label={doc.title} className="print-sheet ui-card p-6">
       <h2 className="mb-1 text-center text-lg font-bold">{doc.title}</h2>
       <p className="mb-4 text-center text-xs">
         {snap.vessel?.name}
@@ -193,7 +193,7 @@ function CrewListSheet({ doc, snap }: { doc: GeneratedDocumentPayload; snap: Fil
 function ElectronicSheet({ doc, snap }: { doc: GeneratedDocumentPayload; snap: FilingDocSnapshot }) {
   const rows = snap.rows ?? [];
   return (
-    <section aria-label={doc.title} className="print-sheet glass-tile p-6">
+    <section aria-label={doc.title} className="print-sheet ui-card p-6">
       <h2 className="mb-1 text-center text-lg font-bold">{doc.title}</h2>
       <p className="mb-4 text-center text-xs">
         {snap.filingType ? t.filingType[snap.filingType] : ""} ／{" "}
@@ -255,7 +255,7 @@ export default async function FilingPrintPage({ params }: { params: Promise<{ id
         </div>
         <Link
           href="/shore/filings"
-          className="rounded-medium border border-[var(--glass-border)] px-3 py-1.5 text-sm"
+          className="rounded-medium border border-[var(--ui-hairline)] px-3 py-1.5 text-sm"
         >
           ← 届出の一覧へ
         </Link>

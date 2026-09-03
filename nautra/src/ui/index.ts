@@ -51,9 +51,9 @@ export {
 export { UIProvider } from "./provider";
 export { AppShell } from "./app-shell";
 export { ClientOnly } from "./client-only";
-export { GlassCard, GlassRow, GlassStat, useGlassModalProps } from "./glass";
+export { SurfaceCard, SurfaceRow, StatBlock, useModalProps } from "./surface";
 export { StatusChip } from "./status-chip";
 export { LimitGauge } from "./limit-gauge";
 export { PunchButton } from "./punch-button";
 export { TriStateToggle } from "./tri-state-toggle";
-export { GLASS_MODAL_CLASSNAMES } from "./modal-style";
+export { MODAL_CLASSNAMES } from "./modal-style";

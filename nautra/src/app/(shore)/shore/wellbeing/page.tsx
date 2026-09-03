@@ -36,7 +36,7 @@ function AverageBar({ value }: { value: number }) {
 function SummarySection({ summary }: { summary: WellbeingSummary }) {
   const title = t.wellbeingFormType[summary.formType];
   return (
-    <section aria-label={title} className="glass-tile flex flex-col gap-3 p-4">
+    <section aria-label={title} className="ui-card flex flex-col gap-3 p-4">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="font-bold">{title}</h2>
         <p className="tabular-nums text-sm text-foreground-500">
@@ -57,7 +57,7 @@ function SummarySection({ summary }: { summary: WellbeingSummary }) {
         <div className="overflow-x-auto">
           <table className="w-full min-w-[560px] text-sm">
             <thead>
-              <tr className="border-b border-[var(--glass-border)] text-left text-foreground-500">
+              <tr className="border-b border-[var(--ui-hairline)] text-left text-foreground-500">
                 <th className="py-2 pr-3 font-medium">設問</th>
                 <th className="py-2 pr-3 font-medium">平均</th>
                 <th className="py-2 pr-3 font-medium">回答の分かれ方（1〜5）</th>
@@ -65,7 +65,7 @@ function SummarySection({ summary }: { summary: WellbeingSummary }) {
             </thead>
             <tbody>
               {summary.items.map((item) => (
-                <tr key={item.key} className="border-b border-[var(--glass-border)] last:border-b-0">
+                <tr key={item.key} className="border-b border-[var(--ui-hairline)] last:border-b-0">
                   <td className="py-2 pr-3">{item.label}</td>
                   <td className="py-2 pr-3">
                     <AverageBar value={item.average} />
@@ -114,7 +114,7 @@ export default async function ShoreWellbeingPage() {
         </p>
       </div>
 
-      <section aria-label="匿名の扱い" className="glass-tile border border-warning p-4">
+      <section aria-label="匿名の扱い" className="ui-card border border-warning p-4">
         <h2 className="font-bold">⚠ 匿名で届いた内容を扱っています</h2>
         <ul className="mt-2 flex list-disc flex-col gap-1 pl-5 text-sm text-foreground-600">
           <li>アンケートは誰が答えたかを持ちません。この画面には集計だけを出します。</li>
@@ -133,11 +133,11 @@ export default async function ShoreWellbeingPage() {
       <section aria-label="相談・通報" className="flex flex-col gap-3">
         <h2 className="text-lg font-bold">相談・通報（匿名）</h2>
         {consultations.length === 0 ? (
-          <p className="glass-tile p-4 text-sm text-foreground-500">届いている相談はありません。</p>
+          <p className="ui-card p-4 text-sm text-foreground-500">届いている相談はありません。</p>
         ) : (
           <ul className="flex flex-col gap-3">
             {consultations.map((c) => (
-              <li key={c.id} className="glass-tile flex flex-col gap-2 p-4">
+              <li key={c.id} className="ui-card flex flex-col gap-2 p-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <span className="tabular-nums text-sm text-foreground-500">
                     {fmtDateTime(c.occurredAt)} に届きました
@@ -155,7 +155,7 @@ export default async function ShoreWellbeingPage() {
                 )}
                 <p className="whitespace-pre-wrap text-sm">{c.message}</p>
                 {c.response ? (
-                  <div className="glass-inset p-3">
+                  <div className="ui-inset p-3">
                     <p className="text-xs text-foreground-500">
                       陸上からの回答
                       {c.respondedAt ? `（${fmtDateTime(c.respondedAt)}）` : ""}
@@ -172,17 +172,17 @@ export default async function ShoreWellbeingPage() {
 
       <section aria-label="船内環境の整備状況" className="flex flex-col gap-3">
         <h2 className="text-lg font-bold">船内環境の整備状況と求人票への反映</h2>
-        <p className="glass-tile p-4 text-sm text-foreground-600">
+        <p className="ui-card p-4 text-sm text-foreground-600">
           求人に載せる船内の設備・通信環境は、事実と違ったり誤解を招く書き方をしてはいけません。
           内容が古いままなのも同じ扱いになるため、確認日から
           {wellbeingRules.jobPostingFreshnessDays}日 を過ぎたものは再確認をうながします。
           下の文面はそのまま求人票の設備欄に貼れます。
         </p>
         {environments.length === 0 ? (
-          <p className="glass-tile p-4 text-sm text-foreground-500">船舶の情報が登録されていません。</p>
+          <p className="ui-card p-4 text-sm text-foreground-500">船舶の情報が登録されていません。</p>
         ) : (
           environments.map((v) => (
-            <div key={v.vesselId} className="glass-tile flex flex-col gap-3 p-4">
+            <div key={v.vesselId} className="ui-card flex flex-col gap-3 p-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <h3 className="font-bold">{v.name}</h3>
                 <span className="text-sm">
@@ -221,7 +221,7 @@ export default async function ShoreWellbeingPage() {
                   readOnly
                   rows={7}
                   defaultValue={v.jobPostingText}
-                  className="glass-inset w-full resize-y p-3 font-mono text-xs"
+                  className="ui-inset w-full resize-y p-3 font-mono text-xs"
                   aria-label={`${v.name} の求人票向け文面`}
                 />
               </label>

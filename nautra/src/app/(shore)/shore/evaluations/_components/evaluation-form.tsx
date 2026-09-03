@@ -77,7 +77,7 @@ export function EvaluationForm({
   }
 
   return (
-    <form action={formAction} className="glass-tile flex flex-col gap-4 p-4">
+    <form action={formAction} className="ui-card flex flex-col gap-4 p-4">
       <h2 className="font-bold">{supersedesId ? "評価を訂正する" : "評価を記入する"}</h2>
 
       <input type="hidden" name="supersedesId" value={supersedesId} />
@@ -132,7 +132,7 @@ export function EvaluationForm({
           評価者による偏りを減らします。
         </p>
         {items.map((key) => (
-          <div key={key} className="glass-inset flex flex-wrap items-center gap-3 p-3">
+          <div key={key} className="ui-inset flex flex-wrap items-center gap-3 p-3">
             <span className="w-56 shrink-0 text-sm font-semibold">{t.evaluationItem[key] ?? key}</span>
             <div className="flex flex-wrap gap-2">
               {SCORES.map((s) => {

@@ -3,211 +3,215 @@
 @tailwind utilities;
 
 /* ==========================================================================
-   リキッドガラス マテリアル定義
+   マテリアル定義 — `projects/docs/DESIGN.md` が正本
    --------------------------------------------------------------------------
-   基本設計書 6.3「画面ごとの独自スタイルを禁止する」に従い、材質はここ（+ src/ui）
-   にのみ定義し、画面はクラス名で参照する。
+   「霜面の紙に引いた設計図（clinical blueprint on frosted paper）」。
+   白の紙面・柔らかいグレーの面・ヘアラインの枠線だけで階層を作り、色相で意味を作らない。
 
-   設計上の制約:
-   - 船内・陸上ともに白ベース。ガラスは「明るい下地に白の層」とし、本文色（#0b0c0d）は
-     変えずコントラスト比を落とさない（手袋・直射日光下の判読性を優先）。
-   - backdrop-filter は重ねるほど描画コストが増えるため、**背後を内容がスクロール
-     して通過する面（ヘッダ・モーダル・メニューカード）にのみ** `.glass-blur` を付ける。
-     一覧行など多数繰り返す面は半透明＋ヘアラインのみ（ぼかしなし）とする。
-   - 透明度を下げたい利用者（prefers-reduced-transparency / prefers-contrast）と
-     backdrop-filter 非対応環境では自動的に不透明の下地へフォールバックする。
+   基本設計書 6.3「画面ごとの独自スタイルを禁止する」に従い、材質はここ（+ src/ui）に
+   のみ定義し、画面はクラス名で参照する。画面側に影・角丸・背景色を新しく作らない。
 
-   Tailwind の utilities より後に素の CSS として定義し、HeroUI が持つ既定の
-   背景ユーティリティ（bg-content1 等）より確実に優先させる。
+   面の三段（DESIGN.md「Surfaces」）:
+     Canvas #f5f5f5  … ページ背景。いちばん広い層
+     Surface Alt #fafafa … サイドバー・控えめなカード。Canvas から一段だけ明るい
+     Paper #ffffff   … カード。いちばん明るい層
+   枠線を増やさずに層を作るのがこの三段の役目なので、面の上に面を重ねるときは
+   必ず一段ずつ明るく（または暗く）する。
    ========================================================================== */
 
-/* ポータル（モーダル等は .vessel の外＝body 直下に描画される）でも解決できる既定値。
-   船内テーマの値を既定とし、各テーマクラスが自分の配下を上書きする。 */
 :root {
-  --glass-fg: #0b0c0d;
-  --glass-tint: rgba(255, 255, 255, 0.7);
-  --glass-tint-strong: rgba(255, 255, 255, 0.82);
-  --glass-tint-inset: rgba(255, 255, 255, 0.55);
-  --glass-modal-bg: rgba(255, 255, 255, 0.95);
-  --glass-border: rgba(11, 12, 13, 0.1);
-  --glass-border-strong: rgba(11, 12, 13, 0.18);
-  --glass-highlight: rgba(255, 255, 255, 0.9);
-  --glass-sheen: rgba(255, 255, 255, 0.55);
-  --glass-shadow: 0 10px 28px rgba(11, 12, 13, 0.1);
-  --glass-solid: #ffffff;
-  --glass-solid-strong: #ffffff;
-  --glass-solid-inset: #f4f5f6;
+  /* DESIGN.md「Colors」 */
+  --ink: #0a0a0a;
+  --ink-soft: #171717;
+  --mid: #737373;
+  --hairline: #e5e5e5;
+  --canvas: #f5f5f5;
+  --surface-alt: #fafafa;
+  --paper: #ffffff;
+  --ember: #e7000b;
+
+  /* DESIGN.md「Border Radius」— 操作要素 18px / 容器 24px / 入れ子 10px / 極小 6px */
+  --radius-interactive: 18px;
+  --radius-container: 24px;
+  --radius-nested: 10px;
+  --radius-small: 6px;
+
+  /* DESIGN.md「Elevation」— ヘアラインの内側リングに、ごく浅い浮きを重ねる。
+     影だけではカードの縁が決まらないので、必ず 1px の枠線と併用する（Don't 参照） */
+  --shadow-card:
+    0 0 0 1px rgba(23, 23, 23, 0.05),
+    0 1px 3px rgba(0, 0, 0, 0.1),
+    0 1px 2px -1px rgba(0, 0, 0, 0.1);
+
+  /* 画面から `border-[var(--ui-hairline)]` の形で参照する枠線 */
+  --ui-hairline: var(--hairline);
+  --ui-hairline-strong: #d4d4d4;
+
+  --app-bg: var(--canvas);
 }
 
-/* 船内テーマ（白ベース・大きなタップ領域） */
-.vessel {
-  --glass-fg: #0b0c0d;
-  --app-bg:
-    radial-gradient(1200px 820px at 10% -12%, #e9ebee 0%, rgba(233, 235, 238, 0) 60%),
-    radial-gradient(900px 700px at 92% -4%, #eff1f3 0%, rgba(239, 241, 243, 0) 55%),
-    radial-gradient(1100px 900px at 72% 112%, #eceef1 0%, rgba(236, 238, 241, 0) 60%),
-    #f7f8fa;
-  --glass-tint: rgba(255, 255, 255, 0.72);
-  --glass-tint-strong: rgba(255, 255, 255, 0.84);
-  --glass-modal-bg: rgba(255, 255, 255, 0.95);
-  --glass-tint-inset: rgba(255, 255, 255, 0.55);
-  --glass-border: rgba(11, 12, 13, 0.1);
-  --glass-border-strong: rgba(11, 12, 13, 0.18);
-  --glass-highlight: rgba(255, 255, 255, 0.9);
-  --glass-sheen: rgba(255, 255, 255, 0.55);
-  --glass-shadow: 0 10px 28px rgba(11, 12, 13, 0.1);
-  --glass-solid: #ffffff;
-  --glass-solid-strong: #ffffff;
-  --glass-solid-inset: #f4f5f6;
-}
-
-/* 陸上テーマ（情報密度優先・明色） */
+/* 船内・陸上とも同じトークン。違いは文字の大きさだけ（下の `.vessel` を参照） */
+.vessel,
 .shore {
-  --glass-fg: #0b0c0d;
-  --app-bg:
-    radial-gradient(1100px 720px at 8% -12%, #e8e9eb 0%, rgba(232, 233, 235, 0) 60%),
-    radial-gradient(900px 620px at 96% -6%, #f0f1f3 0%, rgba(240, 241, 243, 0) 55%),
-    #f7f8f9;
-  --glass-tint: rgba(255, 255, 255, 0.66);
-  --glass-tint-strong: rgba(255, 255, 255, 0.8);
-  --glass-modal-bg: rgba(255, 255, 255, 0.94);
-  --glass-tint-inset: rgba(255, 255, 255, 0.5);
-  --glass-border: rgba(11, 12, 13, 0.1);
-  --glass-border-strong: rgba(11, 12, 13, 0.16);
-  --glass-highlight: rgba(255, 255, 255, 0.9);
-  --glass-sheen: rgba(255, 255, 255, 0.55);
-  --glass-shadow: 0 10px 28px rgba(11, 12, 13, 0.1);
-  --glass-solid: #ffffff;
-  --glass-solid-strong: #ffffff;
-  --glass-solid-inset: #f4f5f6;
+  --app-bg: var(--canvas);
 }
 
-/* アプリの下地。ガラスが屈折する対象となる固定レイヤ（アニメーションはしない） */
+/* --------------------------------------------------------------------------
+   文字
+   -------------------------------------------------------------------------- */
+
+html {
+  font-feature-settings: "ss01" on, "cv11" on; /* DESIGN.md「OpenType features」 */
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+/**
+ * 船内アプリは同じ型階層を**1段上げる**。
+ * 要件定義書 10.2「船員の約半数が50歳以上。大きな文字・少ないタップ数」に対応するため、
+ * DESIGN.md の刻み（12 / 14 / 16 / 18）の中で本文を一段大きくする。
+ * 新しいサイズを作らないので、型の階層自体は崩れない。
+ */
+.vessel .text-sm {
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+.vessel .text-xs {
+  font-size: 14px;
+  line-height: 1.43;
+  letter-spacing: 0.5px;
+}
+
+/* --------------------------------------------------------------------------
+   面
+   -------------------------------------------------------------------------- */
+
 .app-shell {
   position: relative;
   isolation: isolate;
+  background-color: var(--app-bg);
 }
 
-.app-shell::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  background: var(--app-bg);
-}
-
-/* ガラス面の基本材質 */
-.glass,
-.glass-tile,
-.glass-bar,
-.glass-row,
-.glass-modal {
+/**
+ * カード（DESIGN.md「Card」）。
+ * ヘアラインの枠線 + ごく浅い影。**枠線を省かない**（影だけでは縁が決まらない）。
+ */
+.ui-card {
   position: relative;
-  background-color: var(--glass-tint);
-  /* ヘアラインは内側リング（box-shadow）で描く。border プロパティは画面側の強調枠
-     （border-2 border-danger 等）に空けておく */
-  box-shadow: inset 0 0 0 1px var(--glass-border), inset 0 1px 0 var(--glass-highlight), var(--glass-shadow);
+  background-color: var(--paper);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-container);
+  box-shadow: var(--shadow-card);
 }
 
-/* 上端の映り込み（Liquid Glass の鏡面ハイライト）。操作を妨げない */
-.glass::after,
-.glass-tile::after,
-.glass-bar::after,
-.glass-row::after,
-.glass-modal::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  pointer-events: none;
-  background: linear-gradient(180deg, var(--glass-sheen) 0%, rgba(255, 255, 255, 0) 45%);
-}
-
-.glass-tile {
-  border-radius: theme("borderRadius.large");
-}
-
-/* 一覧行など多数並ぶ面: ぼかしを持たない軽量ガラス */
-.glass-row {
-  border-radius: theme("borderRadius.large");
-  background-color: var(--glass-tint-inset);
-  box-shadow: inset 0 0 0 1px var(--glass-border), inset 0 1px 0 var(--glass-highlight);
-}
-
-/* ガラス面の内側に置く小ブロック（従来の bg-content2 相当） */
-.glass-inset {
+/**
+ * 控えめなカード（DESIGN.md「Surface Alt … subtle card variant」）。
+ * 一覧行のように多数並ぶ面に使い、紙面より一段落とすことで主役のカードと競合させない。
+ */
+.ui-row {
   position: relative;
-  border-radius: theme("borderRadius.medium");
-  background-color: var(--glass-tint-inset);
-  box-shadow: inset 0 0 0 1px var(--glass-border);
+  background-color: var(--surface-alt);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-container);
 }
 
-/* 背後を内容が通過する面だけに付けるぼかし */
-.glass-blur {
-  -webkit-backdrop-filter: blur(20px) saturate(165%);
-  backdrop-filter: blur(20px) saturate(165%);
+/**
+ * カードの内側に置く小ブロック（DESIGN.md「nested: 10px」）。
+ * 入れ子なので枠線は持たせず、下地の明度差だけで区切る。
+ */
+.ui-inset {
+  position: relative;
+  background-color: var(--canvas);
+  border-radius: var(--radius-nested);
 }
 
-/* 固定ヘッダ（上端は角丸なし・下辺のみのヘアライン） */
-.glass-bar {
-  border-radius: 0;
-  background-color: var(--glass-tint-strong);
-  -webkit-backdrop-filter: blur(24px) saturate(180%);
-  backdrop-filter: blur(24px) saturate(180%);
-  box-shadow: 0 1px 0 var(--glass-border), 0 8px 24px rgba(11, 12, 13, 0.07), inset 0 1px 0 var(--glass-highlight);
+/**
+ * 固定ヘッダ。紙面と同じ白で、下辺のヘアラインだけで本文と分ける。
+ * ぼかしや透過は使わない（DESIGN.md はすべての面を単色で塗る）。
+ */
+.ui-bar {
+  background-color: var(--paper);
+  border-bottom: 1px solid var(--hairline);
 }
 
-.glass-modal {
-  background-color: var(--glass-modal-bg, rgba(14, 15, 17, 0.9));
-  color: var(--glass-fg, #f7f7f8);
-  box-shadow: inset 0 0 0 1px var(--glass-border-strong), inset 0 1px 0 var(--glass-highlight), var(--glass-shadow);
-  -webkit-backdrop-filter: blur(28px) saturate(180%);
-  backdrop-filter: blur(28px) saturate(180%);
+/**
+ * サイドバー（DESIGN.md「Sidebar Surface」）。
+ * Canvas から一段明るい面に置くことで、区切り線を引かずに別の層として読ませる。
+ */
+.ui-sidebar {
+  background-color: var(--surface-alt);
 }
 
-/* 透明効果を避ける設定・非対応環境では不透明にフォールバック（可読性を優先） */
-@media (prefers-reduced-transparency: reduce), (prefers-contrast: more) {
-  .glass,
-  .glass-tile,
-  .glass-row {
-    background-color: var(--glass-solid);
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
+/** モーダル。カードと同じ材質で、背面は暗幕（HeroUI 既定）で落とす */
+.ui-modal {
+  background-color: var(--paper);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-container);
+  box-shadow: var(--shadow-card);
+  color: var(--ink);
+}
+
+/* --------------------------------------------------------------------------
+   入力（DESIGN.md「Input Field」）
+   下地は Canvas。フォーカスで下地を落とし 1px のリングに置き換える
+   -------------------------------------------------------------------------- */
+
+.ui-card input,
+.ui-card textarea,
+.ui-card select {
+  font-feature-settings: inherit;
+}
+
+/* --------------------------------------------------------------------------
+   印刷（帳票の印刷ビュー）
+   画面の影・下地は紙に出さない。枠線だけで表を読ませる
+   -------------------------------------------------------------------------- */
+
+@media print {
+  .app-shell {
+    background: #ffffff;
   }
 
-  .glass-bar,
-  .glass-modal {
-    background-color: var(--glass-solid-strong);
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
+  .ui-card,
+  .ui-row,
+  .ui-inset,
+  .ui-modal {
+    background: #ffffff;
+    box-shadow: none;
+    border-color: #999999;
   }
 
-  .glass-inset {
-    background-color: var(--glass-solid-inset);
-  }
-
-  .glass::after,
-  .glass-tile::after,
-  .glass-bar::after,
-  .glass-row::after,
-  .glass-modal::after {
-    background: none;
+  .ui-bar,
+  .ui-sidebar {
+    display: none;
   }
 }
 
-@supports not ((backdrop-filter: blur(2px)) or (-webkit-backdrop-filter: blur(2px))) {
-  .glass-bar,
-  .glass-modal {
-    background-color: var(--glass-solid-strong);
+/* --------------------------------------------------------------------------
+   利用者の設定に合わせる
+   -------------------------------------------------------------------------- */
+
+@media (prefers-contrast: more) {
+  :root {
+    --hairline: #a3a3a3;
+    --ui-hairline: #a3a3a3;
+    --ui-hairline-strong: #737373;
   }
 
-  .glass-blur {
-    background-color: var(--glass-solid);
+  .ui-card,
+  .ui-row,
+  .ui-modal {
+    box-shadow: none; /* 影を消し、輪郭は濃い枠線だけで示す */
   }
 }
 
-/* モーダル内の枠線ボタン（キャンセル等）はガラス上でも輪郭が残るようにする */
-.glass-modal button[data-slot="base"][class*="border-"],
-.glass-modal footer button {
-  border-color: var(--glass-border-strong);
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

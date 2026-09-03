@@ -64,7 +64,7 @@ export function CharterForm({
   }
 
   return (
-    <form action={formAction} className="glass-tile flex flex-col gap-3 p-4">
+    <form action={formAction} className="ui-card flex flex-col gap-3 p-4">
       <h3 className="font-bold">{supersedesId ? "契約を更新する" : "契約を登録する"}</h3>
       <input type="hidden" name="supersedesId" value={supersedesId} />
       <input type="hidden" name="targetVesselId" value={targetVesselId} />

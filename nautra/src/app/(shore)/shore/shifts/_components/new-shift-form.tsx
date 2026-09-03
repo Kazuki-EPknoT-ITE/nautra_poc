@@ -30,7 +30,7 @@ export function NewShiftForm({ crews, today }: { crews: CrewOption[]; today: str
   const [shiftType, setShiftType] = useState<ShiftType>("navigation_watch");
 
   return (
-    <form action={formAction} className="glass-tile flex flex-col gap-3 p-4">
+    <form action={formAction} className="ui-card flex flex-col gap-3 p-4">
       <h2 className="font-bold">当直シフトを作って配信</h2>
       <p className="text-sm text-foreground-600">
         期間を指定すると、同じ当直を日ごとにまとめて作れます。配信前に「内容を確認する」を押すと、
@@ -86,7 +86,7 @@ export function NewShiftForm({ crews, today }: { crews: CrewOption[]; today: str
       </div>
 
       {state.warnings.length > 0 ? (
-        <div className="glass-inset border border-warning p-3">
+        <div className="ui-inset border border-warning p-3">
           <p className="text-sm font-semibold text-warning-700">
             ⚠ この予定だと基準を外れる日があります（{state.warnings.length}件）
           </p>

@@ -16,7 +16,7 @@ export function NewStationForm({ crews }: { crews: CrewOption[] }) {
   const [scenario, setScenario] = useState<StationScenario>("arrival_departure");
 
   return (
-    <form action={formAction} className="glass-tile flex flex-col gap-3 p-4">
+    <form action={formAction} className="ui-card flex flex-col gap-3 p-4">
       <h2 className="font-bold">配置表に持ち場を追加</h2>
       <input type="hidden" name="crewMemberId" value={crewMemberId} />
       <input type="hidden" name="scenario" value={scenario} />

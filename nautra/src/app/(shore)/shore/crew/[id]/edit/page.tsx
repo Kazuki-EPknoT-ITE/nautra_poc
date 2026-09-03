@@ -83,7 +83,7 @@ export default async function ShoreCrewEditPage({ params }: { params: Promise<{ 
           </Link>
           <Link
             href={`/shore/crew/${id}/credentials`}
-            className="rounded-medium border border-[var(--glass-border)] px-3 py-1.5 text-sm"
+            className="rounded-medium border border-[var(--ui-hairline)] px-3 py-1.5 text-sm"
           >
             資格・証書を登録／確認
           </Link>
@@ -92,14 +92,14 @@ export default async function ShoreCrewEditPage({ params }: { params: Promise<{ 
 
       <CrewMasterForm values={values} age={age} canEditSensitive={canEditSensitive} />
 
-      <section aria-label="この船員の変更履歴" className="glass-tile p-4">
+      <section aria-label="この船員の変更履歴" className="ui-card p-4">
         <h2 className="mb-2 font-bold">この船員の変更履歴</h2>
         {historyEntries.length === 0 ? (
           <p className="text-sm text-foreground-500">変更の記録はありません。</p>
         ) : (
           <ul className="flex flex-col gap-2">
             {historyEntries.map((h) => (
-              <li key={h.record.id} className="glass-inset flex flex-col gap-1 p-3">
+              <li key={h.record.id} className="ui-inset flex flex-col gap-1 p-3">
                 <p className="flex flex-wrap items-center gap-2 text-sm">
                   <span className="tabular-nums text-foreground-500">
                     {fmtDateTime(h.record.publishedAt ?? h.record.occurredAt)}

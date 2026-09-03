@@ -105,7 +105,7 @@ export function LedgerImportForm() {
 
       {state.okRows.length > 0 || state.ngRows.length > 0 ? (
         <div className="grid gap-3 lg:grid-cols-2">
-          <div className="glass-inset p-3">
+          <div className="ui-inset p-3">
             <p className="mb-1 text-sm font-semibold">
               取り込める行 <span className="tabular-nums">{state.okRows.length}</span> 件
             </p>
@@ -121,7 +121,7 @@ export function LedgerImportForm() {
               </ul>
             )}
           </div>
-          <div className="glass-inset p-3">
+          <div className="ui-inset p-3">
             <p className="mb-1 text-sm font-semibold text-danger">
               ✕ 取り込めない行 <span className="tabular-nums">{state.ngRows.length}</span> 件
             </p>

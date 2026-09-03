@@ -21,7 +21,7 @@ export default function LandingPage() {
             <Link
               key={e.href}
               href={e.href}
-              className="glass-tile glass-blur flex min-h-32 items-center justify-center border border-transparent p-6 text-2xl font-bold transition-colors hover:border-primary"
+              className="ui-card flex min-h-32 items-center justify-center border border-transparent p-6 text-2xl font-bold transition-colors hover:border-primary"
             >
               {e.title}
             </Link>

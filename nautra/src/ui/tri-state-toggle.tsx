@@ -38,7 +38,7 @@ export function TriStateToggle({
             color={active ? o.color : "default"}
             variant={active ? "solid" : "bordered"}
             onPress={() => onChange(o.value)}
-            className={cn("min-h-12 min-w-16 px-2 text-sm font-semibold", !active && "border-[var(--glass-border-strong)]")}
+            className={cn("min-h-12 min-w-16 px-2 text-sm font-semibold", !active && "border-[var(--ui-hairline-strong)]")}
           >
             <span aria-hidden="true">{o.icon}</span> {o.label}
           </Button>

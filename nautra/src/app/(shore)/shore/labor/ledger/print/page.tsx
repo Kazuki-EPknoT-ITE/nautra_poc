@@ -74,7 +74,7 @@ export default async function LedgerPrintPage({
   return (
     <div className="ledger-print flex flex-col gap-4">
       {/*
-        印刷用のレイアウト。材質（glass-*）は画面表示のためのもので紙には出さないため、
+        印刷用のレイアウト。材質（ui-*）は画面表示のためのもので紙には出さないため、
         ここだけ用紙サイズと非表示指定を持つ（globals.css は画面の材質に専念させる）。
       */}
       <style>{`
@@ -123,7 +123,7 @@ export default async function LedgerPrintPage({
       </div>
       <p className="no-print text-sm text-foreground-600">{tr("ledger", "printHint")}</p>
 
-      <section aria-label={tr("ledger", "documentTitle")} className="ledger-sheet glass-tile p-4">
+      <section aria-label={tr("ledger", "documentTitle")} className="ledger-sheet ui-card p-4">
         <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
           <h1 className="text-xl font-bold">{tr("ledger", "documentTitle")}</h1>
           <p className="text-xs text-foreground-600">{tr("ledger", "formNote")}</p>

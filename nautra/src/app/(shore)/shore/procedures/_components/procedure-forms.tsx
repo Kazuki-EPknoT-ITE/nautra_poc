@@ -26,7 +26,7 @@ export function EventChainForm({ options, today }: { options: ProcedureOptions; 
   const needsCrew = event !== "fiscal_year_end";
 
   return (
-    <form action={formAction} className="glass-tile flex flex-col gap-3 p-4">
+    <form action={formAction} className="ui-card flex flex-col gap-3 p-4">
       <h2 className="font-bold">業務の出来事から手続きを起こす</h2>
       <p className="text-sm text-foreground-600">
         乗船・下船・採用・決算期末を入れると、その出来事に必要な手続き（届出・保険・記帳・確認）を
@@ -66,7 +66,7 @@ export function EventChainForm({ options, today }: { options: ProcedureOptions; 
         ) : null}
       </div>
       {state.ok && state.createdTitles && state.createdTitles.length > 0 ? (
-        <ul className="glass-inset flex flex-col gap-1 p-3 text-sm">
+        <ul className="ui-inset flex flex-col gap-1 p-3 text-sm">
           {state.createdTitles.map((title) => (
             <li key={title}>・{title}</li>
           ))}
@@ -85,7 +85,7 @@ export function NewProcedureForm({ options }: { options: ProcedureOptions }) {
     subjectType === "crew" ? options.crew : subjectType === "vessel" ? options.vessels : [];
 
   return (
-    <form action={formAction} className="glass-tile flex flex-col gap-3 p-4">
+    <form action={formAction} className="ui-card flex flex-col gap-3 p-4">
       <h2 className="font-bold">手続きを1件だけ起票する</h2>
       <input type="hidden" name="subjectType" value={subjectType} />
       <div className="grid gap-3 sm:grid-cols-2">

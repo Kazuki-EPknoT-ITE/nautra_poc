@@ -28,7 +28,7 @@ export const dynamic = "force-dynamic";
 /** 定義リストの1行（同じ形を何度も書かないための小さな部品） */
 function Row({ label, value }: { label: string; value?: string | null }) {
   return (
-    <div className="flex flex-wrap gap-x-2 border-b border-[var(--glass-border)] py-1.5 last:border-b-0">
+    <div className="flex flex-wrap gap-x-2 border-b border-[var(--ui-hairline)] py-1.5 last:border-b-0">
       <dt className="w-40 shrink-0 text-sm text-foreground-500">{label}</dt>
       <dd className="min-w-0 flex-1 text-sm">{value ? value : "（未登録）"}</dd>
     </div>
@@ -105,7 +105,7 @@ export default async function ShoreCrewKartePage({ params }: { params: Promise<{
           </Link>
           <Link
             href={`/shore/labor?crew=${id}`}
-            className="rounded-medium border border-[var(--glass-border)] px-3 py-1.5 text-sm"
+            className="rounded-medium border border-[var(--ui-hairline)] px-3 py-1.5 text-sm"
           >
             労務管理を開く
           </Link>
@@ -121,7 +121,7 @@ export default async function ShoreCrewKartePage({ params }: { params: Promise<{
       </div>
 
       {/* ── 業務: 配乗可否（導出値）とブロック事由 ── */}
-      <section aria-label="配乗できるか" className="glass-tile p-4">
+      <section aria-label="配乗できるか" className="ui-card p-4">
         <div className="mb-2 flex flex-wrap items-center gap-3">
           <h2 className="font-bold">配乗できるか</h2>
           <StatusChip
@@ -136,7 +136,7 @@ export default async function ShoreCrewKartePage({ params }: { params: Promise<{
         ) : (
           <ul className="flex flex-col gap-2">
             {row.eligibility.issues.map((issue) => (
-              <li key={issue.key} className="glass-inset flex flex-col gap-1 p-3">
+              <li key={issue.key} className="ui-inset flex flex-col gap-1 p-3">
                 {/* Chip は div を描くため p に入れない（不正なネストはハイドレーションを壊す） */}
                 <div className="flex flex-wrap items-center gap-2 text-sm font-semibold">
                   <StatusChip
@@ -158,7 +158,7 @@ export default async function ShoreCrewKartePage({ params }: { params: Promise<{
       </section>
 
       {/* ── 基本情報 ── */}
-      <section aria-label="基本情報" className="glass-tile p-4">
+      <section aria-label="基本情報" className="ui-card p-4">
         <h2 className="mb-2 font-bold">基本情報</h2>
         <dl>
           <Row label={t.crewMasterField.name} value={master.name} />
@@ -179,13 +179,13 @@ export default async function ShoreCrewKartePage({ params }: { params: Promise<{
       </section>
 
       {/* ── 資格・訓練 ── */}
-      <section aria-label="資格・訓練" className="glass-tile p-4">
+      <section aria-label="資格・訓練" className="ui-card p-4">
         <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
           <h2 className="font-bold">資格・訓練</h2>
           {canEdit ? (
             <Link
               href={`/shore/crew/${id}/credentials`}
-              className="rounded-medium border border-[var(--glass-border)] px-3 py-1.5 text-sm"
+              className="rounded-medium border border-[var(--ui-hairline)] px-3 py-1.5 text-sm"
             >
               資格・証書を登録／確認
             </Link>
@@ -196,7 +196,7 @@ export default async function ShoreCrewKartePage({ params }: { params: Promise<{
         ) : (
           <ul className="flex flex-col gap-2">
             {statuses.map((s) => (
-              <li key={s.credential.id} className="glass-inset flex flex-col gap-1 p-3">
+              <li key={s.credential.id} className="ui-inset flex flex-col gap-1 p-3">
                 {/* Chip は div を描くため p に入れない（不正なネストはハイドレーションを壊す） */}
                 <div className="flex flex-wrap items-center gap-2 text-sm">
                   <span className="font-semibold">{s.credential.name}</span>
@@ -225,7 +225,7 @@ export default async function ShoreCrewKartePage({ params }: { params: Promise<{
       </section>
 
       {/* ── 健康（要配慮個人情報を含む） ── */}
-      <section aria-label="健康" className="glass-tile p-4">
+      <section aria-label="健康" className="ui-card p-4">
         <h2 className="mb-2 font-bold">健康</h2>
         {medical.length === 0 ? (
           <p className="text-sm text-foreground-500">健康証明書が登録されていません。</p>
@@ -249,7 +249,7 @@ export default async function ShoreCrewKartePage({ params }: { params: Promise<{
           </ul>
         )}
 
-        <div className="glass-inset mt-3 p-3">
+        <div className="ui-inset mt-3 p-3">
           <h3 className="text-sm font-bold">既往歴・服薬状況（要配慮個人情報）</h3>
           {canSensitive ? (
             <>
@@ -277,19 +277,19 @@ export default async function ShoreCrewKartePage({ params }: { params: Promise<{
           { label: "警告だった日", value: `${karte.labor.violationDays}日`, tone: "" },
           { label: "未承認", value: `${karte.labor.pendingDays}日`, tone: "" },
         ].map((s) => (
-          <div key={s.label} className="glass-tile p-4">
+          <div key={s.label} className="ui-card p-4">
             <p className="text-sm text-foreground-500">{s.label}</p>
             <p className={`tabular-nums text-2xl font-bold ${s.tone}`}>{s.value}</p>
           </div>
         ))}
       </section>
 
-      <section aria-label="乗船履歴" className="glass-tile p-4">
+      <section aria-label="乗船履歴" className="ui-card p-4">
         <h2 className="mb-2 font-bold">乗船履歴・予定</h2>
 
         {/* 6.2 C群「海技免状の更新」: 乗船履歴要件（5年内1年以上）の充足を自動判定する。
             足りない場合は更新講習という別の経路があるため、可否ではなく経路を示す */}
-        <div className="glass-inset mb-3 flex flex-wrap items-center gap-x-3 gap-y-1 p-3">
+        <div className="ui-inset mb-3 flex flex-wrap items-center gap-x-3 gap-y-1 p-3">
           <StatusChip
             level={seaService.level}
             size="sm"
@@ -328,7 +328,7 @@ export default async function ShoreCrewKartePage({ params }: { params: Promise<{
         )}
       </section>
 
-      <section aria-label="人事考課" className="glass-tile p-4">
+      <section aria-label="人事考課" className="ui-card p-4">
         <h2 className="mb-2 font-bold">人事考課</h2>
         <p className="text-sm">
           {evaluations.length === 0
@@ -350,7 +350,7 @@ export default async function ShoreCrewKartePage({ params }: { params: Promise<{
       </section>
 
       {/* ── 緊急 ── */}
-      <section aria-label="緊急連絡先・家族構成" className="glass-tile p-4">
+      <section aria-label="緊急連絡先・家族構成" className="ui-card p-4">
         <h2 className="mb-2 font-bold">緊急連絡先・家族構成</h2>
         <dl>
           <Row label={t.crewMasterField.emergencyContactName} value={master.emergencyContactName} />
@@ -367,12 +367,12 @@ export default async function ShoreCrewKartePage({ params }: { params: Promise<{
       </section>
 
       {/* ── 保険（写し。正本は外部機関） ── */}
-      <section aria-label="保険の加入状況" className="glass-tile p-4">
+      <section aria-label="保険の加入状況" className="ui-card p-4">
         <h2 className="mb-2 font-bold">保険の加入状況</h2>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[36rem] text-sm">
             <thead>
-              <tr className="border-b border-[var(--glass-border)] text-left text-foreground-500">
+              <tr className="border-b border-[var(--ui-hairline)] text-left text-foreground-500">
                 <th className="py-1 pr-3 font-normal">区分</th>
                 <th className="py-1 pr-3 font-normal">記号番号</th>
                 <th className="py-1 pr-3 font-normal">資格取得日</th>
@@ -382,7 +382,7 @@ export default async function ShoreCrewKartePage({ params }: { params: Promise<{
             </thead>
             <tbody>
               {insuranceRowsOf(master).map(({ kind, entry }) => (
-                <tr key={kind} className="border-b border-[var(--glass-border)] last:border-b-0">
+                <tr key={kind} className="border-b border-[var(--ui-hairline)] last:border-b-0">
                   <td className="py-1.5 pr-3">{t.insuranceKind[kind]}</td>
                   <td className="py-1.5 pr-3 tabular-nums">{entry?.number ?? "（未確認）"}</td>
                   <td className="py-1.5 pr-3 tabular-nums">{entry?.acquiredOn ?? "—"}</td>
@@ -402,7 +402,7 @@ export default async function ShoreCrewKartePage({ params }: { params: Promise<{
       </section>
 
       {/* ── 船内での持ち場・権限・最近の記録 ── */}
-      <section aria-label="本日の当直と持ち場" className="glass-tile p-4">
+      <section aria-label="本日の当直と持ち場" className="ui-card p-4">
         <h2 className="mb-2 font-bold">本日の当直・持ち場</h2>
         <p className="text-sm">
           当直:{" "}
@@ -429,7 +429,7 @@ export default async function ShoreCrewKartePage({ params }: { params: Promise<{
       </section>
 
       {role ? (
-        <section aria-label="このロールでできること" className="glass-tile p-4">
+        <section aria-label="このロールでできること" className="ui-card p-4">
           <h2 className="mb-2 font-bold">このロールでできること（船内アプリ）</h2>
           <div className="flex flex-wrap gap-2 text-sm">
             {ROLE_PERMISSIONS[role].map((p) => (
@@ -448,7 +448,7 @@ export default async function ShoreCrewKartePage({ params }: { params: Promise<{
         </section>
       ) : null}
 
-      <section aria-label="最近の記録" className="glass-tile p-4">
+      <section aria-label="最近の記録" className="ui-card p-4">
         <h2 className="mb-2 font-bold">最近の記録（本人が関わったもの）</h2>
         {karte.recentRecords.length === 0 ? (
           <p className="text-sm text-foreground-500">記録がありません。</p>

@@ -101,7 +101,7 @@ export function GroupHeader({
           items={tabs}
           radius="full"
           classNames={{
-            tabList: "glass-inset gap-1 p-1",
+            tabList: "ui-inset gap-1 p-1",
             tab: "min-h-11 px-4",
             tabContent: "text-sm font-semibold text-foreground-600 group-data-[selected=true]:text-primary-foreground",
             cursor: "bg-primary shadow-none",

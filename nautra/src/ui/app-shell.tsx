@@ -2,9 +2,11 @@ import type { ReactNode } from "react";
 import { cn } from "@/lib/cn";
 
 /**
- * アプリの外枠。HeroUI のテーマクラス（vessel / shore）と、リキッドガラスが屈折する
- * 下地レイヤ（.app-shell）を適用する（基本設計書 6.3）。
- * 背景は globals.css の --app-bg（固定レイヤ）が描画するため bg-background は付けない。
+ * アプリの外枠。HeroUI のテーマクラス（vessel / shore）と、DESIGN.md の Canvas（#f5f5f5）を
+ * 適用する（基本設計書 6.3）。
+ *
+ * 背景はグラデーションを持たない単色（DESIGN.md の Don't「グラデーション・色の付いた影・
+ * アクセント塗りを使わない」）。層はこの Canvas の上に Surface Alt / Paper を重ねて作る。
  */
 export function AppShell({
   theme,

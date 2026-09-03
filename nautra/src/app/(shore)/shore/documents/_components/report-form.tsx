@@ -15,7 +15,7 @@ export function ReportForm({ months }: { months: string[] }) {
   const [month, setMonth] = useState(months[0] ?? "");
 
   return (
-    <form action={formAction} className="glass-tile flex flex-col gap-3 p-4">
+    <form action={formAction} className="ui-card flex flex-col gap-3 p-4">
       <h2 className="font-bold">運航実績レポート（月次報告書）を作る</h2>
       <p className="text-sm text-foreground-600">
         対象月の航海・荷役・燃料・待機・労働時間をまとめます。作成時点の内容を保存するので、

@@ -31,7 +31,7 @@ export function StationChangeForm({ options }: { options: StationOption[] }) {
   }
 
   return (
-    <form action={formAction} className="glass-tile flex flex-col gap-3 p-4">
+    <form action={formAction} className="ui-card flex flex-col gap-3 p-4">
       <h2 className="font-bold">通常配置表を変更して配信</h2>
       <input type="hidden" name="supersedesId" value={selectedId} />
       <Select

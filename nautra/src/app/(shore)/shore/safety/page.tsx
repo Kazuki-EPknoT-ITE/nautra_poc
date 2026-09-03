@@ -53,14 +53,14 @@ export default async function ShoreSafetyPage() {
       </div>
 
       {/* ── 3.5.1 安全方針・重点施策 ── */}
-      <section aria-label="安全方針・重点施策" className="glass-tile p-4">
+      <section aria-label="安全方針・重点施策" className="ui-card p-4">
         <h2 className="mb-2 font-bold">安全方針・重点施策</h2>
         {board.policies.length === 0 ? (
           <p className="text-sm text-foreground-500">安全方針は登録されていません。</p>
         ) : (
           <ul className="flex flex-col gap-2 text-sm">
             {board.policies.map((p) => (
-              <li key={p.id} className="border-b border-[var(--glass-border)] pb-2 last:border-b-0">
+              <li key={p.id} className="border-b border-[var(--ui-hairline)] pb-2 last:border-b-0">
                 <p className="font-semibold">{p.title}</p>
                 {p.body ? <p className="text-foreground-600">{p.body}</p> : null}
                 <p className="text-xs text-foreground-500">
@@ -74,7 +74,7 @@ export default async function ShoreSafetyPage() {
       </section>
 
       {/* ── 3.5.1 リスクアセスメント（影響度 × 発生度） ── */}
-      <section aria-label="リスクアセスメント" className="glass-tile p-4">
+      <section aria-label="リスクアセスメント" className="ui-card p-4">
         <h2 className="mb-1 font-bold">リスクアセスメント</h2>
         <p className="mb-3 text-sm text-foreground-500">
           縦が「起きたときの重さ」、横が「起きやすさ」です。右上ほど先に手を打つべきものです。
@@ -114,7 +114,7 @@ export default async function ShoreSafetyPage() {
                             ? "border-2 border-danger font-bold"
                             : mid
                               ? "border border-warning"
-                              : "border border-[var(--glass-border)]"
+                              : "border border-[var(--ui-hairline)]"
                         } ${n > 0 ? "bg-foreground/10" : ""}`}
                       >
                         <span aria-hidden="true">{high ? "✕ " : mid ? "⚠ " : ""}</span>
@@ -136,7 +136,7 @@ export default async function ShoreSafetyPage() {
         ) : (
           <ul className="mt-3 flex flex-col gap-2 text-sm">
             {board.risks.map((r) => (
-              <li key={r.id} className="border-b border-[var(--glass-border)] pb-2 last:border-b-0">
+              <li key={r.id} className="border-b border-[var(--ui-hairline)] pb-2 last:border-b-0">
                 <div className="flex flex-wrap items-center gap-2">
                   <StatusChip
                     level={r.status === "closed" ? "ok" : "caution"}
@@ -159,7 +159,7 @@ export default async function ShoreSafetyPage() {
       </section>
 
       {/* ── 3.5.1 不適合・是正措置 ── */}
-      <section aria-label="不適合・是正措置" className="glass-tile p-4">
+      <section aria-label="不適合・是正措置" className="ui-card p-4">
         <h2 className="mb-2 font-bold">
           不適合・是正措置
           <span className="ml-2 tabular-nums text-sm font-normal text-foreground-500">
@@ -173,7 +173,7 @@ export default async function ShoreSafetyPage() {
             {board.nonconformities.map((n) => (
               <li
                 key={n.id}
-                className={`flex flex-col gap-2 border-b border-[var(--glass-border)] pb-3 text-sm last:border-b-0 ${
+                className={`flex flex-col gap-2 border-b border-[var(--ui-hairline)] pb-3 text-sm last:border-b-0 ${
                   n.status !== "closed" ? "border-l-2 border-l-warning pl-2" : ""
                 }`}
               >
@@ -208,14 +208,14 @@ export default async function ShoreSafetyPage() {
       </section>
 
       {/* ── 3.5.1 内部監査 ── */}
-      <section aria-label="内部監査" className="glass-tile p-4">
+      <section aria-label="内部監査" className="ui-card p-4">
         <h2 className="mb-2 font-bold">内部監査</h2>
         {board.audits.length === 0 ? (
           <p className="text-sm text-foreground-500">内部監査の記録はありません。</p>
         ) : (
           <ul className="flex flex-col gap-2 text-sm">
             {board.audits.map((a) => (
-              <li key={a.id} className="border-b border-[var(--glass-border)] pb-2 last:border-b-0">
+              <li key={a.id} className="border-b border-[var(--ui-hairline)] pb-2 last:border-b-0">
                 <div className="flex flex-wrap items-center gap-2">
                   <StatusChip
                     level={a.status === "closed" ? "ok" : "caution"}
@@ -241,7 +241,7 @@ export default async function ShoreSafetyPage() {
       {canWrite ? <SmsForm /> : null}
 
       {/* ── 3.5.2 ヒヤリハットの件数推移 ── */}
-      <section aria-label="ヒヤリハットの件数" className="glass-tile p-4">
+      <section aria-label="ヒヤリハットの件数" className="ui-card p-4">
         <h2 className="mb-1 font-bold">ヒヤリハットの報告件数（月別）</h2>
         <p className="mb-3 text-sm text-foreground-500">
           重点施策の目標は「月 {board.nearMissTarget}件以上」です。届かない月は報告しやすい雰囲気か
@@ -274,12 +274,12 @@ export default async function ShoreSafetyPage() {
           </span>
         </h2>
         {board.incidents.length === 0 ? (
-          <p className="glass-tile p-4 text-sm text-foreground-500">報告はありません。</p>
+          <p className="ui-card p-4 text-sm text-foreground-500">報告はありません。</p>
         ) : (
           board.incidents.map((i) => (
             <article
               key={i.id}
-              className={`glass-tile flex flex-col gap-2 p-4 ${
+              className={`ui-card flex flex-col gap-2 p-4 ${
                 i.status !== "closed" ? "border-l-2 border-l-warning" : ""
               }`}
             >
@@ -338,7 +338,7 @@ export default async function ShoreSafetyPage() {
       </section>
 
       {/* ── 6.5 生成した報告書ドラフト ── */}
-      <section aria-label="報告書の下書き" className="glass-tile p-4">
+      <section aria-label="報告書の下書き" className="ui-card p-4">
         <h2 className="mb-2 font-bold">作った報告書の下書き</h2>
         {board.drafts.length === 0 ? (
           <p className="text-sm text-foreground-500">

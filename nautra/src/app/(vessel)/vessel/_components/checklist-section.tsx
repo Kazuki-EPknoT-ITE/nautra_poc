@@ -32,7 +32,7 @@ import {
   Textarea,
   TriStateToggle,
   useDisclosure,
-  useGlassModalProps,
+  useModalProps,
 } from "@/ui";
 import type { TriState } from "@/ui/tri-state-toggle";
 import { RecordTile } from "./record-tile";
@@ -51,7 +51,7 @@ export function ChecklistSection({ onDone }: { onDone?: (message: string) => voi
   const { tr } = useLocale(); // 良否の表示言語（10.2）
   const canManageTemplates = usePermission("manage_record_templates");
   const templates = useRecordTemplates("checklist");
-  const glassModal = useGlassModalProps();
+  const modalProps = useModalProps();
 
   const checklistModal = useDisclosure();
   const [templateKey, setTemplateKey] = useState<string | null>(null);
@@ -178,7 +178,7 @@ export function ChecklistSection({ onDone }: { onDone?: (message: string) => voi
         <Button
           variant="bordered"
           radius="lg"
-          className="min-h-12 self-start border-[var(--glass-border-strong)]"
+          className="min-h-12 self-start border-[var(--ui-hairline-strong)]"
           onPress={openAddItem}
         >
           点検項目を追加する
@@ -187,7 +187,7 @@ export function ChecklistSection({ onDone }: { onDone?: (message: string) => voi
 
       {/* 点検表の入力 */}
       <Modal
-        {...glassModal}
+        {...modalProps}
         isOpen={checklistModal.isOpen}
         onOpenChange={checklistModal.onOpenChange}
         placement="center"
@@ -209,7 +209,7 @@ export function ChecklistSection({ onDone }: { onDone?: (message: string) => voi
               <Button
                 size="sm"
                 variant="bordered"
-                className="min-h-10 border-[var(--glass-border-strong)]"
+                className="min-h-10 border-[var(--ui-hairline-strong)]"
                 onPress={() => setAnswers(Object.fromEntries(checkItems.map((it) => [it.key, "ok" as TriState])))}
               >
                 未判定をすべて「良」にする
@@ -219,7 +219,7 @@ export function ChecklistSection({ onDone }: { onDone?: (message: string) => voi
               <div key={group} className="flex flex-col gap-2">
                 <h3 className="font-bold">{group}</h3>
                 {items.map((it) => (
-                  <div key={it.key} className="glass-inset flex flex-col gap-1 p-3">
+                  <div key={it.key} className="ui-inset flex flex-col gap-1 p-3">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <span className="text-base">{it.label}</span>
                       {it.inputType === "check" ? (
@@ -268,7 +268,7 @@ export function ChecklistSection({ onDone }: { onDone?: (message: string) => voi
 
       {/* 点検項目の追加（船長。陸上からも配信される） */}
       <Modal
-        {...glassModal}
+        {...modalProps}
         isOpen={itemModal.isOpen}
         onOpenChange={itemModal.onOpenChange}
         placement="center"

@@ -43,7 +43,7 @@ const INSURANCE_VERIFY_METHODS = ["document", "notice", "external_link"] as cons
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section aria-label={title} className="glass-inset flex flex-col gap-3 p-4">
+    <section aria-label={title} className="ui-inset flex flex-col gap-3 p-4">
       <h3 className="font-bold">{title}</h3>
       {children}
     </section>
@@ -69,7 +69,7 @@ export function CrewMasterForm({
   const [state, formAction, pending] = useActionState(saveCrewMasterAction, INITIAL);
 
   return (
-    <form action={formAction} className="glass-tile flex flex-col gap-4 p-4">
+    <form action={formAction} className="ui-card flex flex-col gap-4 p-4">
       <input type="hidden" name="crewMemberId" value={values.crewMemberId} />
 
       <Section title="基本情報">

@@ -41,7 +41,7 @@ import {
   SelectItem,
   Textarea,
   useDisclosure,
-  useGlassModalProps,
+  useModalProps,
 } from "@/ui";
 import { GroupHeader } from "../_components/group-header";
 import { RecordTile } from "../_components/record-tile";
@@ -116,7 +116,7 @@ export default function LogbookPage() {
   const templates = useRecordTemplates("voyage_log");
   const logs = useRecords("voyage_log");
   const modal = useDisclosure();
-  const glassModal = useGlassModalProps();
+  const modalProps = useModalProps();
   const [form, setForm] = useState<FormState>(() => emptyForm("position"));
   const [supersedes, setSupersedes] = useState<VoyageLogPayload | null>(null);
   const [extra, setExtra] = useState<Record<string, string>>({});
@@ -292,7 +292,7 @@ export default function LogbookPage() {
         <Button
           variant="bordered"
           radius="lg"
-          className="min-h-12 self-start border-[var(--glass-border-strong)]"
+          className="min-h-12 self-start border-[var(--ui-hairline-strong)]"
           onPress={openAddItem}
         >
           日誌の記録項目を追加する
@@ -310,7 +310,7 @@ export default function LogbookPage() {
       ) : null}
 
       {byDate.length === 0 ? (
-        <Card shadow="none" className="glass-tile">
+        <Card shadow="none" className="ui-card">
           <CardBody>
             <p className="text-foreground-600">航海日誌の記録がありません。上のボタンから記入してください。</p>
           </CardBody>
@@ -324,7 +324,7 @@ export default function LogbookPage() {
             const superseded = supersededIds.has(r.id);
             const isCorrection = Boolean(r.supersedesId);
             return (
-              <Card key={r.id} shadow="none" className={cn("glass-tile", superseded && "opacity-60")}>
+              <Card key={r.id} shadow="none" className={cn("ui-card", superseded && "opacity-60")}>
                 <CardBody className="flex flex-col gap-2">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className={cn("tabular-nums text-lg font-bold", superseded && "line-through")}>
@@ -383,7 +383,7 @@ export default function LogbookPage() {
                     <Button
                       size="sm"
                       variant="bordered"
-                      className="self-end min-h-10 border-[var(--glass-border-strong)]"
+                      className="self-end min-h-10 border-[var(--ui-hairline-strong)]"
                       onPress={() => openCorrection(r)}
                     >
                       訂正記録を追記
@@ -401,7 +401,7 @@ export default function LogbookPage() {
         （要件定義書 12.3）。
       </p>
 
-      <Modal {...glassModal} isOpen={modal.isOpen} onOpenChange={modal.onOpenChange} placement="center" scrollBehavior="inside">
+      <Modal {...modalProps} isOpen={modal.isOpen} onOpenChange={modal.onOpenChange} placement="center" scrollBehavior="inside">
         <ModalContent>
           <ModalHeader>
             {supersedes ? "訂正記録の追記" : `航海日誌: ${t.voyageLogType[form.logType]}`}
@@ -476,7 +476,7 @@ export default function LogbookPage() {
               <div className="flex flex-col gap-2">
                 <h3 className="text-sm font-bold text-foreground-600">追加の記録項目（版 {formTemplate.version}）</h3>
                 {formTemplate.items.map((it) => (
-                  <div key={it.key} className="glass-inset flex flex-wrap items-center justify-between gap-2 p-3">
+                  <div key={it.key} className="ui-inset flex flex-wrap items-center justify-between gap-2 p-3">
                     <span>{it.label}</span>
                     {it.inputType === "check" ? (
                       <RadioGroup
@@ -522,7 +522,7 @@ export default function LogbookPage() {
         </ModalContent>
       </Modal>
 
-      <Modal {...glassModal} isOpen={itemModal.isOpen} onOpenChange={itemModal.onOpenChange} placement="center" scrollBehavior="inside">
+      <Modal {...modalProps} isOpen={itemModal.isOpen} onOpenChange={itemModal.onOpenChange} placement="center" scrollBehavior="inside">
         <ModalContent>
           <ModalHeader className="flex flex-col gap-1">
             <span>航海日誌の記録項目を追加</span>

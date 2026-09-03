@@ -28,14 +28,14 @@ export default function ShoreNoticesPage() {
 
       <NoticeForm options={options} />
 
-      <section aria-label="表示中のお知らせ" className="glass-tile p-4">
+      <section aria-label="表示中のお知らせ" className="ui-card p-4">
         <h2 className="mb-2 font-bold">いま船内に表示されているもの</h2>
         {notices.length === 0 ? (
           <p className="text-sm text-foreground-500">表示中のお知らせはありません。</p>
         ) : (
           <ul className="flex flex-col gap-2">
             {notices.map((n) => (
-              <li key={n.id} className="border-b border-[var(--glass-border)] pb-2 last:border-b-0">
+              <li key={n.id} className="border-b border-[var(--ui-hairline)] pb-2 last:border-b-0">
                 <p className="font-semibold">
                   {n.level === "urgent" ? "‼ 速報: " : ""}
                   {n.title}
@@ -50,7 +50,7 @@ export default function ShoreNoticesPage() {
         )}
       </section>
 
-      <section aria-label="配信履歴" className="glass-tile p-4">
+      <section aria-label="配信履歴" className="ui-card p-4">
         <h2 className="mb-2 font-bold">配信履歴（訂正・取り消しを含む）</h2>
         <ul className="flex flex-col gap-1 text-sm">
           {history.slice(0, 20).map((n) => (

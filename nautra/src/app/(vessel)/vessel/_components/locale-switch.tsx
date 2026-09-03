@@ -10,7 +10,7 @@ import { useLocale } from "@/lib/use-locale";
  * - 選択は端末に保存されるため**オフラインでも効く**（`useLocale` → meta テーブル）。
  * - サインイン前から使える位置（ヘッダ）に置く。外国人船員は最初の画面から言語が要る。
  * - 言語の追加は `LOCALES` に1行足すだけで、このボタンも自動で増える。
- * - 見た目は既存の材質クラス（`glass-inset`）と primary のみで作り、独自の色を持たない。
+ * - 見た目は既存の材質クラス（`ui-inset`）と primary のみで作り、独自の色を持たない。
  */
 export function LocaleSwitch() {
   const { locale, setLocale } = useLocale();
@@ -18,7 +18,7 @@ export function LocaleSwitch() {
     <div
       role="group"
       aria-label="表示言語 / Display language"
-      className="glass-inset flex shrink-0 items-center gap-1 p-1"
+      className="ui-inset flex shrink-0 items-center gap-1 p-1"
     >
       {LOCALES.map((l) => (
         <button

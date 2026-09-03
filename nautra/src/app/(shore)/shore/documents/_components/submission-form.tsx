@@ -27,7 +27,7 @@ export function SubmissionForm({
 
   if (documents.length === 0) {
     return (
-      <div className="glass-tile p-4">
+      <div className="ui-card p-4">
         <h2 className="font-bold">提出を記録する</h2>
         <p className="mt-1 text-sm text-foreground-500">まだ提出していない書類はありません。</p>
       </div>
@@ -35,7 +35,7 @@ export function SubmissionForm({
   }
 
   return (
-    <form action={formAction} className="glass-tile flex flex-col gap-3 p-4">
+    <form action={formAction} className="ui-card flex flex-col gap-3 p-4">
       <h2 className="font-bold">提出を記録する</h2>
       <input type="hidden" name="documentId" value={documentId} />
       <Select

@@ -42,7 +42,7 @@ import {
   CardHeader,
   Chip,
   Divider,
-  GlassCard,
+  SurfaceCard,
   Progress,
   Select,
   SelectItem,
@@ -144,7 +144,7 @@ export default function LedgerPage() {
 
       {/* 船長のみ: 表示する船員の切替（一般の船員は自分の記録だけ） */}
       {canViewAll ? (
-        <GlassCard>
+        <SurfaceCard>
           <CardBody className="flex flex-wrap items-center gap-3 p-4">
             <Select
               label="表示する船員（船長のみ）"
@@ -164,12 +164,12 @@ export default function LedgerPage() {
               一般の船員には自分の記録だけが表示されます。
             </p>
           </CardBody>
-        </GlassCard>
+        </SurfaceCard>
       ) : null}
 
       {/* いちばん大きく「今日はどうなのか」を出す */}
-      <GlassCard
-        blurred
+      <SurfaceCard
+       
         className={cn(
           "border-2",
           overall === "violation"
@@ -213,10 +213,10 @@ export default function LedgerPage() {
             </ul>
           ) : null}
         </CardBody>
-      </GlassCard>
+      </SurfaceCard>
 
       {/* 労働時間: 残り時間を数字と帯で示す */}
-      <GlassCard>
+      <SurfaceCard>
         <CardHeader className="px-5 pb-2 pt-5 text-base font-bold">働いた時間</CardHeader>
         <CardBody className="flex flex-col gap-5 px-5 pb-5">
           <TimeBar
@@ -241,10 +241,10 @@ export default function LedgerPage() {
             tr={tr}
           />
         </CardBody>
-      </GlassCard>
+      </SurfaceCard>
 
       {/* まとめて見る（4週間・今月）。日単位・週単位に続く自動集計。要件定義書 3.2.1 */}
-      <GlassCard>
+      <SurfaceCard>
         <CardHeader className="px-5 pb-2 pt-5 text-base font-bold">まとめて見る</CardHeader>
         <CardBody className="flex flex-col gap-3 px-5 pb-5">
           <PeriodBlock
@@ -268,16 +268,16 @@ export default function LedgerPage() {
             sentence={describePeriodTotal("今月", thisMonth, undefined)}
           />
         </CardBody>
-      </GlassCard>
+      </SurfaceCard>
 
       {/* 休息 */}
-      <GlassCard>
+      <SurfaceCard>
         <CardHeader className="px-5 pb-2 pt-5 text-base font-bold">休んだ時間</CardHeader>
         <CardBody className="flex flex-col gap-3 px-5 pb-5">
           {daily.hasRecords ? (
             <>
               {restChecks.map((c) => (
-                <div key={c.key} className="glass-inset flex flex-col gap-1 p-3">
+                <div key={c.key} className="ui-inset flex flex-col gap-1 p-3">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <span className="font-semibold">{checkPlainLabelFor(locale, c.key)}</span>
                     <div className="flex items-center gap-2">
@@ -313,10 +313,10 @@ export default function LedgerPage() {
             <p className="text-foreground-600">今日の打刻がまだありません。</p>
           )}
         </CardBody>
-      </GlassCard>
+      </SurfaceCard>
 
       {/* 承認状況（本人向けに何をすればよいかまで書く） */}
-      <GlassCard>
+      <SurfaceCard>
         <CardHeader className="px-5 pb-2 pt-5 text-base font-bold">船長の承認</CardHeader>
         <CardBody className="flex flex-col gap-2 px-5 pb-5">
           {approvalDays.map(({ date, summary, approval }) => (
@@ -329,7 +329,7 @@ export default function LedgerPage() {
             />
           ))}
         </CardBody>
-      </GlassCard>
+      </SurfaceCard>
 
       {/* 船長のみ: 乗組員全体の状況 */}
       {canViewAll ? <CrewOverview today={today} now={now} onPick={setPickedCrewId} /> : null}
@@ -405,7 +405,7 @@ function PeriodBlock({
 }) {
   const exceptional = describeExceptionalMinutes(summary.exceptionalMinutes);
   return (
-    <div className="glass-inset flex flex-col gap-2 p-3">
+    <div className="ui-inset flex flex-col gap-2 p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="text-lg font-bold">{title}</span>
         <StatusChip level={summary.level} size="sm" label={tr("level", summary.level)} />
@@ -445,7 +445,7 @@ function ApprovalRow({
 }) {
   if (!hasRecords) {
     return (
-      <div className="glass-inset flex flex-wrap items-center gap-3 p-3">
+      <div className="ui-inset flex flex-wrap items-center gap-3 p-3">
         <span className="font-semibold">{fmtDateLabel(date)}</span>
         <span className="text-foreground-600">記録なし</span>
       </div>
@@ -455,7 +455,7 @@ function ApprovalRow({
   return (
     <div
       className={cn(
-        "glass-inset flex flex-wrap items-center gap-3 p-3",
+        "ui-inset flex flex-wrap items-center gap-3 p-3",
         info.tone === "bad" && "border border-danger",
       )}
     >
@@ -519,7 +519,7 @@ function CrewOverview({
   const alerts = rows.filter((r) => r.summary.hasRecords && r.summary.level !== "ok").length;
 
   return (
-    <GlassCard blurred>
+    <SurfaceCard>
       <CardHeader className="flex flex-wrap items-center justify-between gap-2 px-5 pb-2 pt-5">
         <span className="text-base font-bold">乗組員の状況（本日）</span>
         <div className="flex flex-wrap items-center gap-2">
@@ -541,7 +541,7 @@ function CrewOverview({
           </Button>
         </div>
       </CardHeader>
-      <Divider className="bg-[var(--glass-border)]" />
+      <Divider className="bg-[var(--ui-hairline)]" />
       <CardBody className="flex flex-col gap-2 px-5 pb-5">
         {rows.map(({ crew, summary, approval }) => {
           const info = describeApproval(approval?.decision, approval?.approverRole);
@@ -550,7 +550,7 @@ function CrewOverview({
               key={crew.id}
               type="button"
               onClick={() => onPick(crew.id)}
-              className="glass-inset flex flex-wrap items-center gap-3 p-3 text-left"
+              className="ui-inset flex flex-wrap items-center gap-3 p-3 text-left"
             >
               <span className="min-w-32 font-semibold">{crew.name}</span>
               <span className="text-sm text-foreground-600">{crew.position}</span>
@@ -575,6 +575,6 @@ function CrewOverview({
           名前を押すと、その船員の内訳を上に表示します。打刻の修正は本人への差戻しで依頼します。
         </p>
       </CardBody>
-    </GlassCard>
+    </SurfaceCard>
   );
 }

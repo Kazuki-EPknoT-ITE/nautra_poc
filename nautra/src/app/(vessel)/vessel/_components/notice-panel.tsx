@@ -84,14 +84,14 @@ export function NoticePanel() {
 
   return (
     <aside aria-label="お知らせ" className="flex flex-col gap-4">
-      <Card shadow="none" className="glass-tile">
+      <Card shadow="none" className="ui-card">
         <CardHeader className="flex items-center justify-between gap-2 px-4 pb-2 pt-4">
           <span className="font-bold">速報・お知らせ</span>
           {unread.length > 0 ? (
             <Button
               size="sm"
               variant="bordered"
-              className="min-h-9 border-[var(--glass-border-strong)]"
+              className="min-h-9 border-[var(--ui-hairline-strong)]"
               onPress={() => void acknowledgeNotices()}
             >
               確認しました
@@ -120,7 +120,7 @@ export function NoticePanel() {
         </CardBody>
       </Card>
 
-      <Card shadow="none" className="glass-tile">
+      <Card shadow="none" className="ui-card">
         <CardHeader className="px-4 pb-2 pt-4 font-bold">あなたへの通知</CardHeader>
         <Divider />
         <CardBody className="flex flex-col gap-2 px-4 py-3">
@@ -131,9 +131,9 @@ export function NoticePanel() {
               <Link
                 key={td.key}
                 href={td.href}
-                className="glass-inset flex items-center gap-2 p-3 text-left hover:opacity-80"
+                className="ui-inset flex items-center gap-2 p-3 text-left hover:opacity-80"
               >
-                <span aria-hidden="true" className={cn("text-lg", td.urgent && "text-danger")}>
+                <span aria-hidden="true" className={cn("text-lg", td.urgent && "text-warning-700")}>
                   {td.icon}
                 </span>
                 <span className={cn("text-sm", td.urgent && "font-semibold")}>{td.text}</span>
@@ -153,11 +153,11 @@ function NoticeRow({ notice, isUnread }: { notice: NoticePayload; isUnread: bool
   const urgent = notice.level === "urgent";
   return (
     <article
-      className={cn("glass-inset flex flex-col gap-1 p-3", urgent && "border border-danger")}
+      className={cn("ui-inset flex flex-col gap-1 p-3", urgent && "border border-warning-200 bg-warning-50")}
       aria-label={`${urgent ? "速報" : "お知らせ"}: ${notice.title}`}
     >
       <div className="flex flex-wrap items-center gap-2">
-        <Chip size="sm" variant="flat" color={urgent ? "danger" : "default"} radius="sm">
+        <Chip size="sm" variant="flat" color={urgent ? "warning" : "default"} radius="full">
           {urgent ? "‼ 速報" : "お知らせ"}
         </Chip>
         {isUnread ? (

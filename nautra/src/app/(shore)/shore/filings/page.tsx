@@ -32,7 +32,7 @@ const REQUIREMENT_STYLE: Record<RequirementState, { cls: string; icon: string }>
 
 function RequirementTable({ result }: { result: CrewRequirementResult }) {
   return (
-    <div className="glass-inset p-3">
+    <div className="ui-inset p-3">
       {/* Chip は div を描くため p に入れない（不正なネストはハイドレーションを壊す） */}
       <div className="mb-1 flex flex-wrap items-center gap-2 text-sm">
         <StatusChip
@@ -77,7 +77,7 @@ function FilingCard({ row, today }: { row: FilingRow; today: string }) {
   const isDone = filing.status === "submitted" || filing.status === "accepted";
 
   return (
-    <div className="glass-tile flex flex-col gap-3 p-4">
+    <div className="ui-card flex flex-col gap-3 p-4">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h3 className="font-bold">
           {t.filingType[filing.filingType]}
@@ -158,7 +158,7 @@ function FilingCard({ row, today }: { row: FilingRow; today: string }) {
         {documents.length > 0 ? (
           <Link
             href={`/shore/filings/${filing.id}/print`}
-            className="mt-2 inline-block rounded-medium border border-[var(--glass-border)] px-3 py-1.5 text-sm"
+            className="mt-2 inline-block rounded-medium border border-[var(--ui-hairline)] px-3 py-1.5 text-sm"
           >
             書類の中身を見る（印刷用）
           </Link>
@@ -167,7 +167,7 @@ function FilingCard({ row, today }: { row: FilingRow; today: string }) {
 
       {/* 手順⑤ 提出の記録・船員手帳の記帳 */}
       {isDone ? (
-        <div className="glass-inset p-3 text-sm">
+        <div className="ui-inset p-3 text-sm">
           <p className="font-semibold">船員手帳の記帳情報（電子記録）</p>
           {(filing.seamanBookEntries ?? []).length === 0 ? (
             <p className="text-foreground-500">記帳情報はありません。</p>

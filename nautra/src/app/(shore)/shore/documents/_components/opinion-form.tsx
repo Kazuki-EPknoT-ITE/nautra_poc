@@ -26,7 +26,7 @@ export function OpinionForm({
   const [counterparty, setCounterparty] = useState(counterparties[0] ?? "");
 
   return (
-    <form action={formAction} className="glass-tile flex flex-col gap-3 p-4">
+    <form action={formAction} className="ui-card flex flex-col gap-3 p-4">
       <h2 className="font-bold">意見陳述書を作る（オペレーター宛）</h2>
       <p className="text-sm text-foreground-600">
         相手先と期間を選ぶと、その期間の待機時間と労働時間の実績を書面に自動で添えます。

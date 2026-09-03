@@ -24,7 +24,7 @@ export function InvoicePaidForm({
 
   if (invoices.length === 0) {
     return (
-      <div className="glass-tile p-4">
+      <div className="ui-card p-4">
         <h3 className="font-bold">入金を記録する</h3>
         <p className="mt-1 text-sm text-foreground-500">入金待ちの請求はありません。</p>
       </div>
@@ -32,7 +32,7 @@ export function InvoicePaidForm({
   }
 
   return (
-    <form action={formAction} className="glass-tile flex flex-col gap-3 p-4">
+    <form action={formAction} className="ui-card flex flex-col gap-3 p-4">
       <h3 className="font-bold">入金を記録する</h3>
       <input type="hidden" name="invoiceId" value={invoiceId} />
       <div className="grid gap-3 sm:grid-cols-2">

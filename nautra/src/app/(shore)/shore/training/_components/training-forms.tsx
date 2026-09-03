@@ -42,7 +42,7 @@ function Result({ state }: { state: TrainingFormState }) {
 export function ArrangeTrainingForm({ crew, today }: { crew: CrewOption[]; today: string }) {
   const [state, formAction, pending] = useActionState(arrangeTrainingAction, INITIAL);
   return (
-    <form action={formAction} className="glass-tile flex flex-col gap-3 p-4">
+    <form action={formAction} className="ui-card flex flex-col gap-3 p-4">
       <h2 className="font-bold">受講を手配する</h2>
       <div className="grid gap-3 sm:grid-cols-2">
         <Select name="crewMemberId" label="船員" defaultSelectedKeys={crew[0] ? [crew[0].id] : []}>
@@ -81,7 +81,7 @@ export function CompleteTrainingForm({ plans, today }: { plans: OpenPlanOption[]
 
   if (plans.length === 0) {
     return (
-      <div className="glass-tile p-4">
+      <div className="ui-card p-4">
         <h2 className="mb-2 font-bold">修了を登録する</h2>
         <p className="text-sm text-foreground-500">修了を登録できる訓練はありません。</p>
       </div>
@@ -89,7 +89,7 @@ export function CompleteTrainingForm({ plans, today }: { plans: OpenPlanOption[]
   }
 
   return (
-    <form action={formAction} className="glass-tile flex flex-col gap-3 p-4">
+    <form action={formAction} className="ui-card flex flex-col gap-3 p-4">
       <h2 className="font-bold">修了を登録する</h2>
       <p className="text-sm text-foreground-600">
         登録すると修了証が作られ、届出の添付要件チェックがその場で「適合」に変わります。
@@ -144,7 +144,7 @@ export function MaterialForm({ crew }: { crew: CrewOption[] }) {
   const [trainingKind, setTrainingKind] = useState<TrainingKind>("internal");
 
   return (
-    <form action={formAction} className="glass-tile flex flex-col gap-3 p-4">
+    <form action={formAction} className="ui-card flex flex-col gap-3 p-4">
       <h2 className="font-bold">教材・手順書を配信する</h2>
       <input type="hidden" name="trainingKind" value={trainingKind} />
       <div className="grid gap-3 sm:grid-cols-2">

@@ -24,7 +24,7 @@ export function SubsidyForm() {
   const [status, setStatus] = useState("preparing");
 
   return (
-    <form action={formAction} className="glass-tile flex flex-col gap-3 p-4">
+    <form action={formAction} className="ui-card flex flex-col gap-3 p-4">
       <h3 className="font-bold">手続きを登録する</h3>
       <input type="hidden" name="category" value={category} />
       <input type="hidden" name="status" value={status} />
@@ -78,7 +78,7 @@ export function SubsidyStatusForm({ subsidies }: { subsidies: SubsidyOption[] })
   if (subsidies.length === 0) return null;
 
   return (
-    <form action={formAction} className="glass-tile flex flex-col gap-3 p-4">
+    <form action={formAction} className="ui-card flex flex-col gap-3 p-4">
       <h3 className="font-bold">手続きの状態を進める</h3>
       <input type="hidden" name="subsidyId" value={subsidyId} />
       <input type="hidden" name="status" value={status} />

@@ -112,7 +112,7 @@ export default async function ShoreOfficePage({
         </p>
       </div>
 
-      <nav aria-label="この画面の目次" className="glass-tile flex flex-wrap items-center gap-2 p-4">
+      <nav aria-label="この画面の目次" className="ui-card flex flex-wrap items-center gap-2 p-4">
         <span className="text-sm text-foreground-500">目次</span>
         {SECTIONS.map((s) => (
           <a key={s.id} href={`#${s.id}`} className="rounded-medium bg-default-100 px-3 py-1.5 text-sm">
@@ -123,7 +123,7 @@ export default async function ShoreOfficePage({
 
       {/* ── 先に知らせるもの（期限・遅延） ── */}
       {charterAlerts.length > 0 || overdueInvoices.length > 0 ? (
-        <section aria-label="早めに手を打つこと" className="glass-tile border border-warning p-4">
+        <section aria-label="早めに手を打つこと" className="ui-card border border-warning p-4">
           <h2 className="font-bold">⚠ 早めに手を打つこと</h2>
           <ul className="mt-2 flex flex-col gap-1 text-sm">
             {overdueInvoices.map((i) => (
@@ -153,13 +153,13 @@ export default async function ShoreOfficePage({
       {/* ══════ 3.6.1 傭船契約 ══════ */}
       <section id="charters" aria-label="傭船契約" className="flex flex-col gap-3">
         <h2 className="text-lg font-bold">傭船契約</h2>
-        <div className="glass-tile overflow-x-auto">
+        <div className="ui-card overflow-x-auto">
           {charters.length === 0 ? (
             <p className="p-4 text-sm text-foreground-500">登録された契約はありません。</p>
           ) : (
             <table className="w-full min-w-[900px] text-sm">
               <thead>
-                <tr className="border-b border-[var(--glass-border)] text-left text-foreground-500">
+                <tr className="border-b border-[var(--ui-hairline)] text-left text-foreground-500">
                   <th className="px-4 py-2 font-medium">船</th>
                   <th className="px-2 py-2 font-medium">相手先</th>
                   <th className="px-2 py-2 font-medium">種別</th>
@@ -171,7 +171,7 @@ export default async function ShoreOfficePage({
               </thead>
               <tbody>
                 {charters.map((c) => (
-                  <tr key={c.record.id} className="border-b border-[var(--glass-border)] last:border-b-0">
+                  <tr key={c.record.id} className="border-b border-[var(--ui-hairline)] last:border-b-0">
                     <td className="px-4 py-2">{c.vesselName}</td>
                     <td className="px-2 py-2 font-semibold">{c.record.counterparty}</td>
                     <td className="px-2 py-2">{t.charterType[c.record.contractType]}</td>
@@ -209,18 +209,18 @@ export default async function ShoreOfficePage({
       {/* ══════ 3.6.1 / 3.6.2 請求・入金 ══════ */}
       <section id="invoices" aria-label="請求・入金" className="flex flex-col gap-3">
         <h2 className="text-lg font-bold">請求・入金</h2>
-        <p className="glass-tile p-4 text-sm text-foreground-600">
+        <p className="ui-card p-4 text-sm text-foreground-600">
           請求書はインボイス制度・電子帳簿保存法の保存要件の対象です。電子で受け渡しした請求書は
           電子のまま保存し、日付・金額・取引先で探せるようにしておく必要があります。
           ここでは原本の識別（保存先のファイル名）を一緒に持ち、どの原本を指しているかを追えるようにしています。
         </p>
-        <div className="glass-tile overflow-x-auto">
+        <div className="ui-card overflow-x-auto">
           {invoices.length === 0 ? (
             <p className="p-4 text-sm text-foreground-500">登録された請求はありません。</p>
           ) : (
             <table className="w-full min-w-[1020px] text-sm">
               <thead>
-                <tr className="border-b border-[var(--glass-border)] text-left text-foreground-500">
+                <tr className="border-b border-[var(--ui-hairline)] text-left text-foreground-500">
                   <th className="px-4 py-2 font-medium">請求番号</th>
                   <th className="px-2 py-2 font-medium">相手先</th>
                   <th className="px-2 py-2 font-medium">対象期間</th>
@@ -234,7 +234,7 @@ export default async function ShoreOfficePage({
               </thead>
               <tbody>
                 {invoices.map((i) => (
-                  <tr key={i.record.id} className="border-b border-[var(--glass-border)] last:border-b-0">
+                  <tr key={i.record.id} className="border-b border-[var(--ui-hairline)] last:border-b-0">
                     <td className="px-4 py-2 tabular-nums font-semibold">{i.record.invoiceNo}</td>
                     <td className="px-2 py-2">{i.record.counterparty}</td>
                     <td className="px-2 py-2 tabular-nums">
@@ -278,7 +278,7 @@ export default async function ShoreOfficePage({
       <section id="expenses" aria-label="経費" className="flex flex-col gap-3">
         <h2 className="text-lg font-bold">経費</h2>
         <div className="grid gap-3 lg:grid-cols-2">
-          <div className="glass-tile p-4">
+          <div className="ui-card p-4">
             <h3 className="mb-2 font-bold">区分ごとの合計</h3>
             {totals.byKind.length === 0 ? (
               <p className="text-sm text-foreground-500">集計できる経費はありません。</p>
@@ -293,14 +293,14 @@ export default async function ShoreOfficePage({
                     <span className="tabular-nums font-semibold">{yen(k.amount)}</span>
                   </li>
                 ))}
-                <li className="mt-1 flex items-baseline justify-between gap-3 border-t border-[var(--glass-border)] pt-1">
+                <li className="mt-1 flex items-baseline justify-between gap-3 border-t border-[var(--ui-hairline)] pt-1">
                   <span className="font-bold">合計</span>
                   <span className="tabular-nums font-bold">{yen(totals.total)}</span>
                 </li>
               </ul>
             )}
           </div>
-          <div className="glass-tile p-4">
+          <div className="ui-card p-4">
             <h3 className="mb-2 font-bold">船ごとの合計</h3>
             {totals.byVessel.length === 0 ? (
               <p className="text-sm text-foreground-500">集計できる経費はありません。</p>
@@ -319,13 +319,13 @@ export default async function ShoreOfficePage({
             )}
           </div>
         </div>
-        <div className="glass-tile overflow-x-auto">
+        <div className="ui-card overflow-x-auto">
           {expenses.length === 0 ? (
             <p className="p-4 text-sm text-foreground-500">登録された経費はありません。</p>
           ) : (
             <table className="w-full min-w-[860px] text-sm">
               <thead>
-                <tr className="border-b border-[var(--glass-border)] text-left text-foreground-500">
+                <tr className="border-b border-[var(--ui-hairline)] text-left text-foreground-500">
                   <th className="px-4 py-2 font-medium">支出日</th>
                   <th className="px-2 py-2 font-medium">区分</th>
                   <th className="px-2 py-2 font-medium">件名</th>
@@ -337,7 +337,7 @@ export default async function ShoreOfficePage({
               </thead>
               <tbody>
                 {expenses.map((e) => (
-                  <tr key={e.record.id} className="border-b border-[var(--glass-border)] last:border-b-0">
+                  <tr key={e.record.id} className="border-b border-[var(--ui-hairline)] last:border-b-0">
                     <td className="px-4 py-2 tabular-nums">{e.record.spentOn}</td>
                     <td className="px-2 py-2">{t.expenseKind[e.record.kind]}</td>
                     <td className="px-2 py-2 font-semibold">{e.record.title}</td>
@@ -359,7 +359,7 @@ export default async function ShoreOfficePage({
       {/* ══════ 3.6.2 船員給与 ══════ */}
       <section id="payrolls" aria-label="船員給与" className="flex flex-col gap-3">
         <h2 className="text-lg font-bold">船員給与</h2>
-        <div className="glass-tile flex flex-wrap items-center gap-2 p-4">
+        <div className="ui-card flex flex-wrap items-center gap-2 p-4">
           <span className="text-sm text-foreground-500">対象月</span>
           {payrollMonths.map((m) => (
             <Link
@@ -373,7 +373,7 @@ export default async function ShoreOfficePage({
             </Link>
           ))}
         </div>
-        <p className="glass-tile p-4 text-sm text-foreground-600">
+        <p className="ui-card p-4 text-sm text-foreground-600">
           時間外は打刻から計算し、設定のまるめ単位（{officeRules.payrollRoundingUnitMinutes}分・
           {officeRules.payrollRoundingMode === "nearest"
             ? "四捨五入"
@@ -383,13 +383,13 @@ export default async function ShoreOfficePage({
           ）を当てはめた値を給与に渡します。まるめの前後を並べて出しているので、まるめで
           どれだけ増減するかが確認できます。支給額はその場で計算した表示で、保存はしていません。
         </p>
-        <div className="glass-tile overflow-x-auto">
+        <div className="ui-card overflow-x-auto">
           {payrolls.length === 0 ? (
             <p className="p-4 text-sm text-foreground-500">この月の給与はまだありません。</p>
           ) : (
             <table className="w-full min-w-[1080px] text-sm">
               <thead>
-                <tr className="border-b border-[var(--glass-border)] text-left text-foreground-500">
+                <tr className="border-b border-[var(--ui-hairline)] text-left text-foreground-500">
                   <th className="px-4 py-2 font-medium">船員</th>
                   <th className="px-2 py-2 font-medium">基本給</th>
                   <th className="px-2 py-2 font-medium">手当</th>
@@ -402,7 +402,7 @@ export default async function ShoreOfficePage({
               </thead>
               <tbody>
                 {payrolls.map((p) => (
-                  <tr key={p.record.id} className="border-b border-[var(--glass-border)] last:border-b-0">
+                  <tr key={p.record.id} className="border-b border-[var(--ui-hairline)] last:border-b-0">
                     <td className="px-4 py-2 font-semibold">{p.crewName}</td>
                     <td className="px-2 py-2 tabular-nums">{yen(p.record.baseAmount)}</td>
                     <td className="px-2 py-2 tabular-nums">
@@ -468,17 +468,17 @@ export default async function ShoreOfficePage({
       {/* ══════ 3.6.3 補助金・行政手続き ══════ */}
       <section id="subsidies" aria-label="補助金・行政手続き" className="flex flex-col gap-3">
         <h2 className="text-lg font-bold">補助金・行政手続き</h2>
-        <p className="glass-tile p-4 text-sm text-foreground-600">
+        <p className="ui-card p-4 text-sm text-foreground-600">
           船舶の建造・改造に係る補助金、内航海運業法にもとづく届出、海上労働検査への対応資料の準備を
           ここでまとめて管理します。
         </p>
-        <div className="glass-tile overflow-x-auto">
+        <div className="ui-card overflow-x-auto">
           {subsidies.length === 0 ? (
             <p className="p-4 text-sm text-foreground-500">登録された手続きはありません。</p>
           ) : (
             <table className="w-full min-w-[940px] text-sm">
               <thead>
-                <tr className="border-b border-[var(--glass-border)] text-left text-foreground-500">
+                <tr className="border-b border-[var(--ui-hairline)] text-left text-foreground-500">
                   <th className="px-4 py-2 font-medium">標題</th>
                   <th className="px-2 py-2 font-medium">区分</th>
                   <th className="px-2 py-2 font-medium">所管</th>
@@ -490,7 +490,7 @@ export default async function ShoreOfficePage({
               </thead>
               <tbody>
                 {subsidies.map((s) => (
-                  <tr key={s.record.id} className="border-b border-[var(--glass-border)] last:border-b-0">
+                  <tr key={s.record.id} className="border-b border-[var(--ui-hairline)] last:border-b-0">
                     <td className="px-4 py-2 font-semibold">
                       {s.record.title}
                       {s.record.body ? (

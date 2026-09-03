@@ -24,7 +24,7 @@ export function SmsStatusForm({
   const [status, setStatus] = useState(initialStatus);
 
   return (
-    <form action={formAction} className="glass-inset flex flex-col gap-2 p-3">
+    <form action={formAction} className="ui-inset flex flex-col gap-2 p-3">
       <input type="hidden" name="documentId" value={documentId} />
       <input type="hidden" name="status" value={status} />
       <div className="grid gap-2 sm:grid-cols-2">

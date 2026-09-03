@@ -20,7 +20,7 @@ export function TemplateItemForm({ options }: { options: TemplateTargetOption[] 
   const [inputType, setInputType] = useState<TemplateInputType>("check");
 
   return (
-    <form action={formAction} className="glass-tile flex flex-col gap-3 p-4">
+    <form action={formAction} className="ui-card flex flex-col gap-3 p-4">
       <h2 className="font-bold">記録項目を追加して配信</h2>
       <input type="hidden" name="target" value={target} />
       <input type="hidden" name="inputType" value={inputType} />

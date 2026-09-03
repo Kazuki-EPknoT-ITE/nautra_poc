@@ -31,7 +31,7 @@ export function ScheduleForm({ vessels }: { vessels: VesselOption[] }) {
   const [status, setStatus] = useState<VoyageSchedulePayload["status"]>("planned");
 
   return (
-    <form action={formAction} className="glass-tile flex flex-col gap-3 p-4">
+    <form action={formAction} className="ui-card flex flex-col gap-3 p-4">
       <h2 className="font-bold">配船を登録</h2>
       <input type="hidden" name="targetVesselId" value={vesselId} />
       <input type="hidden" name="status" value={status} />

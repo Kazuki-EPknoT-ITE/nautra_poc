@@ -36,7 +36,7 @@ export function ShiftChangeForm({ options }: { options: ShiftOption[] }) {
   }
 
   return (
-    <form action={formAction} className="glass-tile flex flex-col gap-3 p-4">
+    <form action={formAction} className="ui-card flex flex-col gap-3 p-4">
       <h2 className="font-bold">シフトを変更して配信</h2>
       <input type="hidden" name="supersedesId" value={selectedId} />
       <input type="hidden" name="shiftType" value={shiftType} />

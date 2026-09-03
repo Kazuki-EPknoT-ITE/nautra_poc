@@ -43,7 +43,7 @@ export default async function ShoreLoginPage() {
       </div>
 
       {current ? (
-        <p className="glass-inset p-3 text-sm">
+        <p className="ui-inset p-3 text-sm">
           いま <span className="font-semibold">{current.name}</span>（{t.shoreRole[current.role]}）
           でサインインしています。別の担当者に切り替える場合は下から選んでください。
         </p>
@@ -51,7 +51,7 @@ export default async function ShoreLoginPage() {
 
       <ul className="grid gap-3 sm:grid-cols-2">
         {SHORE_STAFF_ACCOUNTS.map((s) => (
-          <li key={s.id} className="glass-tile flex flex-col gap-3 p-4">
+          <li key={s.id} className="ui-card flex flex-col gap-3 p-4">
             <div>
               <p className="text-lg font-bold">{s.name}</p>
               <p className="text-sm text-foreground-600">{s.title}</p>

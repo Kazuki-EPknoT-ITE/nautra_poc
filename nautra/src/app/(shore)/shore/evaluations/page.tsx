@@ -85,7 +85,7 @@ export default async function ShoreEvaluationsPage() {
         </p>
       </div>
 
-      <section aria-label="取り扱いの注意" className="glass-tile border border-warning p-4">
+      <section aria-label="取り扱いの注意" className="ui-card border border-warning p-4">
         <h2 className="font-bold">⚠ この画面は閲覧できる人を限定しています</h2>
         <ul className="mt-2 flex list-disc flex-col gap-1 pl-5 text-sm text-foreground-600">
           <li>
@@ -112,19 +112,19 @@ export default async function ShoreEvaluationsPage() {
           defaultPeriodTo={today}
         />
       ) : (
-        <p className="glass-tile p-4 text-sm text-foreground-600">
+        <p className="ui-card p-4 text-sm text-foreground-600">
           この役職では評価の記入はできません（参照のみ）。
         </p>
       )}
 
-      <section aria-label="評価の一覧" className="glass-tile overflow-x-auto">
+      <section aria-label="評価の一覧" className="ui-card overflow-x-auto">
         <h2 className="px-4 pt-4 font-bold">評価の一覧（新しい順）</h2>
         {rows.length === 0 ? (
           <p className="px-4 py-3 text-sm text-foreground-500">記録された評価はありません。</p>
         ) : (
           <table className="mt-3 w-full min-w-[900px] text-sm">
             <thead>
-              <tr className="border-b border-[var(--glass-border)] text-left text-foreground-500">
+              <tr className="border-b border-[var(--ui-hairline)] text-left text-foreground-500">
                 <th className="px-4 py-2 font-medium">船員</th>
                 <th className="px-2 py-2 font-medium">対象期間</th>
                 <th className="px-2 py-2 font-medium">総合（5項目の平均）</th>
@@ -135,7 +135,7 @@ export default async function ShoreEvaluationsPage() {
             </thead>
             <tbody>
               {rows.map((r) => (
-                <tr key={r.record.id} className="border-b border-[var(--glass-border)] last:border-b-0">
+                <tr key={r.record.id} className="border-b border-[var(--ui-hairline)] last:border-b-0">
                   <td className="px-4 py-2 font-semibold">{r.crewName}</td>
                   <td className="px-2 py-2 tabular-nums">
                     {r.record.periodFrom} 〜 {r.record.periodTo}
@@ -177,7 +177,7 @@ export default async function ShoreEvaluationsPage() {
           <p className="text-sm text-foreground-500">推移を出せる評価はまだありません。</p>
         ) : (
           byCrew.map((crew) => (
-            <div key={crew.crewMemberId} className="glass-tile overflow-x-auto p-4">
+            <div key={crew.crewMemberId} className="ui-card overflow-x-auto p-4">
               <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
                 <h3 className="font-bold">{crew.crewName}</h3>
                 <p className="text-xs text-foreground-500">
@@ -186,7 +186,7 @@ export default async function ShoreEvaluationsPage() {
               </div>
               <table className="w-full min-w-[640px] text-sm">
                 <thead>
-                  <tr className="border-b border-[var(--glass-border)] text-left text-foreground-500">
+                  <tr className="border-b border-[var(--ui-hairline)] text-left text-foreground-500">
                     <th className="py-2 pr-3 font-medium">項目</th>
                     {crew.rows.map((r) => (
                       <th key={r.record.id} className="py-2 pr-3 font-medium tabular-nums">
@@ -197,7 +197,7 @@ export default async function ShoreEvaluationsPage() {
                 </thead>
                 <tbody>
                   {EVALUATION_ITEMS.map((item) => (
-                    <tr key={item} className="border-b border-[var(--glass-border)] last:border-b-0">
+                    <tr key={item} className="border-b border-[var(--ui-hairline)] last:border-b-0">
                       <td className="py-2 pr-3">{t.evaluationItem[item]}</td>
                       {crew.rows.map((r) => (
                         <td key={`${r.record.id}-${item}`} className="py-2 pr-3">

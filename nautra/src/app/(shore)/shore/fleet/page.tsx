@@ -61,7 +61,7 @@ export default async function ShoreFleetPage({
       </div>
 
       {/* 船の切替（サーバ側で組み立てるためリンクで切り替える） */}
-      <section aria-label="船の切替" className="glass-tile flex flex-wrap items-center gap-2 p-4">
+      <section aria-label="船の切替" className="ui-card flex flex-wrap items-center gap-2 p-4">
         <span className="text-sm text-foreground-500">船</span>
         {vessels.map((v) => (
           <Link
@@ -77,7 +77,7 @@ export default async function ShoreFleetPage({
       </section>
 
       {/* ── 船舶マスタ ── */}
-      <section aria-label="船舶の基本情報" className="glass-tile p-4">
+      <section aria-label="船舶の基本情報" className="ui-card p-4">
         <h2 className="mb-2 font-bold">船舶の基本情報</h2>
         {!master ? (
           <p className="text-sm text-foreground-500">この船の情報は登録されていません。</p>
@@ -108,7 +108,7 @@ export default async function ShoreFleetPage({
       </section>
 
       {/* ── 3.5.3 船内環境（快適職場環境・求人の的確表示） ── */}
-      <section aria-label="船内の環境" className="glass-tile p-4">
+      <section aria-label="船内の環境" className="ui-card p-4">
         <div className="mb-2 flex flex-wrap items-center gap-3">
           <h2 className="font-bold">船内の環境（居室・通信）</h2>
           <StatusChip level={board.environment.level} size="sm" />
@@ -150,7 +150,7 @@ export default async function ShoreFleetPage({
       </section>
 
       {/* ── 3.4.2 検査証書の期限 ── */}
-      <section aria-label="検査証書の期限" className="glass-tile p-4">
+      <section aria-label="検査証書の期限" className="ui-card p-4">
         <h2 className="mb-2 font-bold">
           検査証書・免許の期限
           <span className="ml-2 tabular-nums text-sm font-normal text-foreground-500">
@@ -164,7 +164,7 @@ export default async function ShoreFleetPage({
             {board.credentials.map((c) => (
               <li
                 key={c.credential.id}
-                className="flex flex-col gap-1 border-b border-[var(--glass-border)] pb-2 last:border-b-0"
+                className="flex flex-col gap-1 border-b border-[var(--ui-hairline)] pb-2 last:border-b-0"
               >
                 <div className="flex flex-wrap items-center gap-2">
                   <StatusChip level={c.level} size="sm" label={t.expiryState[c.expiry]} />
@@ -193,7 +193,7 @@ export default async function ShoreFleetPage({
       </section>
 
       {/* ── 3.4.1 定期保守計画 ── */}
-      <section aria-label="定期保守の計画" className="glass-tile overflow-x-auto">
+      <section aria-label="定期保守の計画" className="ui-card overflow-x-auto">
         <div className="px-4 pt-4">
           <h2 className="font-bold">
             定期保守の計画
@@ -210,7 +210,7 @@ export default async function ShoreFleetPage({
         ) : (
           <table className="mt-2 w-full min-w-[880px] text-sm">
             <thead>
-              <tr className="border-b border-[var(--glass-border)] text-left text-foreground-500">
+              <tr className="border-b border-[var(--ui-hairline)] text-left text-foreground-500">
                 <th className="px-4 py-2 font-medium">状態</th>
                 <th className="px-2 py-2 font-medium">機器</th>
                 <th className="px-2 py-2 font-medium">作業</th>
@@ -222,7 +222,7 @@ export default async function ShoreFleetPage({
             </thead>
             <tbody>
               {board.plans.map((p) => (
-                <tr key={p.plan.id} className="border-b border-[var(--glass-border)] last:border-b-0">
+                <tr key={p.plan.id} className="border-b border-[var(--ui-hairline)] last:border-b-0">
                   <td className="px-4 py-2">
                     <StatusChip level={p.level} size="sm" />
                   </td>
@@ -268,7 +268,7 @@ export default async function ShoreFleetPage({
       </section>
 
       {/* ── 3.4.1 部品・消耗品の在庫 ── */}
-      <section aria-label="部品・消耗品の在庫" className="glass-tile p-4">
+      <section aria-label="部品・消耗品の在庫" className="ui-card p-4">
         <h2 className="mb-2 font-bold">
           部品・消耗品の在庫
           <span className="ml-2 tabular-nums text-sm font-normal text-foreground-500">
@@ -282,7 +282,7 @@ export default async function ShoreFleetPage({
             {board.stocks.map((s) => (
               <li
                 key={s.stock.id}
-                className="flex flex-col gap-2 border-b border-[var(--glass-border)] pb-3 last:border-b-0"
+                className="flex flex-col gap-2 border-b border-[var(--ui-hairline)] pb-3 last:border-b-0"
               >
                 <div className="flex flex-wrap items-center gap-2 text-sm">
                   <StatusChip level={s.level} size="sm" />
@@ -324,7 +324,7 @@ export default async function ShoreFleetPage({
       <section aria-label="入渠・検査" className="flex flex-col gap-4">
         <h2 className="font-bold">入渠・検査</h2>
         {board.docks.length === 0 ? (
-          <p className="glass-tile p-4 text-sm text-foreground-500">入渠の予定はありません。</p>
+          <p className="ui-card p-4 text-sm text-foreground-500">入渠の予定はありません。</p>
         ) : (
           board.docks.map((d) => {
             const findings = d.dock.findings ?? [];
@@ -337,7 +337,7 @@ export default async function ShoreFleetPage({
               action: f.action ?? "",
             }));
             return (
-              <div key={d.dock.id} className="glass-tile flex flex-col gap-3 p-4">
+              <div key={d.dock.id} className="ui-card flex flex-col gap-3 p-4">
                 <div className="flex flex-wrap items-center gap-2">
                   <StatusChip level={d.level} size="sm" label={t.dockStatus[d.dock.status]} />
                   <span className="font-bold">{d.dock.title}</span>
@@ -353,7 +353,7 @@ export default async function ShoreFleetPage({
                 <p className="text-sm text-foreground-600">{d.message}</p>
 
                 <div className="grid gap-4 lg:grid-cols-2">
-                  <div className="glass-inset p-3">
+                  <div className="ui-inset p-3">
                     <h3 className="mb-2 text-sm font-bold">
                       入渠前の準備
                       <span className="ml-2 tabular-nums font-normal text-foreground-500">
@@ -370,7 +370,7 @@ export default async function ShoreFleetPage({
                     />
                   </div>
 
-                  <div className="glass-inset p-3">
+                  <div className="ui-inset p-3">
                     <h3 className="mb-2 text-sm font-bold">
                       検査の指摘事項
                       <span
@@ -390,7 +390,7 @@ export default async function ShoreFleetPage({
                           return (
                             <li
                               key={f.key}
-                              className={`flex flex-col gap-1 border-b border-[var(--glass-border)] pb-2 last:border-b-0 ${
+                              className={`flex flex-col gap-1 border-b border-[var(--ui-hairline)] pb-2 last:border-b-0 ${
                                 f.status !== "closed" ? "border-l-2 border-l-warning pl-2" : ""
                               }`}
                             >
@@ -424,7 +424,7 @@ export default async function ShoreFleetPage({
       </section>
 
       {/* ── 船内から届いた点検・保守の一次記録 ── */}
-      <section aria-label="要対応の機器" className="glass-tile p-4">
+      <section aria-label="要対応の機器" className="ui-card p-4">
         <h2 className="mb-2 font-bold">
           要対応の機器
           <span className={`ml-2 tabular-nums ${board.openIssues.length > 0 ? "text-danger" : ""}`}>
@@ -436,7 +436,7 @@ export default async function ShoreFleetPage({
         ) : (
           <ul className="flex flex-col gap-2 text-sm">
             {board.openIssues.map((r) => (
-              <li key={r.id} className="border-b border-[var(--glass-border)] pb-2 last:border-b-0">
+              <li key={r.id} className="border-b border-[var(--ui-hairline)] pb-2 last:border-b-0">
                 <p>
                   <span className={`font-bold ${COND[r.condition].cls}`}>
                     {COND[r.condition].icon} {t.condition[r.condition]}
@@ -457,11 +457,11 @@ export default async function ShoreFleetPage({
         )}
       </section>
 
-      <section aria-label="機器別の最新状態" className="glass-tile overflow-x-auto">
+      <section aria-label="機器別の最新状態" className="ui-card overflow-x-auto">
         <h2 className="px-4 pt-4 font-bold">機器別の最新状態</h2>
         <table className="mt-2 w-full min-w-[720px] text-sm">
           <thead>
-            <tr className="border-b border-[var(--glass-border)] text-left text-foreground-500">
+            <tr className="border-b border-[var(--ui-hairline)] text-left text-foreground-500">
               <th className="px-4 py-2 font-medium">機器</th>
               <th className="px-2 py-2 font-medium">状態</th>
               <th className="px-2 py-2 font-medium">最終記録</th>
@@ -474,7 +474,7 @@ export default async function ShoreFleetPage({
             {EQUIPMENT_KINDS.map((eq) => {
               const r = latest.get(eq);
               return (
-                <tr key={eq} className="border-b border-[var(--glass-border)] last:border-b-0">
+                <tr key={eq} className="border-b border-[var(--ui-hairline)] last:border-b-0">
                   <td className="px-4 py-2 font-semibold">{t.equipment[eq]}</td>
                   <td className={`px-2 py-2 font-semibold ${r ? COND[r.condition].cls : ""}`}>
                     {r ? `${COND[r.condition].icon} ${t.condition[r.condition]}` : "—"}
@@ -492,7 +492,7 @@ export default async function ShoreFleetPage({
         </table>
       </section>
 
-      <section aria-label="点検表の実施状況" className="glass-tile p-4">
+      <section aria-label="点検表の実施状況" className="ui-card p-4">
         <h2 className="mb-2 font-bold">点検表の実施状況（直近10件）</h2>
         {board.recentChecklists.length === 0 ? (
           <p className="text-sm text-foreground-500">実施記録がありません。</p>

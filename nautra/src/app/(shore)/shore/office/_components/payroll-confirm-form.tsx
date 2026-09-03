@@ -22,7 +22,7 @@ export function PayrollConfirmForm({ payrolls }: { payrolls: DraftPayrollOption[
 
   if (payrolls.length === 0) {
     return (
-      <div className="glass-tile p-4">
+      <div className="ui-card p-4">
         <h3 className="font-bold">給与を確定する</h3>
         <p className="mt-1 text-sm text-foreground-500">計算中の給与はありません。</p>
       </div>
@@ -30,7 +30,7 @@ export function PayrollConfirmForm({ payrolls }: { payrolls: DraftPayrollOption[
   }
 
   return (
-    <form action={formAction} className="glass-tile flex flex-col gap-3 p-4">
+    <form action={formAction} className="ui-card flex flex-col gap-3 p-4">
       <h3 className="font-bold">給与を確定する</h3>
       <p className="text-sm text-foreground-600">
         確定すると、そのときの時間外（まるめ後）の分数を給与に保存します。支払った金額の根拠として

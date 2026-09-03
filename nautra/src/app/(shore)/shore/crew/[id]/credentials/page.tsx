@@ -57,7 +57,7 @@ export default async function ShoreCrewCredentialsPage({
           </Link>
           <Link
             href={`/shore/crew/${id}/edit`}
-            className="rounded-medium border border-[var(--glass-border)] px-3 py-1.5 text-sm"
+            className="rounded-medium border border-[var(--ui-hairline)] px-3 py-1.5 text-sm"
           >
             船員マスタを編集
           </Link>
@@ -70,7 +70,7 @@ export default async function ShoreCrewCredentialsPage({
           { label: "期限切れ（配乗できません）", value: `${expiredCount}件` },
           { label: "要再確認（原本の確認が必要）", value: `${staleCount}件` },
         ].map((s) => (
-          <div key={s.label} className="glass-tile p-4">
+          <div key={s.label} className="ui-card p-4">
             <p className="text-sm text-foreground-500">{s.label}</p>
             <p className="tabular-nums text-2xl font-bold">{s.value}</p>
           </div>
@@ -82,7 +82,7 @@ export default async function ShoreCrewCredentialsPage({
           <p className="text-sm text-foreground-500">登録されている証書はありません。</p>
         ) : (
           statuses.map((s) => (
-            <article key={s.credential.id} className="glass-tile flex flex-col gap-2 p-4">
+            <article key={s.credential.id} className="ui-card flex flex-col gap-2 p-4">
               <div className="flex flex-wrap items-center gap-2">
                 <h2 className="font-bold">{s.credential.name}</h2>
                 <span className="text-sm text-foreground-500">
@@ -139,7 +139,7 @@ export default async function ShoreCrewCredentialsPage({
 
       <CredentialForm crewMemberId={id} />
 
-      <section aria-label="証書の変更履歴" className="glass-tile p-4">
+      <section aria-label="証書の変更履歴" className="ui-card p-4">
         <h2 className="mb-2 font-bold">証書の変更履歴（訂正・確認を含む）</h2>
         {changeLog.length === 0 ? (
           <p className="text-sm text-foreground-500">変更の記録はありません。</p>

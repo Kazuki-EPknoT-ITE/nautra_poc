@@ -66,7 +66,7 @@ export default async function ShoreCrewPage({
         </p>
       </div>
 
-      <section aria-label="絞り込み" className="glass-tile flex flex-wrap items-center gap-4 p-4">
+      <section aria-label="絞り込み" className="ui-card flex flex-wrap items-center gap-4 p-4">
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-sm text-foreground-500">配乗できるか</span>
           {FILTERS.map((f) => {
@@ -102,7 +102,7 @@ export default async function ShoreCrewPage({
             <Link
               key={r.crewMemberId}
               href={`/shore/crew/${r.crewMemberId}`}
-              className="glass-tile flex items-start gap-4 p-4 hover:opacity-90"
+              className="ui-card flex items-start gap-4 p-4 hover:opacity-90"
             >
               <span
                 aria-hidden="true"

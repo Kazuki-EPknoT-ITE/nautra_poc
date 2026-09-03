@@ -23,7 +23,7 @@ export function SmsForm() {
   const [likelihood, setLikelihood] = useState("2");
 
   return (
-    <form action={formAction} className="glass-tile flex flex-col gap-3 p-4">
+    <form action={formAction} className="ui-card flex flex-col gap-3 p-4">
       <h2 className="font-bold">安全管理の記録を登録</h2>
       <input type="hidden" name="kind" value={kind} />
       <input type="hidden" name="status" value={status} />

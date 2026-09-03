@@ -38,7 +38,7 @@ import {
   RadioGroup,
   Textarea,
   useDisclosure,
-  useGlassModalProps,
+  useModalProps,
 } from "@/ui";
 import { ChecklistResultRow, ChecklistSection } from "../_components/checklist-section";
 import { GroupHeader } from "../_components/group-header";
@@ -87,7 +87,7 @@ export default function MaintenancePage() {
     return items.sort((a, b) => b.at.localeCompare(a.at)).slice(0, 60);
   }, [checklists, records]);
   const modal = useDisclosure();
-  const glassModal = useGlassModalProps();
+  const modalProps = useModalProps();
   const [equipment, setEquipment] = useState<EquipmentKind>("main_engine");
   const [recordType, setRecordType] = useState<MaintenanceRecordType>("daily_inspection");
   const [condition, setCondition] = useState<Condition>("good");
@@ -176,7 +176,7 @@ export default function MaintenancePage() {
               type="button"
               onClick={() => open(eq)}
               className={cn(
-                "glass-tile flex min-h-24 flex-col items-start gap-1 border-2 p-3 text-left",
+                "ui-card flex min-h-24 flex-col items-start gap-1 border-2 p-3 text-left",
                 latest?.condition === "defect"
                   ? "border-danger"
                   : latest?.condition === "attention"
@@ -211,7 +211,7 @@ export default function MaintenancePage() {
       <section aria-label="点検・保守の履歴" className="flex flex-col gap-2">
         <h2 className="text-base font-bold text-foreground-600">履歴（新しい順）</h2>
         {history.length === 0 ? (
-          <Card shadow="none" className="glass-tile">
+          <Card shadow="none" className="ui-card">
             <CardBody>
               <p className="text-foreground-600">記録がありません。</p>
             </CardBody>
@@ -219,7 +219,7 @@ export default function MaintenancePage() {
         ) : null}
         {history.map((h) =>
           h.kind === "checklist" ? (
-            <Card key={h.r.id} shadow="none" className="glass-tile">
+            <Card key={h.r.id} shadow="none" className="ui-card">
               <CardBody>
                 <ChecklistResultRow r={h.r} name={templateName(h.r.templateId)} />
               </CardBody>
@@ -233,7 +233,7 @@ export default function MaintenancePage() {
         定期保守計画・部品在庫・入渠対応の管理は陸上アプリ（S-11）で行います。船内は点検結果と保守実績を一次記録として残します。
       </p>
 
-      <Modal {...glassModal} isOpen={modal.isOpen} onOpenChange={modal.onOpenChange} placement="center" scrollBehavior="inside">
+      <Modal {...modalProps} isOpen={modal.isOpen} onOpenChange={modal.onOpenChange} placement="center" scrollBehavior="inside">
         <ModalContent>
           <ModalHeader>{tr("equipment", equipment)} ─ 点検・保守の記録</ModalHeader>
           <ModalBody className="flex flex-col gap-3">
@@ -275,7 +275,7 @@ function MaintenanceRow({ r }: { r: MaintenanceRecordPayload }) {
   const { tr } = useLocale();
   const style = COND_STYLE[r.condition];
   return (
-    <Card shadow="none" className={cn("glass-tile", r.condition === "defect" && "border border-danger")}>
+    <Card shadow="none" className={cn("ui-card", r.condition === "defect" && "border border-danger")}>
       <CardBody className="flex flex-col gap-1">
         <div className="flex flex-wrap items-center gap-2">
           <span className="tabular-nums font-bold">{fmtDateTime(r.occurredAt)}</span>

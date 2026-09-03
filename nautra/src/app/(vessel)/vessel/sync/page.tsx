@@ -54,7 +54,7 @@ export default function SyncPage() {
       <GroupHeader group="06" />
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
-        <Card shadow="none" className="glass-tile">
+        <Card shadow="none" className="ui-card">
           <CardBody>
             <p className="text-sm text-foreground-600">未同期イベント</p>
             <p className="tabular-nums text-3xl font-bold">
@@ -63,7 +63,7 @@ export default function SyncPage() {
             </p>
           </CardBody>
         </Card>
-        <Card shadow="none" className={conflictCount > 0 ? "glass-tile border border-danger" : "glass-tile"}>
+        <Card shadow="none" className={conflictCount > 0 ? "ui-card border border-danger" : "ui-card"}>
           <CardBody>
             <p className="text-sm text-foreground-600">競合（要確認）</p>
             <p className="tabular-nums text-3xl font-bold">
@@ -75,7 +75,7 @@ export default function SyncPage() {
             </p>
           </CardBody>
         </Card>
-        <Card shadow="none" className="glass-tile">
+        <Card shadow="none" className="ui-card">
           <CardBody>
             <p className="text-sm text-foreground-600">最終同期日時</p>
             <p className="tabular-nums font-bold">
@@ -83,14 +83,14 @@ export default function SyncPage() {
             </p>
           </CardBody>
         </Card>
-        <Card shadow="none" className="glass-tile">
+        <Card shadow="none" className="ui-card">
           <CardBody>
             <p className="text-sm text-foreground-600">受信カーソル（Pull）</p>
             <p className="tabular-nums font-bold">v{pullCursor ?? "0"}</p>
             <p className="text-xs text-foreground-600">切断後もこの続きから再開（再開可能）</p>
           </CardBody>
         </Card>
-        <Card shadow="none" className="glass-tile">
+        <Card shadow="none" className="ui-card">
           <CardBody>
             <p className="text-sm text-foreground-600">隔離（未知種別）</p>
             <p className="tabular-nums text-3xl font-bold">
@@ -102,7 +102,7 @@ export default function SyncPage() {
             </p>
           </CardBody>
         </Card>
-        <Card shadow="none" className="glass-tile">
+        <Card shadow="none" className="ui-card">
           <CardBody>
             <p className="text-sm text-foreground-600">端末内の記録（IndexedDB）</p>
             <p className="tabular-nums text-sm">
@@ -115,7 +115,7 @@ export default function SyncPage() {
         </Card>
       </div>
 
-      <Card shadow="none" className="glass-tile">
+      <Card shadow="none" className="ui-card">
         <CardHeader className="font-bold">通信・同期操作</CardHeader>
         <Divider />
         <CardBody className="flex flex-col gap-4">
@@ -154,7 +154,7 @@ export default function SyncPage() {
         </CardBody>
       </Card>
 
-      <Card shadow="none" className="glass-tile">
+      <Card shadow="none" className="ui-card">
         <CardHeader className="font-bold">送信キュー（先頭10件）</CardHeader>
         <Divider />
         <CardBody>

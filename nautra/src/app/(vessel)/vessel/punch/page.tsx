@@ -30,7 +30,7 @@ import {
   CardBody,
   Checkbox,
   Chip,
-  GlassCard,
+  SurfaceCard,
   Input,
   Modal,
   ModalBody,
@@ -42,7 +42,7 @@ import {
   Select,
   SelectItem,
   useDisclosure,
-  useGlassModalProps,
+  useModalProps,
 } from "@/ui";
 import { GroupHeader } from "../_components/group-header";
 
@@ -159,7 +159,7 @@ export default function PunchPage() {
   /* ───────── 事後入力・差戻し再入力（自分の記録のみ） ───────── */
   const afterModal = useDisclosure();
   const resubmitModal = useDisclosure();
-  const glassModal = useGlassModalProps();
+  const modalProps = useModalProps();
   const [afterDate, setAfterDate] = useState(today);
   const [afterFrom, setAfterFrom] = useState("08:00");
   const [afterTo, setAfterTo] = useState("12:00");
@@ -181,10 +181,21 @@ export default function PunchPage() {
     return map;
   }, [approvals]);
 
-  const history = useMemo(
-    () => [...viewRecords].sort((a, b) => b.occurredAt.localeCompare(a.occurredAt)).slice(0, 50),
+  /**
+   * 打刻履歴。
+   *
+   * 既定では**直近20件**だけを出す。乗船中は1日4件前後たまるため、全期間を出すと
+   * 画面が数千ピクセルになり、直近の打刻を確かめるだけでも延々とめくることになる。
+   * さかのぼって確かめたいときのために、下のボタンで100件まで広げられるようにする。
+   */
+  const sortedHistory = useMemo(
+    () => [...viewRecords].sort((a, b) => b.occurredAt.localeCompare(a.occurredAt)),
     [viewRecords],
   );
+  const [historyExpanded, setHistoryExpanded] = useState(false);
+  const historyLimit = historyExpanded ? 100 : 20;
+  const history = sortedHistory.slice(0, historyLimit);
+  const hiddenCount = Math.max(0, Math.min(sortedHistory.length, 100) - history.length);
 
   async function submitAfterEntry() {
     setFormError(null);
@@ -252,7 +263,7 @@ export default function PunchPage() {
       <GroupHeader group="01" />
 
       {/* 現在時刻（秒まで）と打刻者 */}
-      <GlassCard blurred>
+      <SurfaceCard>
         <CardBody className="flex flex-wrap items-end justify-between gap-3 p-5">
           <div>
             <p className="text-sm text-foreground-600">
@@ -271,7 +282,7 @@ export default function PunchPage() {
             <p className="text-sm text-foreground-600">打刻できるのはサインイン中の本人のみです</p>
           </div>
         </CardBody>
-      </GlassCard>
+      </SurfaceCard>
 
       {/* 進行中の作業（並列可） */}
       <section aria-label="進行中の作業" className="flex flex-col gap-2">
@@ -280,18 +291,18 @@ export default function PunchPage() {
           <span className="ml-2 tabular-nums text-foreground-600">{openIntervals.length}件</span>
         </h2>
         {openIntervals.length === 0 ? (
-          <GlassCard>
+          <SurfaceCard>
             <CardBody className="p-4">
               <p className="text-foreground-600">
                 進行中の作業はありません。下の作業をタップして「作業開始」を押してください。
               </p>
             </CardBody>
-          </GlassCard>
+          </SurfaceCard>
         ) : (
           openIntervals.map((iv) => {
             const isSelected = selected === iv.workCategory;
             return (
-              <GlassCard key={iv.startRecordId} blurred className="border-2 border-primary">
+              <SurfaceCard key={iv.startRecordId} className="border-2 border-primary">
                 <CardBody className="flex flex-wrap items-center justify-between gap-3 p-4">
                   <div>
                     <p className="text-xl font-bold">
@@ -327,7 +338,7 @@ export default function PunchPage() {
                       <Button
                         variant="bordered"
                         radius="md"
-                        className="min-h-14 border-[var(--glass-border-strong)] text-foreground"
+                        className="min-h-14 border-[var(--ui-hairline-strong)] text-foreground"
                         onPress={() => setSelected(null)}
                       >
                         やめる
@@ -337,14 +348,14 @@ export default function PunchPage() {
                     <Button
                       variant="bordered"
                       radius="md"
-                      className="min-h-14 w-full border-[var(--glass-border-strong)] text-lg font-semibold text-foreground"
+                      className="min-h-14 w-full border-[var(--ui-hairline-strong)] text-lg font-semibold text-foreground"
                       onPress={() => setSelected(iv.workCategory)}
                     >
                       この作業を終了する
                     </Button>
                   )}
                 </CardBody>
-              </GlassCard>
+              </SurfaceCard>
             );
           })
         )}
@@ -378,7 +389,7 @@ export default function PunchPage() {
         ) : null}
 
         {otherCategories.length > 0 ? (
-          <details className="glass-tile p-4">
+          <details className="ui-card p-4">
             <summary className="cursor-pointer text-base font-semibold">
               割り当て外の作業を打刻する（{otherCategories.length}件）
             </summary>
@@ -402,7 +413,7 @@ export default function PunchPage() {
 
         {/* 2段階目: 選択した作業の開始/終了を確定する */}
         {selected && !openCategories.has(selected) ? (
-          <GlassCard blurred className="border-2 border-primary">
+          <SurfaceCard className="border-2 border-primary">
             <CardBody className="flex flex-col gap-3 p-4">
               <p className="text-lg">
                 <span className="font-bold">{tr("workCategory", selected)}</span> を開始します
@@ -421,7 +432,7 @@ export default function PunchPage() {
               </Checkbox>
 
               {isExceptional ? (
-                <div className="glass-inset flex flex-col gap-3 p-3">
+                <div className="ui-inset flex flex-col gap-3 p-3">
                   <RadioGroup
                     orientation="horizontal"
                     label="別枠の区分"
@@ -451,7 +462,7 @@ export default function PunchPage() {
                 <Button
                   variant="bordered"
                   radius="md"
-                  className="min-h-14 border-[var(--glass-border-strong)] text-foreground"
+                  className="min-h-14 border-[var(--ui-hairline-strong)] text-foreground"
                   onPress={() => {
                     setSelected(null);
                     clearException();
@@ -469,19 +480,19 @@ export default function PunchPage() {
                 </Button>
               </div>
             </CardBody>
-          </GlassCard>
+          </SurfaceCard>
         ) : null}
       </section>
 
       {error ? (
-        <Card className="glass-tile border border-danger" shadow="none">
+        <Card className="ui-card border border-danger" shadow="none">
           <CardBody>
             <p className="text-danger">✕ {error}</p>
           </CardBody>
         </Card>
       ) : null}
       {confirmation ? (
-        <Card className="glass-tile border border-[var(--glass-border-strong)]" shadow="none">
+        <Card className="ui-card border border-[var(--ui-hairline-strong)]" shadow="none">
           <CardBody>
             <p className="font-semibold">✓ {confirmation}</p>
           </CardBody>
@@ -502,7 +513,7 @@ export default function PunchPage() {
               color="primary"
               variant="bordered"
               radius="md"
-              className="min-h-12 border-[var(--glass-border-strong)] font-semibold text-foreground"
+              className="min-h-12 border-[var(--ui-hairline-strong)] font-semibold text-foreground"
               onPress={() => {
                 setFormError(null);
                 afterModal.onOpen();
@@ -514,7 +525,7 @@ export default function PunchPage() {
         </div>
 
         {canAdjustCrew ? (
-          <GlassCard>
+          <SurfaceCard>
             <CardBody className="flex flex-wrap items-center gap-3 p-4">
               <Select
                 label="表示する船員（船長のみ）"
@@ -534,17 +545,17 @@ export default function PunchPage() {
                 他船員の打刻は参照のみです。誤りがある場合は 02 の船内承認から本人へ差戻し、本人が再入力します。
               </p>
             </CardBody>
-          </GlassCard>
+          </SurfaceCard>
         ) : null}
 
         {history.length === 0 ? (
-          <GlassCard>
+          <SurfaceCard>
             <CardBody className="p-4">
               <p className="text-foreground-600">
                 打刻がありません。上の作業から打刻するか、「事後入力」で記録してください。
               </p>
             </CardBody>
-          </GlassCard>
+          </SurfaceCard>
         ) : null}
 
         {history.map((r) => {
@@ -554,7 +565,7 @@ export default function PunchPage() {
             <Card
               key={r.id}
               shadow="none"
-              className={cn("glass-row", remandReason && "border border-danger")}
+              className={cn("ui-row", remandReason && "border border-danger")}
             >
               <CardBody className="flex flex-col gap-2 p-4">
                 <div className="flex flex-wrap items-center gap-2">
@@ -612,10 +623,26 @@ export default function PunchPage() {
             </Card>
           );
         })}
+
+        {hiddenCount > 0 ? (
+          <Button
+            variant="bordered"
+            radius="md"
+            className="min-h-12 border-[var(--ui-hairline)] font-semibold text-foreground"
+            onPress={() => setHistoryExpanded(true)}
+          >
+            もっと前の打刻を見る（あと {hiddenCount} 件）
+          </Button>
+        ) : null}
+        {historyExpanded && sortedHistory.length > 100 ? (
+          <p className="text-sm text-foreground-600">
+            新しい順に100件まで表示しています。これより前の記録は 02 労務管理記録簿で月ごとに確認できます。
+          </p>
+        ) : null}
       </section>
 
       {/* 事後入力 */}
-      <Modal {...glassModal} isOpen={afterModal.isOpen} onOpenChange={afterModal.onOpenChange} placement="center">
+      <Modal {...modalProps} isOpen={afterModal.isOpen} onOpenChange={afterModal.onOpenChange} placement="center">
         <ModalContent>
           <ModalHeader>事後入力（打刻し忘れた作業の記録）</ModalHeader>
           <ModalBody className="flex flex-col gap-3">
@@ -654,7 +681,7 @@ export default function PunchPage() {
 
       {/* 差戻し再入力 */}
       <Modal
-        {...glassModal}
+        {...modalProps}
         isOpen={resubmitModal.isOpen}
         onOpenChange={resubmitModal.onOpenChange}
         placement="center"
@@ -720,10 +747,10 @@ function WorkTile({
       aria-pressed={active}
       onClick={onSelect}
       className={cn(
-        "glass-tile flex min-h-24 flex-col items-start justify-center gap-1 p-4 text-left",
+        "ui-card flex min-h-24 flex-col items-start justify-center gap-1 p-4 text-left",
         active
           ? // globals.css の材質クラスは utilities より後に定義されるため、
-            // 塗りつぶしは important 付きで指定しないと .glass-tile の背景に負けて
+            // 塗りつぶしは important 付きで指定しないと .ui-card の背景に負けて
             // 「白地に白文字」になる（作業中のタイルが読めなくなる）
             "border-2 border-primary !bg-primary !text-primary-foreground"
           : "border-2 border-transparent",

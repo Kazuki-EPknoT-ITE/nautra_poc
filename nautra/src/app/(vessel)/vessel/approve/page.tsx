@@ -17,7 +17,7 @@ import {
   Button,
   CardBody,
   Chip,
-  GlassCard,
+  SurfaceCard,
   Modal,
   ModalBody,
   ModalContent,
@@ -28,7 +28,7 @@ import {
   StatusChip,
   Textarea,
   useDisclosure,
-  useGlassModalProps,
+  useModalProps,
 } from "@/ui";
 
 import { GroupHeader } from "../_components/group-header";
@@ -55,7 +55,7 @@ export default function ApprovePage() {
   const today = ymdLocal(now);
 
   const remandModal = useDisclosure();
-  const glassModal = useGlassModalProps();
+  const modalProps = useModalProps();
   const [remandRow, setRemandRow] = useState<DayRow | null>(null);
   const [remandTargetId, setRemandTargetId] = useState<string>("");
   const [remandReason, setRemandReason] = useState("");
@@ -140,7 +140,7 @@ export default function ApprovePage() {
       <p className="text-sm text-foreground-600">承認者: {session?.name}（{session ? t.role[session.role] : ""}）</p>
 
       {/* 何をすればよいかを最初に大きく出す */}
-      <GlassCard blurred className={pendingRows.length > 0 ? "border-2 border-warning" : undefined}>
+      <SurfaceCard className={pendingRows.length > 0 ? "border-2 border-warning" : undefined}>
         <CardBody className="flex flex-col gap-2 p-5">
           <p className="text-balance text-2xl font-bold">
             <span aria-hidden="true" className="mr-2">
@@ -160,21 +160,21 @@ export default function ApprovePage() {
             </p>
           ) : null}
         </CardBody>
-      </GlassCard>
+      </SurfaceCard>
 
       <div className="flex flex-col gap-2">
         {rows.length === 0 ? (
-          <GlassCard>
+          <SurfaceCard>
             <CardBody className="p-4">
               <p className="text-foreground-600">直近3日間に承認対象の記録がありません。</p>
             </CardBody>
-          </GlassCard>
+          </SurfaceCard>
         ) : null}
         {rows.map((row) => {
           const decided = row.approval?.decision;
           const attention = row.summary.level !== "ok";
           return (
-            <GlassCard
+            <SurfaceCard
               key={`${row.crew.id}-${row.date}`}
               className={cn(
                 "border-2",
@@ -257,14 +257,14 @@ export default function ApprovePage() {
                   </Button>
                 </div>
               </CardBody>
-            </GlassCard>
+            </SurfaceCard>
           );
         })}
       </div>
 
       </PermissionGate>
 
-      <Modal {...glassModal} isOpen={remandModal.isOpen} onOpenChange={remandModal.onOpenChange} placement="center">
+      <Modal {...modalProps} isOpen={remandModal.isOpen} onOpenChange={remandModal.onOpenChange} placement="center">
         <ModalContent>
           <ModalHeader>差戻し（本人再入力の依頼）</ModalHeader>
           <ModalBody className="flex flex-col gap-3">

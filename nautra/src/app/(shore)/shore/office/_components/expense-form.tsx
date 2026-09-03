@@ -21,7 +21,7 @@ export function ExpenseForm({
   const [targetVesselId, setTargetVesselId] = useState(vessels[0]?.id ?? "");
 
   return (
-    <form action={formAction} className="glass-tile flex flex-col gap-3 p-4">
+    <form action={formAction} className="ui-card flex flex-col gap-3 p-4">
       <h3 className="font-bold">経費を登録する</h3>
       <input type="hidden" name="kind" value={kind} />
       <input type="hidden" name="targetVesselId" value={targetVesselId} />

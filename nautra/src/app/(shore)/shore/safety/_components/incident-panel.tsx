@@ -36,7 +36,7 @@ export function IncidentPanel(props: IncidentPanelProps) {
 
   return (
     <div className="flex flex-col gap-3">
-      <form action={formAction} className="glass-inset flex flex-col gap-3 p-3">
+      <form action={formAction} className="ui-inset flex flex-col gap-3 p-3">
         <h4 className="text-sm font-bold">陸上から追記する</h4>
         <input type="hidden" name="incidentId" value={props.incidentId} />
         <input type="hidden" name="status" value={status} />
@@ -146,7 +146,7 @@ export function IncidentPanel(props: IncidentPanelProps) {
           ) : null}
         </div>
         {draftState?.draft ? (
-          <pre className="glass-inset max-h-96 overflow-auto whitespace-pre-wrap p-3 text-xs">
+          <pre className="ui-inset max-h-96 overflow-auto whitespace-pre-wrap p-3 text-xs">
             {draftState.draft}
           </pre>
         ) : null}

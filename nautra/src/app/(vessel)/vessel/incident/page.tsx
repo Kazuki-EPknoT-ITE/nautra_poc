@@ -15,7 +15,7 @@ import {
   CardBody,
   Checkbox,
   Chip,
-  GlassCard,
+  SurfaceCard,
   Input,
   Modal,
   ModalBody,
@@ -24,7 +24,7 @@ import {
   ModalHeader,
   Textarea,
   useDisclosure,
-  useGlassModalProps,
+  useModalProps,
 } from "@/ui";
 import { GroupHeader } from "../_components/group-header";
 import { RecordTile } from "../_components/record-tile";
@@ -54,7 +54,7 @@ export default function IncidentPage() {
   const session = useSessionCrew();
   const { tr } = useLocale();
   const reports = useRecords("incident_report");
-  const glassModal = useGlassModalProps();
+  const modalProps = useModalProps();
   const [done, setDone] = useState<string | null>(null);
 
   const modal = useDisclosure();
@@ -170,7 +170,7 @@ export default function IncidentPage() {
     <div className="flex flex-col gap-4">
       <GroupHeader group="07" subtitle="事故・ヒヤリ" />
 
-      <GlassCard blurred>
+      <SurfaceCard>
         <CardBody className="flex flex-col gap-2 p-5">
           <p className="text-pretty text-lg font-bold">報告した人を責めません</p>
           <p className="text-pretty text-foreground-600">
@@ -179,7 +179,7 @@ export default function IncidentPage() {
             <strong>標題と状況だけ</strong>で送れます。原因や対策は、あとから陸上と一緒に埋めます。
           </p>
         </CardBody>
-      </GlassCard>
+      </SurfaceCard>
 
       <section aria-label="報告の種類" className="flex flex-col gap-2">
         <h2 className="text-base font-bold text-foreground-600">どれを報告しますか</h2>
@@ -204,14 +204,14 @@ export default function IncidentPage() {
       <section aria-label="報告の履歴" className="flex flex-col gap-2">
         <h2 className="text-base font-bold text-foreground-600">この船の報告（新しい順）</h2>
         {effective.length === 0 ? (
-          <Card shadow="none" className="glass-tile">
+          <Card shadow="none" className="ui-card">
             <CardBody>
               <p className="text-foreground-600">報告はありません。</p>
             </CardBody>
           </Card>
         ) : null}
         {effective.map((r) => (
-          <Card key={r.id} shadow="none" className="glass-tile">
+          <Card key={r.id} shadow="none" className="ui-card">
             <CardBody className="flex flex-col gap-2">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="tabular-nums font-bold">{fmtDateTime(r.occurredAt)}</span>
@@ -241,7 +241,7 @@ export default function IncidentPage() {
 
               {/* 陸上が追記した原因分析・再発防止策（origin=both のため Pull で届く） */}
               {r.cause || r.preventiveAction ? (
-                <div className="glass-inset flex flex-col gap-1 p-3">
+                <div className="ui-inset flex flex-col gap-1 p-3">
                   {r.cause ? <p className="text-pretty text-sm">原因: {r.cause}</p> : null}
                   {r.preventiveAction ? (
                     <p className="text-pretty text-sm">再発防止: {r.preventiveAction}</p>
@@ -270,7 +270,7 @@ export default function IncidentPage() {
                   size="sm"
                   variant="bordered"
                   radius="md"
-                  className="ml-auto min-h-11 border-[var(--glass-border-strong)] text-foreground"
+                  className="ml-auto min-h-11 border-[var(--ui-hairline-strong)] text-foreground"
                   onPress={() => openCorrection(r)}
                 >
                   内容を直す
@@ -282,7 +282,7 @@ export default function IncidentPage() {
       </section>
 
       <Modal
-        {...glassModal}
+        {...modalProps}
         isOpen={modal.isOpen}
         onOpenChange={modal.onOpenChange}
         placement="center"
@@ -318,7 +318,7 @@ export default function IncidentPage() {
 
             {/* コンテナ海中転落は付近船舶等への通報義務がある（3.5.2） */}
             {kind === "container_loss" ? (
-              <div className="glass-inset flex flex-col gap-2 p-3">
+              <div className="ui-inset flex flex-col gap-2 p-3">
                 <Checkbox
                   size="lg"
                   isSelected={notifiedNearbyShips}
@@ -334,7 +334,7 @@ export default function IncidentPage() {
             ) : null}
 
             {/* ヒヤリハットは任意項目を隠し、標題と状況だけで送れるようにする */}
-            <details className="glass-inset p-3" open={!isMinimal}>
+            <details className="ui-inset p-3" open={!isMinimal}>
               <summary className="cursor-pointer text-base font-semibold">
                 くわしく書く（書かなくても送れます）
               </summary>

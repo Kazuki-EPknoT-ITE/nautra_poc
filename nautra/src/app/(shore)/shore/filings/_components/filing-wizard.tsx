@@ -79,7 +79,7 @@ export function FilingWizard({
   }
 
   return (
-    <form action={formAction} className="glass-tile flex flex-col gap-4 p-4">
+    <form action={formAction} className="ui-card flex flex-col gap-4 p-4">
       <h2 className="font-bold">新しい届出を作る</h2>
 
       <input type="hidden" name="filingType" value={filingType} />
@@ -87,7 +87,7 @@ export function FilingWizard({
       <input type="hidden" name="targets" value={JSON.stringify(targets)} />
 
       {/* 手順① 種別・方式 */}
-      <div className="glass-inset flex flex-col gap-3 p-3">
+      <div className="ui-inset flex flex-col gap-3 p-3">
         <h3 className="text-sm font-bold">手順1 どの届出をどの方式で出すか</h3>
         <RadioGroup
           orientation="horizontal"
@@ -118,7 +118,7 @@ export function FilingWizard({
       </div>
 
       {/* 手順② 対象の選択（複数船員・複数船舶） */}
-      <div className="glass-inset flex flex-col gap-3 p-3">
+      <div className="ui-inset flex flex-col gap-3 p-3">
         <h3 className="text-sm font-bold">手順2 対象をまとめて選ぶ（複数の船員・複数の船をまとめて出せます）</h3>
 
         {candidates.length === 0 ? (

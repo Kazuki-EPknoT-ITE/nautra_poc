@@ -34,7 +34,7 @@ import {
   SelectItem,
   Textarea,
   useDisclosure,
-  useGlassModalProps,
+  useModalProps,
 } from "@/ui";
 import { GroupHeader } from "../_components/group-header";
 import { RecordTile } from "../_components/record-tile";
@@ -55,7 +55,7 @@ export default function SafetyPage() {
   const drills = useRecords("drill_record");
   const alcohols = useRecords("alcohol_check");
   const [done, setDone] = useState<string | null>(null);
-  const glassModal = useGlassModalProps();
+  const modalProps = useModalProps();
 
   // ── 操練 ──
   const drillModal = useDisclosure();
@@ -170,14 +170,14 @@ export default function SafetyPage() {
       <section aria-label="操練・検知の履歴" className="flex flex-col gap-2">
         <h2 className="text-base font-bold text-foreground-600">履歴（新しい順）</h2>
         {history.length === 0 ? (
-          <Card shadow="none" className="glass-tile">
+          <Card shadow="none" className="ui-card">
             <CardBody>
               <p className="text-foreground-600">記録がありません。</p>
             </CardBody>
           </Card>
         ) : null}
         {history.map((h) => (
-          <Card key={h.r.id} shadow="none" className="glass-tile">
+          <Card key={h.r.id} shadow="none" className="ui-card">
             <CardBody className="flex flex-col gap-2">
               {h.kind === "drill" ? (
                 <div className="flex flex-wrap items-center gap-2">
@@ -214,7 +214,7 @@ export default function SafetyPage() {
 
       {/* 操練 */}
       <Modal
-        {...glassModal}
+        {...modalProps}
         isOpen={drillModal.isOpen}
         onOpenChange={drillModal.onOpenChange}
         placement="center"
@@ -261,7 +261,7 @@ export default function SafetyPage() {
       </Modal>
 
       {/* アルコール検知 */}
-      <Modal {...glassModal} isOpen={alcoholModal.isOpen} onOpenChange={alcoholModal.onOpenChange} placement="center">
+      <Modal {...modalProps} isOpen={alcoholModal.isOpen} onOpenChange={alcoholModal.onOpenChange} placement="center">
         <ModalContent>
           <ModalHeader>アルコール検知記録</ModalHeader>
           <ModalBody className="flex flex-col gap-3">
@@ -294,7 +294,7 @@ export default function SafetyPage() {
               <Radio value="detector">{tr("alcoholMethod", "detector")}</Radio>
               <Radio value="visual">{tr("alcoholMethod", "visual")}</Radio>
             </RadioGroup>
-            <div className={cn("rounded-medium p-3", previewResult === "fail" ? "bg-danger/15 text-danger" : "glass-inset")}>
+            <div className={cn("rounded-medium p-3", previewResult === "fail" ? "bg-danger/15 text-danger" : "ui-inset")}>
               判定: {previewResult ? tr("alcoholResult", previewResult) : "—"}
               <span className="ml-2 text-sm text-foreground-600">
                 （基準値 {limit} mg/L 以上で乗務不可。安全ルール版 {DEFAULT_SAFETY_RULE_SET.version}）

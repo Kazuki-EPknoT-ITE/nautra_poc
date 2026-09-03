@@ -33,7 +33,7 @@ import {
   SelectItem,
   Textarea,
   useDisclosure,
-  useGlassModalProps,
+  useModalProps,
 } from "@/ui";
 import { CrewPicker } from "../_components/crew-picker";
 import { GroupHeader } from "../_components/group-header";
@@ -122,7 +122,7 @@ export default function WorkPage() {
   const { crew, select: selectCrew, canSwitch } = useActiveCrew();
   const reports = useRecords("work_report");
   const modal = useDisclosure();
-  const glassModal = useGlassModalProps();
+  const modalProps = useModalProps();
   const [form, setForm] = useState<FormState>(() => emptyForm("cargo", crew.id));
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
@@ -213,7 +213,7 @@ export default function WorkPage() {
         </Chip>
       ) : null}
 
-      <Card shadow="none" className="glass-tile glass-blur border border-warning/60">
+      <Card shadow="none" className="ui-card border border-warning/60">
         <CardBody className="flex flex-col items-start gap-2 text-left sm:flex-row sm:items-center sm:gap-6">
           <div className="shrink-0">
             <p className="text-sm text-foreground-600">スタンバイ待機時間（直近7日・全船員）</p>
@@ -238,7 +238,7 @@ export default function WorkPage() {
             radius="full"
             variant={filter === f ? "solid" : "bordered"}
             color={filter === f ? "primary" : "default"}
-            className={cn("min-h-10", filter !== f && "border-[var(--glass-border-strong)] text-foreground")}
+            className={cn("min-h-10", filter !== f && "border-[var(--ui-hairline-strong)] text-foreground")}
             onPress={() => setFilter(f)}
           >
             {f === "all" ? "すべて" : t.workReportType[f]}
@@ -248,7 +248,7 @@ export default function WorkPage() {
 
       <section aria-label="作業記録の履歴" className="flex flex-col gap-2">
         {visible.length === 0 ? (
-          <Card shadow="none" className="glass-tile">
+          <Card shadow="none" className="ui-card">
             <CardBody>
               <p className="text-foreground-600">記録がありません。</p>
             </CardBody>
@@ -257,7 +257,7 @@ export default function WorkPage() {
         {visible.map((r) => {
           const mins = durationMinutes(r);
           return (
-            <Card key={r.id} shadow="none" className="glass-tile">
+            <Card key={r.id} shadow="none" className="ui-card">
               <CardBody className="flex flex-col gap-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="tabular-nums font-bold">
@@ -278,7 +278,7 @@ export default function WorkPage() {
         })}
       </section>
 
-      <Modal {...glassModal} isOpen={modal.isOpen} onOpenChange={modal.onOpenChange} placement="center" scrollBehavior="inside">
+      <Modal {...modalProps} isOpen={modal.isOpen} onOpenChange={modal.onOpenChange} placement="center" scrollBehavior="inside">
         <ModalContent>
           <ModalHeader>{t.workReportType[form.reportType]} の記録</ModalHeader>
           <ModalBody className="flex flex-col gap-3">

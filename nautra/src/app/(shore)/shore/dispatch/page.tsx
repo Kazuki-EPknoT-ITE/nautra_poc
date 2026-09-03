@@ -48,7 +48,7 @@ export default async function ShoreDispatchPage() {
       </div>
 
       {/* 3.7.1 留意点: 無償 AIS は SLA がないため参考情報と位置づける */}
-      <section aria-label="位置情報の扱い" className="glass-tile p-4">
+      <section aria-label="位置情報の扱い" className="ui-card p-4">
         <h2 className="mb-1 font-bold">⚠ この画面の位置は「参考情報」です</h2>
         <p className="text-sm text-foreground-600">
           位置は AIS の配信サービスやスマートフォンの GPS から受け取っています。受信が途切れたり、
@@ -59,7 +59,7 @@ export default async function ShoreDispatchPage() {
       </section>
 
       {/* 3.7.1 船ごとの最新位置 */}
-      <section aria-label="いまの位置" className="glass-tile p-4">
+      <section aria-label="いまの位置" className="ui-card p-4">
         <h2 className="mb-2 font-bold">いまの位置</h2>
         {views.every((v) => !v.latest) ? (
           <p className="text-sm text-foreground-500">位置の情報はまだありません。</p>
@@ -68,7 +68,7 @@ export default async function ShoreDispatchPage() {
             {views.map((v) => (
               <li
                 key={v.vesselId}
-                className="flex flex-col gap-1 border-b border-[var(--glass-border)] pb-3 last:border-b-0"
+                className="flex flex-col gap-1 border-b border-[var(--ui-hairline)] pb-3 last:border-b-0"
               >
                 <div className="flex flex-wrap items-center gap-2 text-sm">
                   <span className="font-bold">{v.vesselName}</span>
@@ -112,7 +112,7 @@ export default async function ShoreDispatchPage() {
       </section>
 
       {/* 簡易海図（外部の地図タイル・ライブラリは使わない） */}
-      <section aria-label="簡易海図" className="glass-tile p-4">
+      <section aria-label="簡易海図" className="ui-card p-4">
         <h2 className="mb-2 font-bold">簡易海図（日本近海）</h2>
         {chartVessels.length === 0 ? (
           <p className="text-sm text-foreground-500">図に出せる位置がありません。</p>
@@ -130,10 +130,10 @@ export default async function ShoreDispatchPage() {
           </span>
         </h2>
         {schedules.length === 0 ? (
-          <p className="glass-tile p-4 text-sm text-foreground-500">配船の予定はありません。</p>
+          <p className="ui-card p-4 text-sm text-foreground-500">配船の予定はありません。</p>
         ) : (
           schedules.map((s) => (
-            <div key={s.schedule.id} className="glass-tile flex flex-col gap-2 p-4">
+            <div key={s.schedule.id} className="ui-card flex flex-col gap-2 p-4">
               <div className="flex flex-wrap items-center gap-2 text-sm">
                 <span className="font-bold">{s.vesselName}</span>
                 <span className="tabular-nums text-foreground-500">
