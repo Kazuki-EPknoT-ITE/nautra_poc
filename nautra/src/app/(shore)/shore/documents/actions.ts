@@ -2,6 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 import {
+  publishBulkPermit,
+  publishCrewRegister,
+  publishDrillRecordDoc,
   publishOperationReport,
   publishOpinionStatement,
   recordSubmission,
@@ -80,6 +83,88 @@ export async function createOperationReportAction(
   try {
     const published = publishOperationReport(
       String(formData.get("month") ?? ""),
+      guard.staff.id,
+      `${guard.staff.name}（${t.shoreRole[guard.staff.role]}）`,
+    );
+    revalidatePath("/shore/documents");
+    return {
+      ok: true,
+      message: `作成しました: ${published.title}（一覧の「印刷する」から出力できます）`,
+    };
+  } catch (e) {
+    return { ok: false, message: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+/**
+ * 海員名簿の出力（要件定義書 9章 / 6.2 B群）。
+ * 名簿は入力せず、乗下船の記録から組み立てる（常時最新に自動維持）。
+ */
+export async function createCrewRegisterAction(
+  _prev: DocumentFormState,
+  formData: FormData,
+): Promise<DocumentFormState> {
+  const guard = await requireShore("manage_documents");
+  if (!guard.ok) return DENIED;
+  try {
+    const published = publishCrewRegister(
+      String(formData.get("vesselId") ?? ""),
+      guard.staff.id,
+      `${guard.staff.name}（${t.shoreRole[guard.staff.role]}）`,
+    );
+    revalidatePath("/shore/documents");
+    return {
+      ok: true,
+      message: `作成しました: ${published.title}（一覧の「印刷する」から出力できます）`,
+    };
+  } catch (e) {
+    return { ok: false, message: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+/**
+ * 一括届出許可申請書・電子届出登録申請書（要件定義書 3.8.3 申請方法B / 6.6③）。
+ * 蓄積済みの届出実績と労務管理の体制を疎明材料として添える。
+ */
+export async function createBulkPermitAction(
+  _prev: DocumentFormState,
+  formData: FormData,
+): Promise<DocumentFormState> {
+  const guard = await requireShore("manage_documents");
+  if (!guard.ok) return DENIED;
+  try {
+    const office = String(formData.get("office") ?? "").trim();
+    if (!office) return { ok: false, message: "提出先の運輸局を入力してください" };
+    const published = publishBulkPermit(
+      office,
+      guard.staff.id,
+      `${guard.staff.name}（${t.shoreRole[guard.staff.role]}）`,
+    );
+    revalidatePath("/shore/documents");
+    return {
+      ok: true,
+      message: `作成しました: ${published.title}（一覧の「印刷する」から出力できます）`,
+    };
+  } catch (e) {
+    return { ok: false, message: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+/** 操練（訓練）実施記録の出力（要件定義書 9章 / 3.3.2 / 3.9） */
+export async function createDrillRecordDocAction(
+  _prev: DocumentFormState,
+  formData: FormData,
+): Promise<DocumentFormState> {
+  const guard = await requireShore("manage_documents");
+  if (!guard.ok) return DENIED;
+  try {
+    const from = String(formData.get("from") ?? "");
+    const to = String(formData.get("to") ?? "");
+    if (!from || !to) return { ok: false, message: "期間を入力してください" };
+    if (from > to) return { ok: false, message: "開始日が終了日より後になっています" };
+    const published = publishDrillRecordDoc(
+      from,
+      to,
       guard.staff.id,
       `${guard.staff.name}（${t.shoreRole[guard.staff.role]}）`,
     );

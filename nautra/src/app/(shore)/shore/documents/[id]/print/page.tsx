@@ -3,6 +3,9 @@ import { PRODUCT_NAME, t } from "@/i18n/ja";
 import { fmtDateTime, fmtMinutes } from "@/lib/format";
 import {
   documentById,
+  type BulkPermitSnapshot,
+  type CrewRegisterSnapshot,
+  type DrillRecordSnapshot,
   type LaborEvidenceRow,
   type OperationReportSnapshot,
   type OpinionStatementSnapshot,
@@ -11,6 +14,11 @@ import {
 import { requireShore } from "@/server/shore-session";
 import { ShoreGuardNotice } from "../../../_components/guard";
 import { PrintButton } from "../../_components/print-button";
+import {
+  BulkPermitSheet,
+  CrewRegisterSheet,
+  DrillRecordSheet,
+} from "./_components/statutory-sheets";
 
 export const dynamic = "force-dynamic";
 
@@ -51,6 +59,15 @@ function isOperationReport(snapshot: unknown): snapshot is OperationReportSnapsh
     snapshot !== null &&
     (snapshot as { documentKind?: string }).documentKind === "operation_report"
   );
+}
+
+/**
+ * スナップショットは種別ごとに形が違うので、`documentKind` で見分けて紙面を選ぶ。
+ * 保存済みの中身をそのまま描くだけで、現在のマスタは読み直さない（12.3）。
+ */
+function snapshotKind(snapshot: unknown): string | undefined {
+  if (typeof snapshot !== "object" || snapshot === null) return undefined;
+  return (snapshot as { documentKind?: string }).documentKind;
 }
 
 function StandbyTable({ rows }: { rows: StandbyPortRow[] }) {
@@ -315,6 +332,12 @@ export default async function DocumentPrintPage({ params }: { params: Promise<{ 
               <LaborTable rows={snapshot.laborRows} ruleVersion={snapshot.appliedRuleVersion} />
             </section>
           </>
+        ) : snapshotKind(snapshot) === "crew_register" ? (
+          <CrewRegisterSheet snapshot={snapshot as CrewRegisterSnapshot} />
+        ) : snapshotKind(snapshot) === "bulk_permit" ? (
+          <BulkPermitSheet snapshot={snapshot as BulkPermitSnapshot} />
+        ) : snapshotKind(snapshot) === "drill_record_doc" ? (
+          <DrillRecordSheet snapshot={snapshot as DrillRecordSnapshot} />
         ) : (
           <section className="print-block flex flex-col gap-2">
             <p className="text-sm text-foreground-600">

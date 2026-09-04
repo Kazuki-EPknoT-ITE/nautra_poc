@@ -8,6 +8,7 @@ import {
   monthRange,
   reportMonthOptions,
   standbyTotals,
+  vesselOptions,
 } from "@/server/document-service";
 import { todayLocal } from "@/server/master-service";
 import { requireShore } from "@/server/shore-session";
@@ -15,6 +16,11 @@ import { DOCUMENT_KINDS, type DocumentKind } from "@/sync-protocol/masters";
 import { ShoreGuardNotice } from "../_components/guard";
 import { OpinionForm } from "./_components/opinion-form";
 import { ReportForm } from "./_components/report-form";
+import {
+  BulkPermitForm,
+  CrewRegisterForm,
+  DrillRecordDocForm,
+} from "./_components/statutory-forms";
 import { SubmissionForm } from "./_components/submission-form";
 
 export const dynamic = "force-dynamic";
@@ -151,6 +157,13 @@ export default async function ShoreDocumentsPage({
       />
 
       <ReportForm months={months} />
+
+      {/* 9章の法定様式（海員名簿・一括届出の許可申請・操練の実施記録） */}
+      <CrewRegisterForm vessels={vesselOptions()} />
+
+      <BulkPermitForm />
+
+      <DrillRecordDocForm from={thisMonth.from} to={thisMonth.to} />
 
       <section aria-label="待機時間と荷役時間の実績" className="ui-card overflow-x-auto">
         <div className="flex flex-wrap items-center justify-between gap-2 px-4 pt-4">
