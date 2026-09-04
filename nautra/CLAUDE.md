@@ -168,7 +168,7 @@ DESIGN.md は有彩色を `#e7000b`（Ember＝エラー）だけに限る。
   メニュー右側の「お知らせ欄」（`_components/notice-panel.tsx`）に集約する
 - **一覧を全件出さない**。既定は直近ぶんだけにし、「もっと見る」で広げる
   （打刻は1日4件たまるため、全期間を出すと画面が数千ピクセルになる）。
-  長さは `scratchpad/measure.mjs` で測れる
+  長さは `e2e/measure.mjs` で測れる
 
 ### やらないこと（DESIGN.md の Don't）
 
@@ -186,8 +186,9 @@ DESIGN.md は有彩色を `#e7000b`（Ember＝エラー）だけに限る。
 - **法定帳票（要件定義書 9章）を足したら生成経路を持たせる**。種別を enum に足しただけで
   作れない帳票が残らないよう、`server/__tests__/statutory-documents.test.ts` が見張っている
 - レビューは `.claude/agents/` の **law-checker** / **sync-reviewer** サブエージェントを使用
-- E2E は `scratchpad/` の `e2e-check.mjs`（全画面のエラー）/ `e2e-flow.mjs`（主要フロー）/
-  `e2e-documents.mjs`（法定帳票の生成）/ `measure.mjs`（画面の長さ・横スクロール）
+- E2E は `e2e/` の `e2e-check.mjs`（全画面のエラー）/ `e2e-flow.mjs`（主要フロー）/
+  `e2e-documents.mjs`（法定帳票の生成）/ `measure.mjs`（画面の長さ・横スクロール）。
+  使い方は `e2e/README.md`
 
 ## PoC の簡略化（本番との差分）
 

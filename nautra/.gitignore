@@ -4,3 +4,7 @@ out/
 .data/
 *.tsbuildinfo
 next-env.d.ts
+
+# E2E の依存とスクリーンショット（検証成果物）
+e2e/node_modules/
+e2e/shots/

@@ -3,7 +3,7 @@
   "start": "npm run dev",
   "url": "http://localhost:3100",
   "readyPath": "/",
-  "notes": "陸上はサインイン必須。Cookie `nautra_shore_session` に shore-admin / shore-yamamoto（労務管理責任者）/ shore-okada（運航管理）/ shore-nishi（事務）を入れると、そのロールで開ける。scratchpad/e2e-check.mjs（全画面のコンソールエラー検査）と scratchpad/e2e-flow.mjs（主要フローの操作）・scratchpad/e2e-documents.mjs（法定帳票の生成）・scratchpad/measure.mjs（画面の長さ）を node で実行できる。",
+  "notes": "陸上はサインイン必須。Cookie `nautra_shore_session` に shore-admin / shore-yamamoto（労務管理責任者）/ shore-okada（運航管理）/ shore-nishi（事務）を入れると、そのロールで開ける。e2e/e2e-check.mjs（全画面のコンソールエラー検査）と e2e/e2e-flow.mjs（主要フローの操作）・e2e/e2e-documents.mjs（法定帳票の生成）・e2e/measure.mjs（画面の長さ）を node で実行できる。",
   "flows": [
     {
       "name": "sign-in",
@@ -134,5 +134,5 @@
       "steps": "S-15(/shore/settings): 陸上/船内の権限表・労使協定の版と「既定値 vs 協定反映後」の閾値・回線4類型・打刻の本人確認の方式・導入構成（最小/標準/全機能）・監査ログ（要配慮情報の参照が残る）"
     }
   ],
-  "playwrightTest": "node ../../scratchpad/e2e-check.mjs && node ../../scratchpad/e2e-flow.mjs && node ../../scratchpad/e2e-documents.mjs"
+  "playwrightTest": "node e2e/e2e-check.mjs && node e2e/e2e-flow.mjs && node e2e/e2e-documents.mjs"
 }
