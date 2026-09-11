@@ -83,17 +83,21 @@ export default async function ShoreCrewKartePage({ params }: { params: Promise<{
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="flex items-center gap-4">
+        <div className="flex items-start gap-4">
+          {/* 顔写真の枠（124×156）。カルテは実写を入れる想定の大きさで置く */}
           <span
             aria-hidden="true"
-            className="flex h-14 w-14 items-center justify-center rounded-full bg-default-100 text-xl font-bold"
+            className="flex h-[156px] w-[124px] flex-none flex-col items-center justify-center gap-1.5 rounded-[14px] border border-[var(--ui-hairline)] bg-[#DFE1E0]"
           >
-            {master.photo ?? master.name.slice(0, 1)}
+            <span className="text-5xl font-bold leading-none text-foreground-700">
+              {master.photo ?? master.name.slice(0, 1)}
+            </span>
+            <span className="font-mono text-2xs leading-none text-foreground-400">PHOTO</span>
           </span>
           <div>
-            <h1 className="text-balance text-2xl font-bold">{master.name}</h1>
-            <p className="text-sm text-foreground-500">
-              {master.nameKana ? `${master.nameKana} / ` : ""}
+            <h1 className="m-0 text-3xl font-bold text-foreground-900">{master.name}</h1>
+            <p className="m-0 mt-1 font-mono text-sm text-[#99877D]">{master.nameKana ?? ""}</p>
+            <p className="mt-2.5 text-base text-foreground-700">
               {master.position}
               {role ? `（船内での権限: ${t.role[role]}）` : ""}
             </p>

@@ -25,12 +25,12 @@ beforeAll(async () => {
 
 describe("船員マスタの更新（12.3 単一経路・追記型）", () => {
   it("更新しても原本は残り、有効なレコードだけが新しくなる", () => {
-    const before = ms.crewMasterOf("crew-mori");
+    const before = ms.crewMasterOf("crew-taira");
     expect(before?.address).toBe("広島県呉市中通2-4");
-    const historyBefore = svc.buildCrewMasterHistory("crew-mori").length;
+    const historyBefore = svc.buildCrewMasterHistory("crew-taira").length;
 
     const { published, changes } = svc.updateCrewMaster({
-      crewMemberId: "crew-mori",
+      crewMemberId: "crew-taira",
       actor: ACTOR,
       canEditSensitive: true,
       form: {
@@ -48,22 +48,22 @@ describe("船員マスタの更新（12.3 単一経路・追記型）", () => {
     });
 
     expect(published.supersedesId).toBe(before!.id);
-    expect(ms.crewMasterOf("crew-mori")?.address).toBe("広島県呉市中通9-9");
+    expect(ms.crewMasterOf("crew-taira")?.address).toBe("広島県呉市中通9-9");
     expect(changes.map((c) => c.label)).toContain("住所");
     // 原本は物理保持される（履歴が1件増える）
-    expect(svc.buildCrewMasterHistory("crew-mori")).toHaveLength(historyBefore + 1);
+    expect(svc.buildCrewMasterHistory("crew-taira")).toHaveLength(historyBefore + 1);
   });
 
   it("雇用保険の記号番号を登録すると配乗のブロック事由が解ける（3.1.2）", async () => {
     const { buildManningRow } = await import("@/server/manning-service");
-    const beforeRow = buildManningRow("crew-mori");
+    const beforeRow = buildManningRow("crew-taira");
     expect(beforeRow?.eligibility.issues.map((i) => i.key)).toContain(
       "insurance_missing_employment",
     );
 
-    const current = ms.crewMasterOf("crew-mori")!;
+    const current = ms.crewMasterOf("crew-taira")!;
     svc.updateCrewMaster({
-      crewMemberId: "crew-mori",
+      crewMemberId: "crew-taira",
       actor: ACTOR,
       canEditSensitive: true,
       form: {
@@ -78,18 +78,18 @@ describe("船員マスタの更新（12.3 単一経路・追記型）", () => {
       },
     });
 
-    const afterRow = buildManningRow("crew-mori");
+    const afterRow = buildManningRow("crew-taira");
     expect(afterRow?.eligibility.issues.map((i) => i.key)).not.toContain(
       "insurance_missing_employment",
     );
   });
 
   it("要配慮情報を見られない担当者が保存しても、既往歴は消えない（10.3）", () => {
-    const before = ms.crewMasterOf("crew-suzuki")!;
+    const before = ms.crewMasterOf("crew-terada")!;
     expect(before.medicalHistory).toBeTruthy();
 
     svc.updateCrewMaster({
-      crewMemberId: "crew-suzuki",
+      crewMemberId: "crew-terada",
       actor: "shore-okada",
       canEditSensitive: false,
       form: {
@@ -108,14 +108,14 @@ describe("船員マスタの更新（12.3 単一経路・追記型）", () => {
       },
     });
 
-    expect(ms.crewMasterOf("crew-suzuki")?.medicalHistory).toBe(before.medicalHistory);
-    expect(ms.crewMasterOf("crew-suzuki")?.phone).toBe("090-3333-7777");
+    expect(ms.crewMasterOf("crew-terada")?.medicalHistory).toBe(before.medicalHistory);
+    expect(ms.crewMasterOf("crew-terada")?.phone).toBe("090-3333-7777");
   });
 
   it("監査ログに要配慮情報の値を書かない（12.6）", () => {
-    const before = ms.crewMasterOf("crew-kato")!;
+    const before = ms.crewMasterOf("crew-takamatsu")!;
     svc.updateCrewMaster({
-      crewMemberId: "crew-kato",
+      crewMemberId: "crew-takamatsu",
       actor: ACTOR,
       canEditSensitive: true,
       form: {
@@ -128,17 +128,17 @@ describe("船員マスタの更新（12.3 単一経路・追記型）", () => {
 
     const log = ms
       .listAuditLogs(50)
-      .find((l) => l.entityKind === "crew_master" && l.entityId === "crew-kato");
+      .find((l) => l.entityKind === "crew_master" && l.entityId === "crew-takamatsu");
     expect(log?.action).toBe("update");
     expect(log?.after).toContain("既往歴: (変更あり)");
     expect(`${log?.before} ${log?.after} ${log?.summary}`).not.toContain("不整脈");
   });
 
   it("変更がなければ保存しない（無意味な版を増やさない）", () => {
-    const current = ms.crewMasterOf("crew-tanaka")!;
+    const current = ms.crewMasterOf("crew-oshiro")!;
     expect(() =>
       svc.updateCrewMaster({
-        crewMemberId: "crew-tanaka",
+        crewMemberId: "crew-oshiro",
         actor: ACTOR,
         canEditSensitive: true,
         form: {
@@ -174,7 +174,7 @@ describe("船員マスタの更新（12.3 単一経路・追記型）", () => {
 describe("証書の原本確認（12.4 鮮度管理）", () => {
   it("「原本を確認した」で要再確認が解け、期限の判定は変わらない", () => {
     const stale = svc
-      .crewCredentialStatuses("crew-suzuki")
+      .crewCredentialStatuses("crew-terada")
       .find((s) => s.credential.category === "medical")!;
     expect(stale.freshness).toBe("stale");
     expect(stale.expiry).not.toBe("expired");
@@ -188,7 +188,7 @@ describe("証書の原本確認（12.4 鮮度管理）", () => {
     expect(published.lastVerifiedOn).toBe(ms.todayLocal());
 
     const after = svc
-      .crewCredentialStatuses("crew-suzuki")
+      .crewCredentialStatuses("crew-terada")
       .find((s) => s.credential.category === "medical")!;
     expect(after.freshness).toBe("fresh");
     expect(after.expiry).toBe(stale.expiry);
@@ -197,7 +197,7 @@ describe("証書の原本確認（12.4 鮮度管理）", () => {
 
   it("期限切れの証書は確認しても不適合のまま（不適合と鮮度切れは別物）", () => {
     const expired = svc.createCredential({
-      crewMemberId: "crew-ishii",
+      crewMemberId: "crew-kishimoto",
       actor: ACTOR,
       form: {
         category: "small_craft",
@@ -208,21 +208,21 @@ describe("証書の原本確認（12.4 鮮度管理）", () => {
 
     svc.verifyCredentialOriginal({ credentialId: expired.id, actor: ACTOR });
     const after = svc
-      .crewCredentialStatuses("crew-ishii")
+      .crewCredentialStatuses("crew-kishimoto")
       .find((s) => s.credential.name === "二級小型船舶操縦士")!;
     expect(after.freshness).toBe("fresh");
     expect(after.expiry).toBe("expired");
     expect(after.level).toBe("violation");
   });
 
-  it("基本訓練修了証を登録すると石井の配乗ブロックが解ける（3.1.2 / 3.8.1）", async () => {
+  it("基本訓練修了証を登録すると岸本の配乗ブロックが解ける（3.1.2 / 3.8.1）", async () => {
     const { buildManningRow } = await import("@/server/manning-service");
-    expect(buildManningRow("crew-ishii")?.eligibility.issues.map((i) => i.key)).toContain(
+    expect(buildManningRow("crew-kishimoto")?.eligibility.issues.map((i) => i.key)).toContain(
       "missing_stcw_basic",
     );
 
     svc.createCredential({
-      crewMemberId: "crew-ishii",
+      crewMemberId: "crew-kishimoto",
       actor: ACTOR,
       form: {
         category: "stcw_basic",
@@ -234,7 +234,7 @@ describe("証書の原本確認（12.4 鮮度管理）", () => {
       },
     });
 
-    expect(buildManningRow("crew-ishii")?.eligibility.issues.map((i) => i.key)).not.toContain(
+    expect(buildManningRow("crew-kishimoto")?.eligibility.issues.map((i) => i.key)).not.toContain(
       "missing_stcw_basic",
     );
   });
@@ -243,13 +243,13 @@ describe("証書の原本確認（12.4 鮮度管理）", () => {
 describe("要配慮情報の参照ログ（10.3 / 12.6）", () => {
   it("カルテで表示したことが view_sensitive として残り、値は載らない", () => {
     svc.logSensitiveView({
-      crewMemberId: "crew-kato",
-      crewName: "加藤 大和",
+      crewMemberId: "crew-takamatsu",
+      crewName: "高松 誠",
       actor: "shore-yamamoto",
       screen: "船員カルテ（S-03）",
     });
     const log = ms.listAuditLogs(20).find((l) => l.action === "view_sensitive");
-    expect(log?.entityId).toBe("crew-kato");
+    expect(log?.entityId).toBe("crew-takamatsu");
     expect(log?.actor).toBe("shore-yamamoto");
     expect(log?.after).toBe("既往歴・服薬状況");
     expect(log?.summary).not.toContain("アムロジピン");

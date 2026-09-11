@@ -3,15 +3,16 @@
  * 画面側は `<Modal {...MODAL_CLASSNAMES}>` の形で参照し、独自スタイルを持たない
  * （基本設計書 6.3）。
  *
- * DESIGN.md にはモーダルの定義が無いため、**カードと同じ材質**（白の紙面・24px の角丸・
- * ヘアライン・浅い影）を流用する。背面は暗幕で落とすだけにし、ぼかしは使わない
- * （DESIGN.md はすべての面を単色で塗る）。
+ * デザイン正本 `design/poc_design` のモーダルは、紙面のカードより一段だけ丸め（6px）、
+ * 縁ではなく**落ちる影**（`0 24px 60px rgba(10,10,10,0.35)`）で浮かせる。背面は
+ * `rgba(10,10,10,0.45)` の暗幕で落とすだけにし、ぼかしは使わない。材質は `.ui-modal`。
  */
 export const MODAL_CLASSNAMES = {
   backdrop: "opaque" as const,
   classNames: {
     base: "ui-modal",
-    header: "border-b border-[var(--ui-hairline)]",
-    footer: "border-t border-[var(--ui-hairline)]",
+    header: "flex-col items-start gap-2 border-b border-[var(--ui-hairline)] px-6 pb-4 pt-5",
+    body: "px-6 py-[18px]",
+    footer: "gap-3 border-t border-[var(--ui-hairline)] px-6 pb-5 pt-4",
   },
 };

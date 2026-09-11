@@ -225,6 +225,8 @@ export const vesselMasterPayloadSchema = z
     imoNumber: z.string().optional(),
     /** AIS の識別子（3.7.1） */
     mmsi: z.string().optional(),
+    /** 船種（石灰石船・セメント船 等。配船・保守の判断材料として表示に使う） */
+    vesselType: z.string().optional(),
     /** 航行区域（基準労働期間の決定に使う。3.2.4） */
     navigationArea: z.string().optional(),
     /** 基準労働期間の日数（1月〜1年。週平均40時間の算定単位。3.2.4） */
@@ -239,6 +241,8 @@ export const vesselMasterPayloadSchema = z
     amenities: z.string().optional(),
     /** 環境情報の確認日（求人の的確表示義務は「最新性の維持」を求めるため） */
     environmentVerifiedOn: z.string().optional(),
+    /** 自社配乗をしていない（管理委託中）。配乗ボードに枠を出さない */
+    managedExternally: z.boolean().optional(),
     retiredOn: z.string().optional(),
   })
   .passthrough();
@@ -776,6 +780,71 @@ export const auditLogPayloadSchema = z
   .passthrough();
 export type AuditLogPayload = z.infer<typeof auditLogPayloadSchema>;
 
+/* ═══════════════ S-16 作業指示・タスク割当 ═══════════════ */
+
+export const WORK_TASK_STATES = ["todo", "doing", "done"] as const;
+export type WorkTaskState = (typeof WORK_TASK_STATES)[number];
+
+/**
+ * 陸上・船長が船員に割り当てる作業（デザイン正本 `design/poc_design` の S-16）。
+ *
+ * 打刻（`time_record`）は「いつ働いたか」の一次記録で、こちらは「**誰が何をやるか**」の
+ * 指示。両者を混ぜないのは、指示は取り消し・付け替えができるが、打刻はできないため
+ * （ガードレール②）。状態の変更は supersedesId 付きの新しいレコードで表す。
+ */
+export const workTaskPayloadSchema = z
+  .object({
+    ...masterBase,
+    targetVesselId: z.string(),
+    title: z.string(),
+    /** 担当船員（未割当は空） */
+    assigneeCrewId: z.string().optional(),
+    /** 期限（日時。日付だけのときは YYYY-MM-DD） */
+    dueAt: z.string().optional(),
+    state: z.enum(WORK_TASK_STATES).default("todo"),
+    /** 繰り返しの目安（毎出港・当直ごと・月次 等。表示のためのラベル） */
+    cycle: z.string().optional(),
+    /** 完了報告の一文（船内から追記される） */
+    doneNote: z.string().optional(),
+  })
+  .passthrough();
+export type WorkTaskPayload = z.infer<typeof workTaskPayloadSchema>;
+
+/* ═══════════════ S-18 削除・アーカイブ（30日の復元枠） ═══════════════ */
+
+export const TRASH_MODES = ["archive", "disable", "delete"] as const;
+export type TrashMode = (typeof TRASH_MODES)[number];
+
+/**
+ * 削除・無効化・アーカイブの記録（デザイン正本 `design/poc_design` の S-18）。
+ *
+ * **一次記録は消えない**（要件定義書 12 / ガードレール②）。ここに積まれるのは
+ * 「一覧から外す」「ログインさせない」といった**見え方の操作**で、打刻・日次レコード・
+ * 届出は法定保存期間のあいだ残り続ける。だからこそ、何が外れて何が残るかを
+ * 操作の前（削除ダイアログ）と後（この一覧）の両方で示す。
+ *
+ * 復元も追記で表す（`restoredAt` を持つ新しいレコードを supersedesId 付きで積む）。
+ */
+export const trashEntryPayloadSchema = z
+  .object({
+    ...masterBase,
+    /** 対象の種別（船員 / ユーザー / 船舶 / 作業タスク / 当直シフト …） */
+    entityKind: z.string(),
+    entityId: z.string(),
+    entityLabel: z.string(),
+    mode: z.enum(TRASH_MODES),
+    /** 操作の言い換え（「退職として無効化」など） */
+    action: z.string(),
+    /** 残るもの・影響の一文 */
+    effect: z.string().optional(),
+    /** 復元できる期限（この日を過ぎたら一覧から消える） */
+    restorableUntil: z.string(),
+    /** 復元済みなら日時が入る（追記で表すため、元レコードは書き換えない） */
+    restoredAt: z.string().optional(),
+  })
+  .passthrough();
+export type TrashEntryPayload = z.infer<typeof trashEntryPayloadSchema>;
+
 /* ═══════════════ レジストリへ渡す対応表 ═══════════════ */
 
 /**
@@ -809,4 +878,6 @@ export const MASTER_PAYLOAD_SCHEMAS = {
   generated_document: generatedDocumentPayloadSchema,
   agreement: agreementPayloadSchema,
   audit_log: auditLogPayloadSchema,
+  work_task: workTaskPayloadSchema,
+  trash_entry: trashEntryPayloadSchema,
 } as const;

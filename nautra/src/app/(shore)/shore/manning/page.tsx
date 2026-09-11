@@ -12,6 +12,7 @@ import { requireShore } from "@/server/shore-session";
 import { StatusChip } from "@/ui";
 import { ShoreGuardNotice } from "../_components/guard";
 import { EmbarkForm } from "./_components/embark-form";
+import { ManningBoard } from "./_components/manning-board";
 
 export const dynamic = "force-dynamic";
 
@@ -35,14 +36,56 @@ export default async function ShoreManningPage() {
   const recent = recentEmbarkations();
   const maxCount = Math.max(1, ...gantt.rows.flatMap((r) => r.counts));
 
+  /**
+   * ボードに渡す形へ整える（判定はサービス層が済ませているので、ここは表示用の詰め替えだけ）。
+   *
+   * **乗船中の船員には「配乗不可」と出さない**。3.1.2 のブロック条件は
+   * *これから配乗する候補*への判定で、乗っている人に同じ文言を出すと
+   * 「今すぐ降ろせ」と読めてしまう。乗船中は「何を直す必要があるか」の言い方にする。
+   */
+  const toCard = (row: (typeof ashore)[number], onBoard = false) => ({
+    crewMemberId: row.crewMemberId,
+    name: row.name,
+    position: row.position,
+    age: row.age,
+    photo: row.photo,
+    level: row.eligibility.level,
+    statusLabel: onBoard
+      ? row.eligibility.status === "blocked"
+        ? "要対応"
+        : row.eligibility.status === "caution"
+          ? "確認が要ります"
+          : "問題ありません"
+      : row.eligibility.status === "blocked"
+        ? "配乗不可"
+        : row.eligibility.status === "caution"
+          ? "要注意"
+          : "配乗可能",
+    blockNote:
+      row.eligibility.status === "blocked"
+        ? row.eligibility.issues.map((i) => i.label).join("・")
+        : null,
+    note: row.eligibility.issues.map((i) => i.label).join("・"),
+    since: row.boardedOn ?? null,
+  });
+
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-balance text-2xl font-bold">配乗計画</h1>
-        <p className="text-sm text-foreground-500">
-          船ごとの乗組みと、これから60日の見通し（基準日 {today}）
-        </p>
-      </div>
+    <div className="flex flex-col gap-[18px]">
+      <p className="m-0 text-sm text-foreground-500">
+        船ごとの乗組みと、これから60日の見通し（基準日 {today}）
+      </p>
+
+      <ManningBoard
+        pool={ashore.map((r) => toCard(r))}
+        vessels={vessels.map((v) => ({
+          vesselId: v.vesselId,
+          name: v.vesselName,
+          spec: `定員 ${v.requiredCrew ?? "—"}名`,
+          requiredCrew: v.requiredCrew,
+          managedExternally: (v.requiredCrew ?? 0) === 0,
+          crew: v.onBoard.map((r) => toCard(r, true)),
+        }))}
+      />
 
       {/* ── 船ごとの乗組み（法定定員に対する過不足） ── */}
       <section aria-label="船ごとの乗組み" className="grid gap-3 lg:grid-cols-2">

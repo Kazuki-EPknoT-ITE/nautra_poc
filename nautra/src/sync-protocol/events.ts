@@ -210,6 +210,18 @@ export const SYNC_ENTITY_REGISTRY = {
     policy: "append_only",
     origin: "both",
   },
+  // 作業指示（S-16）: 陸上・船長が起票し、船内が状態を進める。付け替えは supersedesId
+  work_task: {
+    payload: RECORD_PAYLOAD_SCHEMAS.work_task,
+    policy: "shore_priority",
+    origin: "both",
+  },
+  // 削除・アーカイブの記録（S-18）: 陸上の操作だけが積む
+  trash_entry: {
+    payload: RECORD_PAYLOAD_SCHEMAS.trash_entry,
+    policy: "shore_priority",
+    origin: "shore",
+  },
   // 監査証跡（12.6）: 陸上・船内・外部連携のいずれからも積まれる追記専用ログ
   audit_log: { payload: RECORD_PAYLOAD_SCHEMAS.audit_log, policy: "append_only", origin: "both" },
 } as const satisfies Record<

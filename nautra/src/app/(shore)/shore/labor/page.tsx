@@ -97,10 +97,9 @@ export default async function ShoreLaborPage({
   ];
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-[18px]">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-balance text-2xl font-bold">労務管理（承認・記録簿）</h1>
-        <p className="text-sm text-foreground-500">
+        <p className="m-0 text-sm text-foreground-500">
           判定は船内と同じルール版 {period.appliedRuleVersion} で行っています
         </p>
       </div>

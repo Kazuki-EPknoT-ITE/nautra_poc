@@ -4,7 +4,7 @@ import { chromium } from "playwright";
 const BASE = "http://localhost:3100";
 const b = await chromium.launch({ headless: true });
 const c = await b.newContext({ viewport: { width: 1100, height: 1400 } });
-await c.addCookies([{ name: "nautra_shore_session", value: "shore-admin", url: BASE }]);
+await c.addCookies([{ name: "nautra_shore_session", value: "shore-yamaguchi", url: BASE }]);
 const p = await c.newPage();
 
 await p.goto(`${BASE}/shore/documents`, { waitUntil: "networkidle" });

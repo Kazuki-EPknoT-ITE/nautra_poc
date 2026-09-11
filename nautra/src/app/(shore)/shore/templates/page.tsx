@@ -38,10 +38,9 @@ export default function ShoreTemplatesPage() {
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-[18px]">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-balance text-2xl font-bold">記録項目の配信（点検表・航海日誌）</h1>
-        <p className="text-sm text-foreground-500">
+        <p className="m-0 text-sm text-foreground-500">
           追加は新しい版として配信され、過去の記録は当時の版のまま保持されます。
         </p>
       </div>

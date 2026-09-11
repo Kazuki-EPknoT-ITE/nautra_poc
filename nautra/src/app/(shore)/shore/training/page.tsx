@@ -52,10 +52,9 @@ export default async function ShoreTrainingPage() {
   }));
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-[18px]">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-balance text-2xl font-bold">訓練</h1>
-        <p className="text-sm text-foreground-500">
+        <p className="m-0 text-sm text-foreground-500">
           基本訓練・実技講習・更新講習の修了状況と、船内操練の期日（基準日 {today}）
         </p>
       </div>

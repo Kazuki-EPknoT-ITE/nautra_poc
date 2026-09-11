@@ -8,22 +8,23 @@ const BASE = "http://localhost:3100";
 const THRESHOLD = 3000; // これを超えたら「読むのに延々とめくる」状態
 
 const SHORE = [
-  "/shore", "/shore/crew", "/shore/crew/crew-sato", "/shore/crew/crew-sato/edit",
-  "/shore/crew/crew-sato/credentials", "/shore/manning", "/shore/filings",
+  "/shore", "/shore/crew", "/shore/crew/crew-nakahara", "/shore/crew/crew-nakahara/edit",
+  "/shore/crew/crew-nakahara/credentials", "/shore/manning", "/shore/filings",
   "/shore/procedures", "/shore/training", "/shore/shifts", "/shore/fleet",
   "/shore/dispatch", "/shore/safety", "/shore/wellbeing", "/shore/evaluations",
   "/shore/office", "/shore/documents", "/shore/labor", "/shore/templates",
-  "/shore/notices", "/shore/settings",
+  "/shore/notices", "/shore/settings", "/shore/crew/new", "/shore/tasks",
+  "/shore/exports", "/shore/trash", "/shore/fleet/vessel-001",
 ];
 const VESSEL = [
-  "/vessel", "/vessel/punch", "/vessel/ledger", "/vessel/approve", "/vessel/logbook",
+  "/vessel", "/vessel/punch", "/vessel/history", "/vessel/ledger", "/vessel/approve", "/vessel/logbook",
   "/vessel/maintenance", "/vessel/safety", "/vessel/shift", "/vessel/work",
   "/vessel/sync", "/vessel/incident", "/vessel/wellbeing",
 ];
 
 const b = await chromium.launch({ headless: true });
 const shore = await b.newContext({ viewport: { width: 1440, height: 1000 } });
-await shore.addCookies([{ name: "nautra_shore_session", value: "shore-admin", url: BASE }]);
+await shore.addCookies([{ name: "nautra_shore_session", value: "shore-yamaguchi", url: BASE }]);
 
 const rows = [];
 async function measure(ctx, path) {
@@ -44,8 +45,8 @@ for (const path of SHORE) await measure(shore, path);
 const vessel = await b.newContext({ viewport: { width: 1280, height: 1000 } });
 const v = await vessel.newPage();
 await v.goto(`${BASE}/vessel/login`, { waitUntil: "networkidle" });
-await v.getByRole("radio", { name: /佐藤/ }).click();
-for (const d of ["2", "2", "2", "2"]) await v.getByRole("button", { name: d, exact: true }).click();
+await v.getByRole("radio", { name: /中原/ }).click();
+for (const d of ["3", "3", "3", "3"]) await v.getByRole("button", { name: d, exact: true }).click();
 await v.waitForURL(`${BASE}/vessel`, { timeout: 15000 });
 await v.close();
 for (const path of VESSEL) await measure(vessel, path);

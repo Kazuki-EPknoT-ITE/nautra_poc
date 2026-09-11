@@ -21,16 +21,90 @@ export interface ShoreStaff {
   id: string;
   name: string;
   role: ShoreRole;
+  /** 社内の肩書き（ロールとは別。同じロールでも責任の重さが違うため表示を分ける） */
   title: string;
+  /** サインイン ID（デザイン正本のメール + パスワード方式） */
+  email: string;
+  /** PoC のデモ用パスワード。本番は Supabase Auth が保持し、アプリは平文を持たない */
+  demoPassword: string;
+  /** 招待済みだが未ログイン（S-15 のユーザー管理で「招待中」と表示する） */
+  invitePending?: boolean;
 }
 
-/** デモの陸上スタッフ（本番は users テーブル + Supabase Auth） */
+/**
+ * デモの陸上スタッフ（本番は users テーブル + Supabase Auth）。
+ * 氏名・メール・肩書きはデザイン正本 `design/poc_design` の S-15 ユーザー一覧に合わせる。
+ *
+ * 承認は労務管理責任者の役割（要件定義書 3.2）。`labor_manager` を持つ人が2名いるのは
+ * 実務どおりで、**日々の起票は労務担当（白石）、最終確認は責任者（谷口）**が行う。
+ */
 export const SHORE_STAFF_ACCOUNTS: ShoreStaff[] = [
-  { id: "shore-yamamoto", name: "山本 陸", role: "labor_manager", title: "労務管理責任者" },
-  { id: "shore-okada", name: "岡田 航", role: "operations", title: "運航管理者" },
-  { id: "shore-nishi", name: "西 事務", role: "clerk", title: "事務担当" },
-  { id: "shore-admin", name: "管理者アカウント", role: "admin", title: "システム管理者" },
+  {
+    id: "shore-shiraishi",
+    name: "白石 千夏",
+    role: "labor_manager",
+    title: "労務担当",
+    email: "shiraishi@shoun-kaiun.co.jp",
+    demoPassword: "nautra-demo",
+  },
+  {
+    id: "shore-taniguchi",
+    name: "谷口 亮子",
+    role: "labor_manager",
+    title: "労務管理責任者",
+    email: "taniguchi@shoun-kaiun.co.jp",
+    demoPassword: "nautra-demo",
+  },
+  {
+    id: "shore-fujii",
+    name: "藤井 圭",
+    role: "operations",
+    title: "運航担当",
+    email: "fujii@shoun-kaiun.co.jp",
+    demoPassword: "nautra-demo",
+  },
+  {
+    id: "shore-okamoto",
+    name: "岡本 遥",
+    role: "clerk",
+    title: "経理・事務",
+    email: "okamoto@shoun-kaiun.co.jp",
+    demoPassword: "nautra-demo",
+  },
+  {
+    id: "shore-yamaguchi",
+    name: "山口 隆",
+    role: "admin",
+    title: "海務部長（管理者）",
+    email: "yamaguchi@shoun-kaiun.co.jp",
+    demoPassword: "nautra-demo",
+  },
+  {
+    id: "shore-shintani",
+    name: "新谷 実",
+    role: "labor_manager",
+    title: "労務担当",
+    email: "shintani@shoun-kaiun.co.jp",
+    demoPassword: "nautra-demo",
+    invitePending: true,
+  },
 ];
+
+/** 承認の最終権限者（デザインのサイドバー下部に出る「労務管理責任者」） */
+export const RESPONSIBLE_MANAGER = SHORE_STAFF_ACCOUNTS.find(
+  (s) => s.title === "労務管理責任者",
+)!;
+
+/**
+ * メール + パスワードでの照合（デザイン正本のサインイン画面）。
+ * PoC はデモ値の平文比較。本番は Supabase Auth に委ね、アプリはパスワードを保持しない。
+ */
+export function authenticateShore(email: string, password: string): ShoreStaff | null {
+  const normalized = email.trim().toLowerCase();
+  const staff = SHORE_STAFF_ACCOUNTS.find((s) => s.email.toLowerCase() === normalized);
+  if (!staff || staff.invitePending) return null;
+  return staff.demoPassword === password ? staff : null;
+}
 
 export function shoreStaffById(id: string): ShoreStaff | undefined {
   return SHORE_STAFF_ACCOUNTS.find((s) => s.id === id);

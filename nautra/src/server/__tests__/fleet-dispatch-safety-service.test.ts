@@ -35,7 +35,7 @@ beforeAll(async () => {
 describe("S-11 船舶・保守・検査の集約（3.4）", () => {
   it("船舶マスタと船内環境（3.5.3）が読める", () => {
     const board = fleet.buildFleetBoard(VESSEL);
-    expect(board.master?.name).toBe("第一のーとら丸");
+    expect(board.master?.name).toBe("第一昭運丸");
     expect(board.master?.grossTonnage).toBe(499);
     expect(board.master?.wifiAvailable).toBe(true);
     expect(board.environment.level).toBe("ok"); // 30日前に確認済み
@@ -125,7 +125,7 @@ describe("S-11 船舶・保守・検査の集約（3.4）", () => {
 
   it("2隻目にも切り替えられる（船ごとの集約になっている）", () => {
     const board = fleet.buildFleetBoard("vessel-002");
-    expect(board.master?.name).toBe("第二のーとら丸");
+    expect(board.master?.name).toBe("第七豊洋丸");
     expect(board.master?.wifiAvailable).toBe(false);
     expect(board.plans).toHaveLength(0); // 2隻目の保守計画はデモに無い
   });
@@ -152,13 +152,13 @@ describe("S-12 配船・位置情報（3.7）", () => {
   });
 
   it("下船予定に重なる期間で登録すると警告の材料が返る（3.7.2③）", () => {
-    // デモでは佐藤が21日後に下船予定
+    // デモでは中原が21日後に下船予定
     const from = new Date();
     from.setDate(from.getDate() + 19);
     const to = new Date();
     to.setDate(to.getDate() + 23);
     const hits = position.crewChangesFor(from.toISOString(), to.toISOString());
-    expect(hits.map((h) => h.crewName)).toContain("佐藤 海斗");
+    expect(hits.map((h) => h.crewName)).toContain("中原 拓也");
     expect(hits[0].eventType).toBe("off");
   });
 
@@ -287,7 +287,7 @@ describe("安全管理・事故報告（3.5 / 6.5）", () => {
     const result = safety.generateIncidentReportDraft(target.id, ACTOR);
     expect(result.quotedLogs).toBeGreaterThan(0);
     expect(result.body).toContain("海難等の報告書（ドラフト）");
-    expect(result.body).toContain("第一のーとら丸");
+    expect(result.body).toContain("第一昭運丸");
     expect(result.body).toContain("11. 航海日誌の記載（引用）");
     // 生成時点のスナップショットが保存され、一覧に出る
     const board = safety.buildSafetyBoard();

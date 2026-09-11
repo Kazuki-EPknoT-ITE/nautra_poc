@@ -52,10 +52,9 @@ export default async function ShoreFleetPage({
   const master = board.master;
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-[18px]">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-balance text-2xl font-bold">船舶・保守・検査</h1>
-        <p className="text-sm text-foreground-500">
+        <p className="m-0 text-sm text-foreground-500">
           期限の判定は証書ルール {board.credentialRuleVersion} で行っています
         </p>
       </div>
@@ -67,13 +66,17 @@ export default async function ShoreFleetPage({
           <Link
             key={v.id}
             href={`/shore/fleet?vessel=${v.id}`}
-            className={`rounded-medium px-3 py-1.5 text-sm ${
-              v.id === vesselId ? "bg-primary text-primary-foreground" : "bg-default-100"
+            className={`rounded-small px-3 py-1.5 text-sm ${
+              v.id === vesselId ? "bg-primary font-semibold text-primary-foreground" : "bg-default-100"
             }`}
           >
             {v.name}
           </Link>
         ))}
+        {/* 船を軸に見たいときは S-11D（船の管理ページ）へ。検査・配乗・作業が1画面に集まる */}
+        <Link href={`/shore/fleet/${vesselId}`} className="ui-btn-primary ml-auto h-9">
+          この船の管理ページを開く →
+        </Link>
       </section>
 
       {/* ── 船舶マスタ ── */}

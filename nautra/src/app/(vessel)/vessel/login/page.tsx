@@ -12,7 +12,7 @@ import {
   signIn,
   signInWithBiometric,
 } from "@/lib/vessel-session";
-import { Avatar, Button, CardBody, CardHeader, SurfaceCard } from "@/ui";
+import { CrewPickerGrid, LoginCard, PinDots } from "./_components/login-body";
 
 const PIN_LENGTH = 4;
 const KEYS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "clear", "0", "back"] as const;
@@ -134,163 +134,127 @@ export default function VesselLoginPage() {
     });
   }
 
+  const demoPins = CREW_MEMBERS.map((c) => `${c.name.split(" ")[0]} ${c.demoPin}`).join(" / ");
+
   return (
-    <div className="mx-auto flex max-w-3xl flex-col gap-5">
-      <h1 className="text-balance text-2xl font-bold">サインイン</h1>
+    <div className="mx-auto flex max-w-[900px] flex-col gap-3.5">
+      <h1 className="m-0 text-3xl font-bold text-foreground-900">サインイン</h1>
 
       {/* 放置で自動サインアウトしたときは、故障と間違われないよう理由を出す */}
       {idle ? (
-        <p className="ui-inset p-3 text-base">
+        <p className="m-0 rounded-small bg-warning-100 px-4 py-3 text-lg leading-relaxed text-foreground-700">
           <span aria-hidden="true">⏱ </span>
           しばらく操作がなかったため、サインアウトしました。
-          <span className="text-foreground-600">
+          <span className="text-foreground-500">
             {" "}
             共用の端末で、次に使う人に前の人の記録が見えないようにするためです。記録は消えていません。
           </span>
         </p>
       ) : null}
 
-      <SurfaceCard>
-        <CardHeader className="px-5 pb-2 pt-5 text-base font-bold">
-          1. 自分を選ぶ
-        </CardHeader>
-        <CardBody className="px-5 pb-5">
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4" role="radiogroup" aria-label="船員の選択">
-            {CREW_MEMBERS.map((c) => {
-              const active = selected?.id === c.id;
-              return (
-                <button
-                  key={c.id}
-                  type="button"
-                  role="radio"
-                  aria-checked={active}
-                  onClick={() => {
-                    setSelected(c);
-                    setPin("");
-                    setError(null);
-                  }}
-                  className={cn(
-                    "ui-card flex min-h-32 flex-col items-center justify-center gap-1 px-3 py-4",
-                    active ? "border-2 border-primary bg-primary/10" : "border-2 border-transparent",
-                  )}
-                >
-                  <Avatar
-                    name={c.initial}
-                    color={active ? "primary" : "default"}
-                    size="lg"
-                    className="text-xl font-bold"
-                  />
-                  <span className="text-base font-semibold">
-                    {active ? <span aria-hidden="true">✓ </span> : null}
-                    {c.name}
-                  </span>
-                  <span className="text-sm text-foreground-600">{c.position}</span>
-                </button>
-              );
-            })}
-          </div>
-        </CardBody>
-      </SurfaceCard>
+      <div className="grid items-start gap-3.5 lg:grid-cols-[minmax(0,1fr)_356px]">
+        <div className="flex flex-col gap-3.5">
+          <LoginCard title="1. ユーザーを選択">
+            <CrewPickerGrid
+              selectedId={selected?.id ?? null}
+              onSelect={(c) => {
+                setSelected(c);
+                setPin("");
+                setError(null);
+              }}
+            />
+          </LoginCard>
 
-      {/* 生体認証（3.2.1 の認証方式の選択制）。対応端末でのみ出す。
-          登録済みなら1タップでサインインでき、未登録なら PIN のあとで登録できる */}
-      {bioAvailable && selected ? (
-        <SurfaceCard>
-          <CardHeader className="px-5 pb-2 pt-5 text-base font-bold">
-            {bioRegistered ? "2. 顔・指紋でサインイン" : "顔・指紋を使う（任意）"}
-          </CardHeader>
-          <CardBody className="flex flex-col items-start gap-3 px-5 pb-5">
-            {bioRegistered ? (
-              <>
-                <Button
-                  color="primary"
-                  size="lg"
-                  className="min-h-14 w-full text-lg font-bold sm:w-auto sm:px-10"
-                  isDisabled={busy}
-                  onPress={() => void submitBiometric()}
-                >
-                  {selected.name} として顔・指紋で入る
-                </Button>
-                <p className="text-sm text-foreground-600">
-                  うまくいかないときは、下の PIN でサインインできます。
+          {/* 生体認証（3.2.1 の認証方式の選択制）。対応端末でのみ出す。
+              登録済みなら1タップでサインインでき、未登録なら PIN のあとで登録できる */}
+          {bioAvailable && selected ? (
+            <LoginCard title={bioRegistered ? "顔・指紋でサインイン" : "顔・指紋を使う（任意）"}>
+              <div className="flex flex-col items-start gap-3">
+                {bioRegistered ? (
+                  <>
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => void submitBiometric()}
+                      className="ui-btn-primary min-h-14 w-full text-xl"
+                    >
+                      {selected.name} として顔・指紋で入る
+                    </button>
+                    <p className="m-0 text-base text-foreground-500">
+                      うまくいかないときは、右の PIN でサインインできます。
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => void register()}
+                      className="ui-btn-ghost min-h-14 w-full text-lg"
+                    >
+                      この端末に顔・指紋を登録する
+                    </button>
+                    <p className="m-0 text-base text-foreground-500">
+                      登録すると、次から PIN を打たずに入れます。登録後も PIN は使えます。
+                    </p>
+                  </>
+                )}
+                {bioNotice ? <p className="m-0 text-base font-semibold">✓ {bioNotice}</p> : null}
+                <p className="m-0 text-sm text-foreground-500">
+                  顔・指紋の情報はこの端末の中だけで照合され、アプリにも陸上にも送られません。
                 </p>
-              </>
-            ) : (
-              <>
-                <Button
-                  variant="bordered"
-                  size="lg"
-                  className="min-h-14 border-[var(--ui-hairline-strong)]"
-                  isDisabled={busy}
-                  onPress={() => void register()}
-                >
-                  この端末に顔・指紋を登録する
-                </Button>
-                <p className="text-sm text-foreground-600">
-                  登録すると、次から PIN を打たずに入れます。登録後も PIN は使えます。
-                </p>
-              </>
+              </div>
+            </LoginCard>
+          ) : null}
+        </div>
+
+        <LoginCard title={selected ? `2. ${selected.name} さんの PIN（4桁）` : "2. PIN（4桁）を入力"}>
+          <PinDots filled={pin.length} length={PIN_LENGTH} />
+
+          <p
+            className={cn(
+              "m-0 mt-3 text-center text-base",
+              error ? "font-semibold text-danger" : "text-foreground-500",
             )}
-            {bioNotice ? <p className="text-sm font-semibold">✓ {bioNotice}</p> : null}
-            <p className="text-xs text-foreground-600">
-              顔・指紋の情報はこの端末の中だけで照合され、アプリにも陸上にも送られません。
-            </p>
-          </CardBody>
-        </SurfaceCard>
-      ) : null}
+            aria-live="polite"
+          >
+            {error
+              ? `✕ ${error}`
+              : !selected
+                ? "先に自分を選んでください。"
+                : "4桁目を入力すると自動で照合します。"}
+          </p>
 
-      <SurfaceCard>
-        <CardHeader className="px-5 pb-2 pt-5 text-base font-bold">
-          {bioAvailable && selected && bioRegistered ? "3. PIN（4桁）を入力" : "2. PIN（4桁）を入力"}
-        </CardHeader>
-        <CardBody className="flex flex-col items-center gap-4 px-5 pb-5">
-          <div className="flex items-center gap-3" aria-label="入力済みの桁数" aria-live="polite">
-            {Array.from({ length: PIN_LENGTH }).map((_, i) => (
-              <span
-                key={i}
-                className={cn(
-                  "size-5 rounded-full border-2 border-foreground-400",
-                  i < pin.length && "bg-foreground",
-                )}
-              />
-            ))}
-          </div>
-
-          <div className="grid w-full max-w-xs grid-cols-3 gap-2">
+          <div className="mt-2.5 grid w-full grid-cols-3 gap-2">
             {KEYS.map((k) => (
-              <Button
+              <button
                 key={k}
-                variant={k === "clear" || k === "back" ? "bordered" : "solid"}
-                color={k === "clear" || k === "back" ? "default" : "primary"}
-                radius="md"
-                isDisabled={!selected || busy}
+                type="button"
+                disabled={!selected || busy}
                 aria-label={k === "clear" ? "クリア" : k === "back" ? "1文字消す" : k}
+                onClick={() => press(k)}
                 className={cn(
-                  "min-h-14 text-xl font-bold",
-                  (k === "clear" || k === "back") &&
-                    "border-[var(--ui-hairline-strong)] text-base text-foreground",
+                  "min-h-[60px] rounded-small border text-2xl font-bold transition-colors disabled:opacity-45",
+                  k === "clear" || k === "back"
+                    ? "border-[var(--ui-hairline-strong)] bg-content1 text-lg text-foreground-700"
+                    : "border-[var(--ui-hairline-strong)] bg-content1 text-foreground-900 hover:bg-content2",
                 )}
-                onPress={() => press(k)}
               >
                 {k === "clear" ? "クリア" : k === "back" ? "← 消す" : k}
-              </Button>
+              </button>
             ))}
           </div>
 
-          {!selected ? (
-            <p className="text-foreground-600">先に自分を選んでください。</p>
-          ) : null}
-          {error ? <p className="font-semibold text-danger">✕ {error}</p> : null}
-          <p className="text-sm text-foreground-600">
-            デモ用 PIN: 加藤 1111 / 佐藤 2222 / 鈴木 3333 / 田中 4444
+          <p className="m-0 mt-3 text-center font-mono text-sm leading-relaxed text-foreground-500">
+            デモ用 PIN: {demoPins}
           </p>
-        </CardBody>
-      </SurfaceCard>
+        </LoginCard>
+      </div>
 
-      <p className="text-pretty text-xs text-foreground-600">
+      <p className="text-pretty text-sm text-foreground-500">
         共用端末での本人特定は「顔写真リストから選択 + PIN」方式です（基本設計書 11.3）。
-        端末が対応していれば、顔・指紋での本人確認も選べます（要件定義書 3.2.1 の認証方式は
-        運用に応じて選べる方針。IC カードは本番で追加）。
+        PIN は船員ごとに違い、4桁目の入力で自動照合します。端末が対応していれば、顔・指紋での
+        本人確認も選べます（要件定義書 3.2.1 の認証方式は運用に応じて選べる方針。IC カードは本番で追加）。
         セッションは端末内にのみ保持され、通信断でもサインイン・記録ができます。
       </p>
     </div>

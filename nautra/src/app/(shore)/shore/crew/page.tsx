@@ -58,10 +58,9 @@ export default async function ShoreCrewPage({
   };
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-[18px]">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-balance text-2xl font-bold">船員一覧</h1>
-        <p className="text-sm text-foreground-500">
+        <p className="m-0 text-sm text-foreground-500">
           配乗できるか・証書が切れていないかを、写真付きの一覧でまとめて確認できます。
         </p>
       </div>
@@ -79,8 +78,8 @@ export default async function ShoreCrewPage({
                 key={f.key}
                 href={href({ status: f.key })}
                 aria-current={f.key === status ? "true" : undefined}
-                className={`rounded-medium px-3 py-1.5 text-sm ${
-                  f.key === status ? "bg-primary text-primary-foreground" : "bg-default-100"
+                className={`rounded-small px-3 py-1.5 text-sm ${
+                  f.key === status ? "bg-primary font-semibold text-primary-foreground" : "bg-default-100"
                 }`}
               >
                 {f.label}
@@ -90,9 +89,17 @@ export default async function ShoreCrewPage({
           })}
         </div>
         <CrewSearchForm status={status} q={q} />
+        <div className="ml-auto flex flex-wrap items-center gap-2">
+          <Link href="/shore/exports?set=crew" className="ui-btn-ghost h-9">
+            CSVで書き出す
+          </Link>
+          <Link href="/shore/crew/new" className="ui-btn-primary h-9">
+            ＋ 船員を登録
+          </Link>
+        </div>
       </section>
 
-      <section aria-label="船員一覧" className="grid gap-3 sm:grid-cols-2">
+      <section aria-label="船員一覧" className="grid gap-3 lg:grid-cols-2 2xl:grid-cols-3">
         {rows.map((r) => {
           const l = labor.get(r.crewMemberId);
           const warnings = r.credentialStatuses.filter((s) => s.level !== "ok");
@@ -102,13 +109,18 @@ export default async function ShoreCrewPage({
             <Link
               key={r.crewMemberId}
               href={`/shore/crew/${r.crewMemberId}`}
-              className="ui-card flex items-start gap-4 p-4 hover:opacity-90"
+              className="ui-card flex items-start gap-3.5 p-4 transition-colors hover:bg-content2"
             >
+              {/* 顔写真の枠（96×120）。写真が入るまでは頭文字と PHOTO の印を出す。
+                  空欄にすると「壊れている」と読まれるため、枠は常に同じ大きさで置く */}
               <span
                 aria-hidden="true"
-                className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-default-100 text-lg font-bold"
+                className="flex h-[120px] w-24 shrink-0 flex-col items-center justify-center gap-1 rounded-[12px] border border-[var(--ui-hairline)] bg-[#DFE1E0]"
               >
-                {r.photo ?? r.name.slice(0, 1)}
+                <span className="text-4xl font-bold leading-none text-foreground-700">
+                  {r.photo ?? r.name.slice(0, 1)}
+                </span>
+                <span className="font-mono text-2xs leading-none text-foreground-400">PHOTO</span>
               </span>
               <div className="min-w-0 flex-1">
                 <p className="flex flex-wrap items-center gap-2 font-bold">

@@ -21,8 +21,8 @@ const DATE = addDays(ymdLocal(new Date()), -3);
 const CSV = [
   "労務管理記録簿（第16号の5書式）",
   "日付,船員氏名,作業種別,開始,終了,備考",
-  `${DATE},加藤 大和,航海当直,08:00,12:00,`,
-  `${DATE},佐藤 海斗,荷役,13:00,17:00,名古屋港`,
+  `${DATE},高松 誠,航海当直,08:00,12:00,`,
+  `${DATE},中原 拓也,荷役,13:00,17:00,名古屋港`,
   `${DATE},山田 太郎,航海当直,08:00,12:00,`,
 ].join("\n");
 
@@ -38,7 +38,7 @@ describe("Excel様式（CSV）の取込", () => {
     const preview = ledger.previewLedgerImport(CSV);
     expect(preview.rows).toHaveLength(2);
     expect(preview.issues).toHaveLength(1); // 登録されていない船員
-    expect(preview.crewNames["crew-kato"]).toBe("加藤 大和");
+    expect(preview.crewNames["crew-takamatsu"]).toBe("高松 誠");
     expect(store.getTimeRecords()).toHaveLength(before);
   });
 
@@ -69,7 +69,7 @@ describe("Excel様式（CSV）の取込", () => {
   });
 
   it("取り込んだ勤務は記録簿の集計に入る", () => {
-    const period = ledger.buildLedger("crew-kato", DATE.slice(0, 7));
+    const period = ledger.buildLedger("crew-takamatsu", DATE.slice(0, 7));
     const day = period.days.find((d) => d.date === DATE);
     expect(day?.summary.hasRecords).toBe(true);
     expect(day?.summary.workedMinutes).toBeGreaterThanOrEqual(4 * 60);
@@ -77,7 +77,7 @@ describe("Excel様式（CSV）の取込", () => {
 
   it("出力は監査ログに残る（12.6）", async () => {
     const ms = await import("@/server/master-service");
-    ledger.publishLedgerDocument("crew-kato", DATE.slice(0, 7), ACTOR);
+    ledger.publishLedgerDocument("crew-takamatsu", DATE.slice(0, 7), ACTOR);
     const log = ms.listAuditLogs(50).find((l) => l.action === "export" && l.actor === ACTOR);
     expect(log).toBeDefined();
     expect(log?.entityKind).toBe("generated_document");

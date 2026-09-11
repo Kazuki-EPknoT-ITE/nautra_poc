@@ -41,10 +41,9 @@ export default async function ShoreDispatchPage() {
     }));
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-[18px]">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-balance text-2xl font-bold">配船・位置情報</h1>
-        <p className="text-sm text-foreground-500">位置は参考情報です（後述の注意を読んでください）</p>
+        <p className="m-0 text-sm text-foreground-500">位置は参考情報です（後述の注意を読んでください）</p>
       </div>
 
       {/* 3.7.1 留意点: 無償 AIS は SLA がないため参考情報と位置づける */}

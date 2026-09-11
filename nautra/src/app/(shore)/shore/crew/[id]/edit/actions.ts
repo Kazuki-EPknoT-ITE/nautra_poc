@@ -1,7 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { updateCrewMaster } from "@/server/crew-master-service";
+import { redirect } from "next/navigation";
+import { createCrewMaster, updateCrewMaster } from "@/server/crew-master-service";
 import { hasShorePermission, requireShore } from "@/server/shore-session";
 import type { InsuranceEntry, InsuranceKind } from "@/sync-protocol/records";
 import { INSURANCE_KINDS } from "@/sync-protocol/records";
@@ -78,4 +79,64 @@ export async function saveCrewMasterAction(
   } catch (e) {
     return { ok: false, message: e instanceof Error ? e.message : String(e), changed: [] };
   }
+}
+
+/**
+ * S-04 船員の新規登録（Server Action）。
+ *
+ * 編集と**同じフォーム・同じ検証**を通す（12.3「更新の導線は1つ」を新規にも適用する）。
+ * 登録後は続けて資格・証書を入れられるよう、そのままカルテへ送る。
+ */
+export async function createCrewMasterAction(
+  _prev: CrewMasterFormState,
+  formData: FormData,
+): Promise<CrewMasterFormState> {
+  let created = "";
+  try {
+    const guard = await requireShore("edit_crew_master");
+    if (!guard.ok) throw new Error("船員を登録する権限がありません");
+    const canEditSensitive = await hasShorePermission("view_sensitive_health");
+
+    const insurances = INSURANCE_KINDS.map((kind: InsuranceKind) => ({
+      kind,
+      number: s(formData, `ins.${kind}.number`),
+      acquiredOn: s(formData, `ins.${kind}.acquiredOn`),
+      lastVerifiedOn: s(formData, `ins.${kind}.lastVerifiedOn`),
+      verifyMethod: (s(formData, `ins.${kind}.verifyMethod`) ||
+        undefined) as InsuranceEntry["verifyMethod"],
+    }));
+
+    const { crewMemberId } = createCrewMaster({
+      actor: guard.staff.id,
+      canEditSensitive,
+      form: {
+        name: s(formData, "name"),
+        nameKana: s(formData, "nameKana"),
+        birthDate: s(formData, "birthDate"),
+        seamanBookNo: s(formData, "seamanBookNo"),
+        address: s(formData, "address"),
+        bloodType: s(formData, "bloodType"),
+        phone: s(formData, "phone"),
+        position: s(formData, "position"),
+        employmentType: s(formData, "employmentType"),
+        hiredOn: s(formData, "hiredOn"),
+        emergencyContactName: s(formData, "emergencyContactName"),
+        emergencyContactRelation: s(formData, "emergencyContactRelation"),
+        emergencyContactPhone: s(formData, "emergencyContactPhone"),
+        familyNote: s(formData, "familyNote"),
+        medicalHistory: canEditSensitive ? s(formData, "medicalHistory") : undefined,
+        medication: canEditSensitive ? s(formData, "medication") : undefined,
+        insurances,
+      },
+    });
+
+    revalidatePath("/shore/crew");
+    revalidatePath("/shore/manning");
+    created = crewMemberId;
+  } catch (e) {
+    return { ok: false, message: e instanceof Error ? e.message : String(e), changed: [] };
+  }
+
+  // redirect は内部で例外を投げるため try の外で呼ぶ（catch に飲まれないようにする）
+  redirect(`/shore/crew/${created}/credentials`);
 }

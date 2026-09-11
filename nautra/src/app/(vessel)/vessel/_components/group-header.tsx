@@ -1,15 +1,15 @@
 "use client";
 
-import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import type { Permission } from "@/domain/authz/roles";
-import { can } from "@/domain/authz/roles";
-import { useSessionCrew } from "@/lib/vessel-hooks";
-import { Tab, Tabs } from "@/ui";
 
 /**
- * 機能グループ（01〜06）の見出しとサブ画面タブ。
- * 船内の全画面で「いまどの機能グループにいるか」を同じ位置・同じ書式で示す。
+ * 機能グループ（01〜07）の見出し。
+ *
+ * 画面の切り替えは**ヘッダ直下の横タブ**（`vessel-tabs.tsx`）が担うため、ここは
+ * 「いまどの機能グループにいるか」を1行で示すだけにする（デザイン正本 `design/poc_design`
+ * の船内画面は、画面名をタブで示して本文をすぐ始める）。
+ * `right` は画面固有の操作（対象船員の切替など）の置き場所。
  */
 export interface FeatureGroup {
   no: string;
@@ -22,7 +22,10 @@ export const FEATURE_GROUPS: Record<string, FeatureGroup> = {
   "01": {
     no: "01",
     title: "労働時間・打刻",
-    tabs: [{ href: "/vessel/punch", label: "打刻" }],
+    tabs: [
+      { href: "/vessel/punch", label: "打刻" },
+      { href: "/vessel/history", label: "履歴・事後入力" },
+    ],
   },
   "02": {
     no: "02",
@@ -77,39 +80,16 @@ export function GroupHeader({
   subtitle?: string;
   right?: ReactNode;
 }) {
-  const pathname = usePathname();
-  const session = useSessionCrew();
   const g = FEATURE_GROUPS[group];
-  // 権限のないサブ画面は導線ごと出さない（開いても PermissionGate で止まる）
-  const tabs = g.tabs.filter((tab) => !tab.permission || (session && can(session.role, tab.permission)));
   return (
-    <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-balance text-xl font-bold">
-          <span className="mr-2 tabular-nums text-foreground-600">{g.no}</span>
-          {g.title}
-          {subtitle ? (
-            <span className="ml-2 text-base font-normal text-foreground-600">─ {subtitle}</span>
-          ) : null}
-        </h1>
-        {right}
-      </div>
-      {tabs.length > 1 ? (
-        <Tabs
-          aria-label={`${g.title} のサブメニュー`}
-          selectedKey={pathname}
-          items={tabs}
-          radius="full"
-          classNames={{
-            tabList: "ui-inset gap-1 p-1",
-            tab: "min-h-11 px-4",
-            tabContent: "text-sm font-semibold text-foreground-600 group-data-[selected=true]:text-primary-foreground",
-            cursor: "bg-primary shadow-none",
-          }}
-        >
-          {(tab) => <Tab key={tab.href} href={tab.href} title={tab.label} />}
-        </Tabs>
-      ) : null}
+    <div className="flex flex-wrap items-center justify-between gap-3">
+      <h1 className="m-0 flex flex-wrap items-baseline gap-2.5">
+        <span className="font-mono text-xs tracking-[0.12em] text-primary">
+          {g.no} {g.title}
+        </span>
+        {subtitle ? <span className="text-xl font-bold text-foreground-900">{subtitle}</span> : null}
+      </h1>
+      {right}
     </div>
   );
 }

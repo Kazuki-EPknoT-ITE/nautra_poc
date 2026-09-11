@@ -4,7 +4,7 @@ import { useActionState } from "react";
 import { t } from "@/i18n/ja";
 import type { InsuranceKind } from "@/sync-protocol/records";
 import { Button, Input, Select, SelectItem, Textarea } from "@/ui";
-import { saveCrewMasterAction, type CrewMasterFormState } from "../actions";
+import { createCrewMasterAction, saveCrewMasterAction, type CrewMasterFormState } from "../actions";
 
 export interface InsuranceFormValue {
   kind: InsuranceKind;
@@ -61,12 +61,18 @@ export function CrewMasterForm({
   values,
   age,
   canEditSensitive,
+  /** "new" のときは同じフォームで新規登録を行う（12.3: 入力の経路を増やさない） */
+  mode = "edit",
 }: {
   values: CrewMasterFormValues;
   age: number | null;
   canEditSensitive: boolean;
+  mode?: "edit" | "new";
 }) {
-  const [state, formAction, pending] = useActionState(saveCrewMasterAction, INITIAL);
+  const [state, formAction, pending] = useActionState(
+    mode === "new" ? createCrewMasterAction : saveCrewMasterAction,
+    INITIAL,
+  );
 
   return (
     <form action={formAction} className="ui-card flex flex-col gap-4 p-4">
@@ -79,7 +85,7 @@ export function CrewMasterForm({
             name="nameKana"
             label={t.crewMasterField.nameKana}
             defaultValue={values.nameKana}
-            placeholder="例: カトウ ヤマト"
+            placeholder="例: タカマツ マコト"
           />
           <Input
             name="birthDate"
@@ -229,7 +235,7 @@ export function CrewMasterForm({
 
       <div className="flex flex-wrap items-center gap-3">
         <Button type="submit" color="primary" isLoading={pending}>
-          保存する
+          {mode === "new" ? "この内容で登録する" : "保存する"}
         </Button>
         {state.message ? (
           <p className={state.ok ? "text-sm font-semibold" : "text-sm text-danger"}>

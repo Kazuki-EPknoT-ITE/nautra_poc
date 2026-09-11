@@ -9,7 +9,7 @@ import type { LaborRuleSet } from "@/domain/labor-law/types";
  */
 export const DEFAULT_LABOR_RULE_SET: LaborRuleSet = {
   id: "ruleset-law-2026-04",
-  version: "2026-04.1",
+  version: "2026-04-A",
   source:
     "船員法 労働時間規制（上限 日14h/週72h）・休息要件（PoC 既定値。労使協定により変動）",
   effectiveFrom: "2026-04-01",

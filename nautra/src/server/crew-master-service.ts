@@ -7,6 +7,7 @@ import {
   SENSITIVE_CREW_FIELDS,
   type FieldChange,
 } from "@/lib/crew-master-diff";
+import { ulid } from "@/lib/ids";
 import { carryOverFields } from "@/lib/master-fields";
 import { DEFAULT_CREDENTIAL_RULE_SET } from "@/rules/credential-rules";
 import type {
@@ -241,6 +242,74 @@ export function updateCrewMaster(input: {
   });
 
   return { published, changes };
+}
+
+/**
+ * 船員を新しく登録する（S-04 の「＋ 船員を登録」）。
+ *
+ * 更新と同じ1画面・同じフォームから行う（12.3 の「更新の導線は1つ」を、新規でも守る）。
+ * ID は氏名から作らず採番する。改姓・同姓同名で衝突しないようにするため。
+ */
+export function createCrewMaster(input: {
+  form: CrewMasterFormInput;
+  actor: string;
+  canEditSensitive: boolean;
+  now?: Date;
+}): { published: CrewMasterPayload; crewMemberId: string } {
+  const f = input.form;
+  if (!norm(f.name)) throw new Error("氏名を入力してください");
+  if (!norm(f.birthDate)) throw new Error("生年月日を入力してください");
+
+  const crewMemberId = `crew-${ulid().toLowerCase()}`;
+  const insurances: InsuranceEntry[] = INSURANCE_KINDS.map((kind) => {
+    const sent = f.insurances.find((i) => i.kind === kind);
+    const lastVerifiedOn = norm(sent?.lastVerifiedOn);
+    return {
+      kind,
+      number: norm(sent?.number),
+      acquiredOn: norm(sent?.acquiredOn),
+      lastVerifiedOn,
+      verifyMethod: sent?.verifyMethod,
+      verifiedBy: lastVerifiedOn ? input.actor : undefined,
+    };
+  });
+
+  const published = publishMaster(
+    "crew_master",
+    {
+      crewMemberId,
+      name: norm(f.name),
+      nameKana: norm(f.nameKana),
+      birthDate: norm(f.birthDate),
+      seamanBookNo: norm(f.seamanBookNo),
+      address: norm(f.address),
+      bloodType: norm(f.bloodType),
+      phone: norm(f.phone),
+      photo: norm(f.name)?.slice(0, 1),
+      position: norm(f.position),
+      employmentType: norm(f.employmentType),
+      hiredOn: norm(f.hiredOn),
+      emergencyContactName: norm(f.emergencyContactName),
+      emergencyContactRelation: norm(f.emergencyContactRelation),
+      emergencyContactPhone: norm(f.emergencyContactPhone),
+      familyNote: norm(f.familyNote),
+      medicalHistory: input.canEditSensitive ? norm(f.medicalHistory) : undefined,
+      medication: input.canEditSensitive ? norm(f.medication) : undefined,
+      insurances,
+    },
+    { vesselId: COMPANY_SCOPE_ID, actor: input.actor, now: input.now },
+  );
+
+  writeAuditLog({
+    action: "create",
+    entityKind: "crew_master",
+    entityId: crewMemberId,
+    actor: input.actor,
+    summary: `${norm(f.name)} を船員として登録`,
+    now: input.now,
+  });
+
+  return { published, crewMemberId };
 }
 
 /* ═══════════════ 資格・証書（12.4 鮮度管理の解消操作を含む） ═══════════════ */

@@ -13,8 +13,8 @@ import {
  */
 
 const base = {
-  crewMemberId: "crew-mori",
-  name: "森 波留",
+  crewMemberId: "crew-taira",
+  name: "平良 直人",
   birthDate: "1983-03-30",
   address: "広島県呉市中通2-4",
   phone: "090-5555-0005",

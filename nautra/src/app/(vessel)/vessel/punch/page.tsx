@@ -1,26 +1,23 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
-import { startOfLocalDay, ymdLocal } from "@/domain/labor-law/evaluate";
+import { ymdLocal } from "@/domain/labor-law/evaluate";
 import { buildIntervals } from "@/domain/labor-law/intervals";
 import {
   EXCEPTIONAL_WORK_KINDS,
   WORK_CATEGORIES,
   type ExceptionalWorkKind,
-  type TimeRecord,
   type WorkCategory,
 } from "@/domain/labor-law/types";
 import { assignedWorkFor } from "@/lib/assigned-work";
 import { cn } from "@/lib/cn";
-import { CREW_MEMBERS, personName } from "@/lib/crew";
-import { fmtDateTime, fmtDateTimeSec, fmtElapsedClock, fmtTimeSec } from "@/lib/format";
+import { fmtElapsedClock, fmtTimeSec } from "@/lib/format";
 import { useLocale } from "@/lib/use-locale";
 import { recordPunch } from "@/lib/vessel-actions";
 import {
-  useApprovals,
   useCrewRecords,
   useNowTick,
-  usePermission,
   useSessionCrew,
   useShiftPlans,
 } from "@/lib/vessel-hooks";
@@ -30,19 +27,10 @@ import {
   CardBody,
   Checkbox,
   Chip,
-  SurfaceCard,
   Input,
-  Modal,
-  ModalBody,
-  ModalContent,
-  ModalFooter,
-  ModalHeader,
   Radio,
   RadioGroup,
-  Select,
-  SelectItem,
-  useDisclosure,
-  useModalProps,
+  SurfaceCard,
 } from "@/ui";
 import { GroupHeader } from "../_components/group-header";
 
@@ -53,13 +41,6 @@ const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"];
  * 進行中区間を現在時刻まで労働として集計するため、放置すると過大計上になる）。
  */
 const LONG_OPEN_HOURS = 12;
-
-function parseLocal(dateStr: string, timeStr: string): Date {
-  const d = startOfLocalDay(dateStr);
-  const [h, m] = timeStr.split(":").map(Number);
-  d.setHours(h, m, 0, 0);
-  return d;
-}
 
 /**
  * V-01 労働時間・打刻（履歴・事後入力を同一画面に統合）。
@@ -72,8 +53,6 @@ function parseLocal(dateStr: string, timeStr: string): Date {
  */
 export default function PunchPage() {
   const session = useSessionCrew();
-  const canAfterEntry = usePermission("punch_after_entry");
-  const canAdjustCrew = usePermission("adjust_crew_punch");
   const { tr } = useLocale();
   const now = useNowTick(1000); // 秒表示のため毎秒更新
   const today = ymdLocal(now);
@@ -104,14 +83,7 @@ export default function PunchPage() {
     [myId, today, watches],
   );
 
-  // 履歴の対象船員（打刻は常に本人。船長のみ他船員の記録を参照・調整できる）
-  const [historyCrewId, setHistoryCrewId] = useState<string>("");
-  const viewCrewId = canAdjustCrew && historyCrewId ? historyCrewId : myId;
-  const isViewingOther = viewCrewId !== myId;
-
   const myRecords = useCrewRecords(myId);
-  const viewRecords = useCrewRecords(viewCrewId);
-  const approvals = useApprovals();
 
   const openIntervals = useMemo(
     () => buildIntervals(myRecords).filter((iv) => iv.endAt === null),
@@ -156,105 +128,6 @@ export default function PunchPage() {
     }
   }
 
-  /* ───────── 事後入力・差戻し再入力（自分の記録のみ） ───────── */
-  const afterModal = useDisclosure();
-  const resubmitModal = useDisclosure();
-  const modalProps = useModalProps();
-  const [afterDate, setAfterDate] = useState(today);
-  const [afterFrom, setAfterFrom] = useState("08:00");
-  const [afterTo, setAfterTo] = useState("12:00");
-  const [afterCategory, setAfterCategory] = useState<WorkCategory>("cargo");
-  const [resubmitTarget, setResubmitTarget] = useState<TimeRecord | null>(null);
-  const [resubmitDate, setResubmitDate] = useState(today);
-  const [resubmitTime, setResubmitTime] = useState("17:00");
-  const [formError, setFormError] = useState<string | null>(null);
-
-  const supersededIds = useMemo(
-    () => new Set(viewRecords.filter((r) => r.supersedesId).map((r) => r.supersedesId as string)),
-    [viewRecords],
-  );
-  const remandByRecordId = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const a of approvals) {
-      if (a.decision === "remanded" && a.targetRecordId) map.set(a.targetRecordId, a.reason ?? "差戻し");
-    }
-    return map;
-  }, [approvals]);
-
-  /**
-   * 打刻履歴。
-   *
-   * 既定では**直近20件**だけを出す。乗船中は1日4件前後たまるため、全期間を出すと
-   * 画面が数千ピクセルになり、直近の打刻を確かめるだけでも延々とめくることになる。
-   * さかのぼって確かめたいときのために、下のボタンで100件まで広げられるようにする。
-   */
-  const sortedHistory = useMemo(
-    () => [...viewRecords].sort((a, b) => b.occurredAt.localeCompare(a.occurredAt)),
-    [viewRecords],
-  );
-  const [historyExpanded, setHistoryExpanded] = useState(false);
-  const historyLimit = historyExpanded ? 100 : 20;
-  const history = sortedHistory.slice(0, historyLimit);
-  const hiddenCount = Math.max(0, Math.min(sortedHistory.length, 100) - history.length);
-
-  async function submitAfterEntry() {
-    setFormError(null);
-    if (!session) return;
-    try {
-      const from = parseLocal(afterDate, afterFrom);
-      const to = parseLocal(afterDate, afterTo);
-      if (to.getTime() <= from.getTime()) {
-        setFormError("終了時刻は開始時刻より後にしてください");
-        return;
-      }
-      await recordPunch({
-        crewMemberId: session.id,
-        workCategory: afterCategory,
-        action: "start",
-        entryType: "after",
-        occurredAt: from,
-      });
-      await recordPunch({
-        crewMemberId: session.id,
-        workCategory: afterCategory,
-        action: "end",
-        entryType: "after",
-        occurredAt: to,
-      });
-      setConfirmation(`${tr("workCategory", afterCategory)} を事後入力しました`);
-      afterModal.onClose();
-    } catch (e) {
-      setFormError(e instanceof Error ? e.message : String(e));
-    }
-  }
-
-  function openResubmit(record: TimeRecord) {
-    setResubmitTarget(record);
-    const d = new Date(record.occurredAt);
-    setResubmitDate(ymdLocal(d));
-    setResubmitTime(`${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`);
-    setFormError(null);
-    resubmitModal.onOpen();
-  }
-
-  async function submitResubmit() {
-    if (!resubmitTarget || !session) return;
-    setFormError(null);
-    try {
-      await recordPunch({
-        crewMemberId: session.id,
-        workCategory: resubmitTarget.workCategory,
-        action: resubmitTarget.action,
-        entryType: "resubmit",
-        occurredAt: parseLocal(resubmitDate, resubmitTime),
-        supersedesId: resubmitTarget.id,
-      });
-      setConfirmation("差戻し分を再入力しました（元の打刻は訂正済として保持されます）");
-      resubmitModal.onClose();
-    } catch (e) {
-      setFormError(e instanceof Error ? e.message : String(e));
-    }
-  }
 
   if (!session) return null;
 
@@ -264,7 +137,7 @@ export default function PunchPage() {
 
       {/* 現在時刻（秒まで）と打刻者 */}
       <SurfaceCard>
-        <CardBody className="flex flex-wrap items-end justify-between gap-3 p-5">
+        <CardBody className="flex flex-row flex-wrap items-end justify-between gap-3 p-5">
           <div>
             <p className="text-sm text-foreground-600">
               {now.getMonth() + 1}/{now.getDate()}（{WEEKDAYS[now.getDay()]}）
@@ -499,224 +372,11 @@ export default function PunchPage() {
         </Card>
       ) : null}
 
-      {/* 履歴・事後入力（同一画面内） */}
-      <section aria-label="打刻履歴" className="flex flex-col gap-2">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-base font-bold">
-            打刻履歴
-            <span className="ml-2 font-normal text-foreground-600">
-              {isViewingOther ? `${personName(viewCrewId)}（参照）` : "自分の記録"}
-            </span>
-          </h2>
-          {canAfterEntry && !isViewingOther ? (
-            <Button
-              color="primary"
-              variant="bordered"
-              radius="md"
-              className="min-h-12 border-[var(--ui-hairline-strong)] font-semibold text-foreground"
-              onPress={() => {
-                setFormError(null);
-                afterModal.onOpen();
-              }}
-            >
-              事後入力
-            </Button>
-          ) : null}
-        </div>
-
-        {canAdjustCrew ? (
-          <SurfaceCard>
-            <CardBody className="flex flex-wrap items-center gap-3 p-4">
-              <Select
-                label="表示する船員（船長のみ）"
-                size="sm"
-                className="max-w-xs"
-                selectedKeys={[viewCrewId]}
-                onSelectionChange={(keys) => {
-                  const k = [...keys][0];
-                  setHistoryCrewId(k ? String(k) : "");
-                }}
-              >
-                {CREW_MEMBERS.map((c) => (
-                  <SelectItem key={c.id}>{`${c.name}（${c.position}）`}</SelectItem>
-                ))}
-              </Select>
-              <p className="text-sm text-foreground-600">
-                他船員の打刻は参照のみです。誤りがある場合は 02 の船内承認から本人へ差戻し、本人が再入力します。
-              </p>
-            </CardBody>
-          </SurfaceCard>
-        ) : null}
-
-        {history.length === 0 ? (
-          <SurfaceCard>
-            <CardBody className="p-4">
-              <p className="text-foreground-600">
-                打刻がありません。上の作業から打刻するか、「事後入力」で記録してください。
-              </p>
-            </CardBody>
-          </SurfaceCard>
-        ) : null}
-
-        {history.map((r) => {
-          const isSuperseded = supersededIds.has(r.id);
-          const remandReason = !isSuperseded ? remandByRecordId.get(r.id) : undefined;
-          return (
-            <Card
-              key={r.id}
-              shadow="none"
-              className={cn("ui-row", remandReason && "border border-danger")}
-            >
-              <CardBody className="flex flex-col gap-2 p-4">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span
-                    className={cn(
-                      "tabular-nums text-lg font-bold",
-                      isSuperseded && "line-through opacity-60",
-                    )}
-                  >
-                    {fmtDateTimeSec(r.occurredAt)}
-                  </span>
-                  <span className={cn("font-semibold", isSuperseded && "line-through opacity-60")}>
-                    {tr("workCategory", r.workCategory)} {tr("action", r.action)}
-                  </span>
-                  <Chip size="sm" variant="flat" radius="sm">
-                    {tr("entryType", r.entryType)}
-                  </Chip>
-                  {/* 別枠（3.2.5⑥）は履歴でも一目で分かるようにする */}
-                  {r.exceptionKind ? (
-                    <Chip size="sm" variant="flat" radius="sm">
-                      <span aria-hidden="true">⚑</span> 別枠 {tr("exceptionalWork", r.exceptionKind)}
-                    </Chip>
-                  ) : null}
-                  {isSuperseded ? (
-                    <Chip size="sm" variant="flat" radius="sm">
-                      訂正済（再入力で無効化・原本保持）
-                    </Chip>
-                  ) : null}
-                  {remandReason ? (
-                    <Chip size="sm" variant="flat" color="danger" radius="sm">
-                      ✕ 差戻し
-                    </Chip>
-                  ) : null}
-                </div>
-                {r.exceptionKind && r.note ? (
-                  <p className="text-sm text-foreground-600">理由: {r.note}</p>
-                ) : null}
-                {remandReason ? (
-                  <div className="flex flex-col gap-2">
-                    <p className="text-sm text-danger">{remandReason}</p>
-                    {canAfterEntry && !isViewingOther ? (
-                      <Button
-                        size="sm"
-                        color="danger"
-                        radius="md"
-                        className="min-h-11 self-start"
-                        onPress={() => openResubmit(r)}
-                      >
-                        正しい時刻で再入力する
-                      </Button>
-                    ) : null}
-                  </div>
-                ) : null}
-              </CardBody>
-            </Card>
-          );
-        })}
-
-        {hiddenCount > 0 ? (
-          <Button
-            variant="bordered"
-            radius="md"
-            className="min-h-12 border-[var(--ui-hairline)] font-semibold text-foreground"
-            onPress={() => setHistoryExpanded(true)}
-          >
-            もっと前の打刻を見る（あと {hiddenCount} 件）
-          </Button>
-        ) : null}
-        {historyExpanded && sortedHistory.length > 100 ? (
-          <p className="text-sm text-foreground-600">
-            新しい順に100件まで表示しています。これより前の記録は 02 労務管理記録簿で月ごとに確認できます。
-          </p>
-        ) : null}
-      </section>
-
-      {/* 事後入力 */}
-      <Modal {...modalProps} isOpen={afterModal.isOpen} onOpenChange={afterModal.onOpenChange} placement="center">
-        <ModalContent>
-          <ModalHeader>事後入力（打刻し忘れた作業の記録）</ModalHeader>
-          <ModalBody className="flex flex-col gap-3">
-            <Select
-              label="作業種別"
-              selectedKeys={[afterCategory]}
-              onSelectionChange={(keys) => {
-                const k = [...keys][0];
-                if (k) setAfterCategory(k as WorkCategory);
-              }}
-            >
-              {WORK_CATEGORIES.map((c) => (
-                <SelectItem key={c}>{tr("workCategory", c)}</SelectItem>
-              ))}
-            </Select>
-            <Input type="date" label="対象日" value={afterDate} max={today} onValueChange={setAfterDate} />
-            <div className="flex gap-3">
-              <Input type="time" label="開始" value={afterFrom} onValueChange={setAfterFrom} />
-              <Input type="time" label="終了" value={afterTo} onValueChange={setAfterTo} />
-            </div>
-            {formError ? <p className="text-danger">✕ {formError}</p> : null}
-            <p className="text-sm text-foreground-600">
-              未来の日時は入力できません（日付誤り防止ガード）。記録は「事後入力」として区別されます。
-            </p>
-          </ModalBody>
-          <ModalFooter>
-            <Button variant="bordered" onPress={afterModal.onClose}>
-              キャンセル
-            </Button>
-            <Button color="primary" onPress={() => void submitAfterEntry()}>
-              登録する
-            </Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
-
-      {/* 差戻し再入力 */}
-      <Modal
-        {...modalProps}
-        isOpen={resubmitModal.isOpen}
-        onOpenChange={resubmitModal.onOpenChange}
-        placement="center"
-      >
-        <ModalContent>
-          <ModalHeader>差戻し分の再入力</ModalHeader>
-          <ModalBody className="flex flex-col gap-3">
-            {resubmitTarget ? (
-              <p className="text-sm text-foreground-600">
-                対象: {tr("workCategory", resubmitTarget.workCategory)}{" "}
-                {tr("action", resubmitTarget.action)}
-                （{fmtDateTime(resubmitTarget.occurredAt)}）。正しい日時で再入力すると、元の打刻は
-                「訂正済」となり集計から除外されます（元レコードは保全されます）。
-              </p>
-            ) : null}
-            <Input
-              type="date"
-              label="正しい日付"
-              value={resubmitDate}
-              max={today}
-              onValueChange={setResubmitDate}
-            />
-            <Input type="time" label="正しい時刻" value={resubmitTime} onValueChange={setResubmitTime} />
-            {formError ? <p className="text-danger">✕ {formError}</p> : null}
-          </ModalBody>
-          <ModalFooter>
-            <Button variant="bordered" onPress={resubmitModal.onClose}>
-              キャンセル
-            </Button>
-            <Button color="danger" onPress={() => void submitResubmit()}>
-              再入力を登録
-            </Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
+      {/* 履歴と事後入力は V-02（/vessel/history）へ分けた。打刻の画面は「いま打刻する」
+          ことだけに使い、確認・訂正は別のタブで行う（1画面1目的。基本設計書 6.3） */}
+      <Link href="/vessel/history" className="ui-btn-ghost min-h-14 text-lg">
+        打刻の履歴・事後入力を見る →
+      </Link>
     </div>
   );
 }

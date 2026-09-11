@@ -28,9 +28,9 @@ v.on("pageerror", (e) => log("  [pageerror]", String(e).slice(0, 120)));
 
 await v.goto(`${BASE}/vessel/login`, { waitUntil: "networkidle" });
 
-// 佐藤（航海士）でサインイン
-await v.getByRole("radio", { name: /佐藤/ }).click();
-for (const d of ["2", "2", "2", "2"]) await v.getByRole("button", { name: d, exact: true }).click();
+// 中原（航海士）でサインイン
+await v.getByRole("radio", { name: /中原/ }).click();
+for (const d of ["3", "3", "3", "3"]) await v.getByRole("button", { name: d, exact: true }).click();
 await v.waitForURL(`${BASE}/vessel`, { timeout: 15000 });
 check("船内: PIN でサインインできる", v.url().endsWith("/vessel"));
 
@@ -95,7 +95,7 @@ check("船内: 同期を実行できる", true);
 
 /* ───────── 陸上アプリ ───────── */
 const shore = await browser.newContext({ viewport: { width: 1440, height: 1100 } });
-await shore.addCookies([{ name: "nautra_shore_session", value: "shore-admin", url: BASE }]);
+await shore.addCookies([{ name: "nautra_shore_session", value: "shore-yamaguchi", url: BASE }]);
 const s = await shore.newPage();
 
 // 事故が陸上に届いている
@@ -139,7 +139,7 @@ check(
 check("陸上: 監査ログに要配慮情報の参照が残る", /要配慮情報の参照/.test(setText));
 
 // 船員カルテ: 乗船履歴要件
-await s.goto(`${BASE}/shore/crew/crew-sato`, { waitUntil: "networkidle" });
+await s.goto(`${BASE}/shore/crew/crew-nakahara`, { waitUntil: "networkidle" });
 const karteText = await s.locator("main").innerText();
 check(
   "陸上: 免状更新の乗船履歴要件が自動判定される",
@@ -149,7 +149,7 @@ check(
 
 // 権限: 事務担当では人事考課が開けない
 const clerk = await browser.newContext();
-await clerk.addCookies([{ name: "nautra_shore_session", value: "shore-nishi", url: BASE }]);
+await clerk.addCookies([{ name: "nautra_shore_session", value: "shore-okamoto", url: BASE }]);
 const c = await clerk.newPage();
 await c.goto(`${BASE}/shore/evaluations`, { waitUntil: "networkidle" });
 const clerkText = await c.locator("main").innerText();

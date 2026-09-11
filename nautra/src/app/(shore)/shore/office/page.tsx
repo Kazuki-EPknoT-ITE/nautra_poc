@@ -104,10 +104,9 @@ export default async function ShoreOfficePage({
   }));
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-[18px]">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-balance text-2xl font-bold">傭船・請求・経理</h1>
-        <p className="text-sm text-foreground-500">
+        <p className="m-0 text-sm text-foreground-500">
           契約の期限・入金の遅れ・給与のもとになる時間を1画面で確認します
         </p>
       </div>

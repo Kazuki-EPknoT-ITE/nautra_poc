@@ -210,10 +210,9 @@ export default async function ShoreFilingsPage() {
   const { crew, vessels } = filingFormOptions();
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-[18px]">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-balance text-2xl font-bold">届出（雇入・雇止）</h1>
-        <p className="text-sm text-foreground-500">
+        <p className="m-0 text-sm text-foreground-500">
           複数の船員・船をまとめて届け出ます（基準日 {today}）
         </p>
       </div>

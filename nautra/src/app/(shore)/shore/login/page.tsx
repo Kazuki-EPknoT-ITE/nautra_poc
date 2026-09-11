@@ -1,26 +1,41 @@
 import { redirect } from "next/navigation";
-import { t } from "@/i18n/ja";
-import { PRODUCT_NAME } from "@/i18n/ja";
-import { SHORE_ROLE_PERMISSIONS } from "@/domain/authz/shore-roles";
-import { SHORE_STAFF_ACCOUNTS, getShoreSession, setShoreSession } from "@/server/shore-session";
-import { writeAuditLog } from "@/server/master-service";
-import { Button } from "@/ui";
+import { PRODUCT_NAME, t } from "@/i18n/ja";
+import { DEMO_COMPANY } from "@/lib/crew";
+import { currentLaborRuleSet } from "@/server/labor-rules";
+import { listCrewMasters, listVessels, writeAuditLog } from "@/server/master-service";
+import {
+  authenticateShore,
+  getShoreSession,
+  setShoreSession,
+  SHORE_STAFF_ACCOUNTS,
+} from "@/server/shore-session";
+import { SignInPanel } from "./_components/sign-in-panel";
 
 export const dynamic = "force-dynamic";
 
 /**
- * 陸上アプリのサインイン（要件定義書 10.3）。
- * 担当者を選ぶとロールが決まり、そのロールが持つ権限の画面だけがメニューに出る。
- * サインイン・サインアウトは監査ログに残る（12.6）。
+ * 陸上アプリのサインイン（要件定義書 10.3 / デザイン正本 `design/poc_design`）。
+ *
+ * 暗い面（`#231F20`）に1枚だけ白いカードを置き、**サインイン / 新規登録 / パスワード再設定**を
+ * 同じカードの中でタブとして切り替える。ロールはアカウントに紐づくもので、利用者が
+ * 選ぶものではない（担当者を選ぶ方式をやめた）。サインインは監査ログに残る（12.6）。
  */
-export default async function ShoreLoginPage() {
+export default async function ShoreLoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ tab?: string; error?: string; sent?: string; email?: string }>;
+}) {
+  const sp = await searchParams;
   const current = await getShoreSession();
 
   async function signInAction(formData: FormData) {
     "use server";
-    const staffId = String(formData.get("staffId") ?? "");
-    const staff = SHORE_STAFF_ACCOUNTS.find((s) => s.id === staffId);
-    if (!staff) return;
+    const email = String(formData.get("email") ?? "");
+    const password = String(formData.get("password") ?? "");
+    const staff = authenticateShore(email, password);
+    if (!staff) {
+      redirect(`/shore/login?error=invalid&email=${encodeURIComponent(email)}`);
+    }
     await setShoreSession(staff.id);
     writeAuditLog({
       action: "sign_in",
@@ -32,48 +47,80 @@ export default async function ShoreLoginPage() {
     redirect("/shore");
   }
 
+  /**
+   * 招待コードでの登録。PoC は既存の招待済みアカウントを有効化した体で扱い、
+   * そのままサインインさせる（本番は Supabase Auth のサインアップに置き換える）。
+   */
+  async function registerAction(formData: FormData) {
+    "use server";
+    const email = String(formData.get("email") ?? "").trim().toLowerCase();
+    const staff = SHORE_STAFF_ACCOUNTS.find((s) => s.email.toLowerCase() === email);
+    if (!staff) {
+      redirect(`/shore/login?tab=register&error=unknown_invite`);
+    }
+    await setShoreSession(staff.id);
+    writeAuditLog({
+      action: "sign_in",
+      entityKind: "shore_session",
+      entityId: staff.id,
+      actor: staff.id,
+      summary: `${staff.name} が招待から登録して陸上アプリにサインイン`,
+    });
+    redirect("/shore");
+  }
+
+  /** 再設定リンクの送信。PoC は送信した体で戻すだけ（メール送信経路は未接続） */
+  async function resetAction(formData: FormData) {
+    "use server";
+    const email = String(formData.get("email") ?? "");
+    redirect(`/shore/login?sent=1&email=${encodeURIComponent(email)}`);
+  }
+
+  const fleetCount = listVessels().length;
+  const crewCount = listCrewMasters().length;
+  const ruleVersion = currentLaborRuleSet().version;
+
   return (
-    <div className="mx-auto flex max-w-3xl flex-col gap-6">
-      <div>
-        <h1 className="text-balance text-2xl font-bold">{PRODUCT_NAME} 陸上アプリ サインイン</h1>
-        <p className="mt-1 text-sm text-foreground-600">
-          担当者を選んでください。役職によって使える機能が変わります（要配慮個人情報の閲覧は
-          労務管理責任者・管理者に限られます）。
-        </p>
-      </div>
-
-      {current ? (
-        <p className="ui-inset p-3 text-sm">
-          いま <span className="font-semibold">{current.name}</span>（{t.shoreRole[current.role]}）
-          でサインインしています。別の担当者に切り替える場合は下から選んでください。
-        </p>
-      ) : null}
-
-      <ul className="grid gap-3 sm:grid-cols-2">
-        {SHORE_STAFF_ACCOUNTS.map((s) => (
-          <li key={s.id} className="ui-card flex flex-col gap-3 p-4">
-            <div>
-              <p className="text-lg font-bold">{s.name}</p>
-              <p className="text-sm text-foreground-600">{s.title}</p>
-            </div>
-            <p className="text-xs text-foreground-500">
-              使える機能: {SHORE_ROLE_PERMISSIONS[s.role].length} 件
+    <div className="flex min-h-dvh items-center justify-center bg-[#231F20] px-6 py-16">
+      <div className="grid w-full max-w-[960px] items-center gap-10 lg:grid-cols-[minmax(0,1fr)_420px]">
+        <div>
+          <p className="flex items-baseline gap-2.5">
+            <span className="text-5xl font-bold tracking-[0.02em] text-white">{PRODUCT_NAME}</span>
+          </p>
+          <p className="mt-[18px] text-xl leading-loose text-[#DFE1E0]">
+            船員の労働時間・配乗・届出をまとめて管理します。
+            <br />
+            船内の打刻はオフラインでも記録され、通信が戻ると自動で届きます。
+          </p>
+          <p className="mt-[22px] text-sm leading-loose text-[#666666]">
+            {DEMO_COMPANY} ／ 船舶{fleetCount}隻 ／ 船員{crewCount}名
+            <br />
+            ルール版 {ruleVersion}
+          </p>
+          {current ? (
+            <p className="mt-5 text-sm text-[#99877D]">
+              いま {current.name}（{current.title}）でサインインしています。
+              別のアカウントで入り直すと切り替わります。
             </p>
-            <form action={signInAction}>
-              <input type="hidden" name="staffId" value={s.id} />
-              <Button type="submit" color="primary" className="w-full" size="lg">
-                この担当者で入る
-              </Button>
-            </form>
-          </li>
-        ))}
-      </ul>
+          ) : null}
+        </div>
 
-      <p className="text-xs text-foreground-500">
-        PoC の簡略化: 担当者を選ぶだけのサインインです。本番は Supabase Auth（管理者ロールは MFA）と
-        RLS によるテナント・行レベルの制御を併用します。権限判定の経路（
-        <code>domain/authz/shore-roles.ts</code>）は本番と同じです。
-      </p>
+        <SignInPanel
+          tab={sp.tab === "register" || sp.tab === "reset" ? sp.tab : "login"}
+          error={sp.error ?? null}
+          sent={sp.sent === "1"}
+          email={sp.email ?? SHORE_STAFF_ACCOUNTS[0]!.email}
+          demoAccounts={SHORE_STAFF_ACCOUNTS.filter((s) => !s.invitePending).map((s) => ({
+            email: s.email,
+            name: s.name,
+            title: s.title,
+            password: s.demoPassword,
+          }))}
+          signInAction={signInAction}
+          registerAction={registerAction}
+          resetAction={resetAction}
+        />
+      </div>
     </div>
   );
 }

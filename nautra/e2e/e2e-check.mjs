@@ -10,31 +10,37 @@ const BASE = "http://localhost:3100";
 const SHORE = [
   "/shore",
   "/shore/crew",
-  "/shore/crew/crew-sato",
-  "/shore/crew/crew-sato/edit",
-  "/shore/crew/crew-sato/credentials",
+  "/shore/crew/new",
+  "/shore/crew/crew-nakahara",
+  "/shore/crew/crew-nakahara/edit",
+  "/shore/crew/crew-nakahara/credentials",
   "/shore/manning",
+  "/shore/tasks",
   "/shore/filings",
   "/shore/procedures",
   "/shore/training",
   "/shore/shifts",
   "/shore/fleet",
+  "/shore/fleet/vessel-001",
   "/shore/dispatch",
   "/shore/safety",
   "/shore/wellbeing",
   "/shore/evaluations",
   "/shore/office",
   "/shore/documents",
+  "/shore/exports",
   "/shore/labor",
   "/shore/templates",
   "/shore/notices",
   "/shore/settings",
+  "/shore/trash",
 ];
 
 const VESSEL = [
   "/vessel/login",
   "/vessel",
   "/vessel/punch",
+  "/vessel/history",
   "/vessel/ledger",
   "/vessel/approve",
   "/vessel/logbook",
@@ -52,7 +58,7 @@ const context = await browser.newContext({ viewport: { width: 1440, height: 1000
 
 // 陸上は管理者でサインイン済みにする（権限ガードで中身が出ない画面を避ける）
 await context.addCookies([
-  { name: "nautra_shore_session", value: "shore-admin", url: BASE },
+  { name: "nautra_shore_session", value: "shore-yamaguchi", url: BASE },
 ]);
 
 const results = [];

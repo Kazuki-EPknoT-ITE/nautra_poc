@@ -44,10 +44,9 @@ export default async function ShoreSafetyPage() {
   const maxNearMiss = Math.max(board.nearMissTarget, ...board.nearMiss.map((m) => m.count), 1);
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-[18px]">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-balance text-2xl font-bold">安全管理・事故報告</h1>
-        <p className="text-sm text-foreground-500">
+        <p className="m-0 text-sm text-foreground-500">
           {canWrite ? "記入できます" : "この画面は見るだけです（記入は運航管理の担当者が行います）"}
         </p>
       </div>

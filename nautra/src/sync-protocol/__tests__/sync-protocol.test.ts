@@ -108,7 +108,7 @@ describe("承認の競合解決（8.3: 役割優先・後勝ち・履歴保全�
       crewMemberId: "c1",
       date: "2026-08-10",
       decision,
-      approvedBy: role === "captain" ? "crew-kato" : "shore-manager",
+      approvedBy: role === "captain" ? "crew-takamatsu" : "shore-manager",
       approverRole: role,
       decidedAt,
     },

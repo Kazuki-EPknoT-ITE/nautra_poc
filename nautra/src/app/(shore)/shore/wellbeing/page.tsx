@@ -106,10 +106,9 @@ export default async function ShoreWellbeingPage() {
   }));
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-[18px]">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-balance text-2xl font-bold">健康・相談窓口</h1>
-        <p className="text-sm text-foreground-500">
+        <p className="m-0 text-sm text-foreground-500">
           船内から届いた匿名のアンケート・相談を受け付けます
         </p>
       </div>

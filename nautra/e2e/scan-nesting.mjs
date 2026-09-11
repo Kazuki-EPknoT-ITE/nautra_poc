@@ -9,12 +9,14 @@ import { join } from "node:path";
  */
 const BASE = "http://localhost:3100";
 const PATHS = [
-  "/", "/shore", "/shore/login", "/shore/crew", "/shore/crew/crew-sato",
-  "/shore/crew/crew-sato/edit", "/shore/crew/crew-sato/credentials",
+  "/", "/shore", "/shore/login", "/shore/crew", "/shore/crew/crew-nakahara",
+  "/shore/crew/crew-nakahara/edit", "/shore/crew/crew-nakahara/credentials",
   "/shore/manning", "/shore/filings", "/shore/procedures", "/shore/training",
   "/shore/shifts", "/shore/fleet", "/shore/dispatch", "/shore/safety",
   "/shore/wellbeing", "/shore/evaluations", "/shore/office", "/shore/documents",
   "/shore/labor", "/shore/templates", "/shore/notices", "/shore/settings",
+  "/shore/crew/new", "/shore/tasks", "/shore/exports", "/shore/trash",
+  "/shore/fleet/vessel-001",
   "/vessel", "/vessel/login",
 ];
 
@@ -53,7 +55,7 @@ for (const p of PATHS) {
   const f = join(dir, "page.html");
   try {
     execSync(
-      `curl -s -b "nautra_shore_session=shore-admin" "${BASE}${p}" -o "${f}"`,
+      `curl -s -b "nautra_shore_session=shore-yamaguchi" "${BASE}${p}" -o "${f}"`,
       { stdio: "ignore" },
     );
   } catch {

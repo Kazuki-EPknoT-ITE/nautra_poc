@@ -50,8 +50,8 @@ describe("海員名簿（9章 / 6.2 B群）", () => {
     const snapshot = buildCrewRegister(vessel.id, "テスト担当");
     // 基準日より後の予定は反映しない（実績のみを見る）
     expect(snapshot.asOf).toBe(todayLocal());
-    // デモでは佐藤の下船は「予定」なので、この時点ではまだ名簿に載っている
-    expect(snapshot.rows.some((r) => r.name.includes("佐藤"))).toBe(true);
+    // デモでは中原の下船は「予定」なので、この時点ではまだ名簿に載っている
+    expect(snapshot.rows.some((r) => r.name.includes("中原"))).toBe(true);
   });
 });
 

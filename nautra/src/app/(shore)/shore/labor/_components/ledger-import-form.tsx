@@ -73,7 +73,7 @@ export function LedgerImportForm() {
         minRows={4}
         value={csv}
         onValueChange={setCsv}
-        placeholder={"日付,船員氏名,作業種別,開始,終了,備考\n2026-04-01,加藤 大和,航海当直,08:00,12:00,"}
+        placeholder={"日付,船員氏名,作業種別,開始,終了,備考\n2026-04-01,高松 誠,航海当直,08:00,12:00,"}
       />
 
       <div className="flex flex-wrap items-center gap-3">

@@ -50,33 +50,33 @@ describe("S-07 届出の添付要件チェッカー（3.8.3⑥）がデモデー
     ruleSet: DEFAULT_CREDENTIAL_RULE_SET,
     targets: [
       {
-        crewMemberId: "crew-mori",
-        crewName: "森 波留",
+        crewMemberId: "crew-taira",
+        crewName: "平良 直人",
         effectiveOn: addDays(TODAY, 14),
-        master: masterOf("crew-mori"),
-        credentials: credentialsOf("crew-mori"),
+        master: masterOf("crew-taira"),
+        credentials: credentialsOf("crew-taira"),
         practicalTrainingRequired: true,
       },
       {
-        crewMemberId: "crew-ishii",
-        crewName: "石井 新",
+        crewMemberId: "crew-kishimoto",
+        crewName: "岸本 洋一",
         effectiveOn: addDays(TODAY, 14),
-        master: masterOf("crew-ishii"),
-        credentials: credentialsOf("crew-ishii"),
+        master: masterOf("crew-kishimoto"),
+        credentials: credentialsOf("crew-kishimoto"),
         practicalTrainingRequired: true,
       },
     ],
   });
 
   it("森は雇用保険の加入が確認できず「不適合」になる", () => {
-    const mori = check.results.find((r) => r.crewMemberId === "crew-mori");
+    const mori = check.results.find((r) => r.crewMemberId === "crew-taira");
     const employment = mori?.items.find((i) => i.key === "insurance_employment");
     expect(employment?.state).toBe("ng");
     expect(mori?.submittable).toBe(false);
   });
 
-  it("石井は基本訓練が未修了で「不適合」になる（2026-02-14 以降の雇入）", () => {
-    const ishii = check.results.find((r) => r.crewMemberId === "crew-ishii");
+  it("岸本は基本訓練が未修了で「不適合」になる（2026-02-14 以降の雇入）", () => {
+    const ishii = check.results.find((r) => r.crewMemberId === "crew-kishimoto");
     const basic = ishii?.items.find((i) => i.key === "stcw_basic");
     expect(basic?.state).toBe("ng");
     expect(basic?.detail).toContain("受理が保留");
@@ -97,7 +97,7 @@ describe("S-07 届出の添付要件チェッカー（3.8.3⑥）がデモデー
 describe("S-08 手続きの期限（6.6② 着手期限）がデモデータで正しく並ぶ", () => {
   const statuses = evaluateProcedures(seedOf("procedure_task") as ProcedureTaskPayload[], TODAY);
 
-  it("佐藤の海技免状の更新は「着手時期」になる（満了300日・リードタイム365日）", () => {
+  it("中原の海技免状の更新は「着手時期」になる（満了300日・リードタイム365日）", () => {
     const sato = statuses.find((s) => s.task.title.includes("海技免状の更新"));
     expect(sato?.state).toBe("start_due");
     expect(sato?.message).toContain("準備を始める時期");
@@ -122,8 +122,8 @@ describe("S-08 の「証書の期限・鮮度」節（6.5）で期限切れと�
     expect(status.level).toBe("caution");
   });
 
-  it("鈴木の健康証明書は期限内でも確認が古く「要再確認」になる（不適合とは別）", () => {
-    const medical = credentialsOf("crew-suzuki").find((c) => c.category === "medical");
+  it("寺田の健康証明書は期限内でも確認が古く「要再確認」になる（不適合とは別）", () => {
+    const medical = credentialsOf("crew-terada").find((c) => c.category === "medical");
     const status = evaluateCredential(medical!, TODAY, DEFAULT_CREDENTIAL_RULE_SET);
     expect(status.expiry).not.toBe("expired");
     expect(status.freshness).toBe("stale");

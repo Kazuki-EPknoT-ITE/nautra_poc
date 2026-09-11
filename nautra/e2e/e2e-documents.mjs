@@ -13,7 +13,7 @@ const check = (name, ok, detail = "") => {
 
 const b = await chromium.launch({ headless: true });
 const c = await b.newContext({ viewport: { width: 1440, height: 1100 } });
-await c.addCookies([{ name: "nautra_shore_session", value: "shore-admin", url: BASE }]);
+await c.addCookies([{ name: "nautra_shore_session", value: "shore-yamaguchi", url: BASE }]);
 const p = await c.newPage();
 p.on("pageerror", (e) => console.log("  [pageerror]", String(e).slice(0, 120)));
 

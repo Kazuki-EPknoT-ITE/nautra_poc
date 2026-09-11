@@ -62,10 +62,9 @@ export default async function ShoreDocumentsPage({
   const presentKinds = DOCUMENT_KINDS.filter((k) => allRows.some((r) => r.record.kind === k));
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-[18px]">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-balance text-2xl font-bold">帳票・出力センター</h1>
-        <p className="text-sm text-foreground-500">
+        <p className="m-0 text-sm text-foreground-500">
           作った書類の再出力・提出の記録と、実績データからの書類作成を行います
         </p>
       </div>

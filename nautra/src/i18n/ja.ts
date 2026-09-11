@@ -674,7 +674,7 @@ export const t = {
    * PoC のデモ事業者名もここに置く（画面に事業者名を直書きしない）。
    */
   tenant: {
-    demoName: "のーとら海運株式会社",
+    demoName: "昭運海運株式会社",
     id: "テナントID",
     name: "事業者名",
     vessels: "対象の船舶",
@@ -771,6 +771,8 @@ export const t = {
     voyage_schedule: "配船スケジュール",
     generated_document: "生成帳票",
     agreement: "労使協定・就業規則",
+    work_task: "作業指示・タスク",
+    trash_entry: "削除・アーカイブ",
     audit_log: "監査ログ",
   } as Record<string, string>,
 } as const;

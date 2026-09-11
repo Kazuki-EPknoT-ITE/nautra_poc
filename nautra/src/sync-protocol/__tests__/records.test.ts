@@ -26,7 +26,7 @@ const base = (id: string, occurredAt = "2026-08-21T06:00:00.000Z") => ({
   tenantId: "tenant-demo",
   vesselId: "vessel-001",
   occurredAt,
-  recordedBy: "crew-sato",
+  recordedBy: "crew-nakahara",
   deviceId: "dev-1",
 });
 
@@ -111,7 +111,7 @@ describe("latestBySupersedes（追記専用レコードからの有効最新の�
   const plan = (id: string, from: string, supersedesId?: string): ShiftPlanPayload => ({
     ...base(id),
     planType: "watch",
-    crewMemberId: "crew-sato",
+    crewMemberId: "crew-nakahara",
     date: "2026-08-22",
     shiftType: "cargo_watch",
     from,
@@ -165,7 +165,7 @@ describe("競合ポリシー／発生元の適用（基本設計書 8.3: 計画�
   const plan: ShiftPlanPayload = {
     ...base("s-shore"),
     planType: "watch",
-    crewMemberId: "crew-sato",
+    crewMemberId: "crew-nakahara",
     date: "2026-08-22",
     shiftType: "cargo_watch",
     from: "12:00",

@@ -36,7 +36,7 @@ const incident = (over: Partial<IncidentReportPayload> = {}): IncidentReportPayl
   tenantId: "tenant-demo",
   vesselId: "vessel-001",
   occurredAt: "2026-08-31T09:00:00.000Z",
-  recordedBy: "crew-tanaka",
+  recordedBy: "crew-oshiro",
   deviceId: "vessel-device",
   kind: "near_miss",
   title: "通路の工具につまずきかけた",
@@ -50,7 +50,7 @@ const log = (over: Partial<VoyageLogPayload> = {}): VoyageLogPayload => ({
   tenantId: "tenant-demo",
   vesselId: "vessel-001",
   occurredAt: "2026-08-31T06:00:00.000Z",
-  recordedBy: "crew-sato",
+  recordedBy: "crew-nakahara",
   deviceId: "vessel-device",
   logType: "departure",
   port: "名古屋港",
@@ -142,25 +142,25 @@ describe("報告書ドラフトの生成（6.5 航海日誌からの下書き）
         preventiveAction: "固縛の相互確認を追加",
         notifiedNearbyShips: true,
       }),
-      vesselName: "第一のーとら丸",
+      vesselName: "第一昭運丸",
       voyageLogs: [log()],
-      nameOf: (id) => (id === "crew-sato" ? "佐藤 海斗" : id),
+      nameOf: (id) => (id === "crew-nakahara" ? "中原 拓也" : id),
       generatedOn: "2026-09-01",
     });
     expect(body).toContain("海難等の報告書（ドラフト）");
-    expect(body).toContain("第一のーとら丸");
+    expect(body).toContain("第一昭運丸");
     expect(body).toContain("コンテナ海中転落");
     expect(body).toContain("固縛不良");
     expect(body).toContain("固縛の相互確認を追加");
     expect(body).toContain("付近船舶等への通報: 実施済み");
     expect(body).toContain("名古屋港");
-    expect(body).toContain("佐藤 海斗");
+    expect(body).toContain("中原 拓也");
   });
 
   it("原因・再発防止が未記入なら「調査中」と明示し、空欄のまま提出させない", () => {
     const body = buildIncidentReportDraft({
       incident: incident({ cause: undefined, preventiveAction: undefined }),
-      vesselName: "第一のーとら丸",
+      vesselName: "第一昭運丸",
       voyageLogs: [],
       nameOf: (id) => id,
       generatedOn: "2026-09-01",

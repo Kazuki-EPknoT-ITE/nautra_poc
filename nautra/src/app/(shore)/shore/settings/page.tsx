@@ -105,10 +105,9 @@ export default async function ShoreSettingsPage({
   }));
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-[18px]">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-balance text-2xl font-bold">設定・権限・監査</h1>
-        <p className="text-sm text-foreground-500">
+        <p className="m-0 text-sm text-foreground-500">
           権限表と判定基準は実装から生成しています。表示のためだけの写しは持ちません。
         </p>
       </div>
