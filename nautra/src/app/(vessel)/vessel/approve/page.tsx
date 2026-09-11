@@ -17,6 +17,7 @@ import {
   Button,
   CardBody,
   Chip,
+  Eyebrow,
   SurfaceCard,
   Modal,
   ModalBody,
@@ -137,12 +138,17 @@ export default function ApprovePage() {
         fallbackTitle="日次労務の承認・差戻しは船長のみが行えます"
         fallbackNote="自分の記録の確認は「02 本日の集計」、打刻の訂正は「01 打刻」の履歴・事後入力から行えます（基本設計書 11.2）。"
       >
-      <p className="text-sm text-foreground-600">承認者: {session?.name}（{session ? t.role[session.role] : ""}）</p>
-
-      {/* 何をすればよいかを最初に大きく出す */}
-      <SurfaceCard className={pendingRows.length > 0 ? "border-2 border-warning" : undefined}>
-        <CardBody className="flex flex-col gap-2 p-5">
-          <p className="text-balance text-2xl font-bold">
+      {/*
+        何をすればよいかを最初に大きく出す（デザイン正本 V-04 の暗い帯）。
+        右側には**できないこと**を並べる。承認者が打刻そのものを直せると思ったまま
+        操作されるのが、この画面でいちばん困る誤解だから。
+      */}
+      <div className="ui-dark flex flex-wrap items-center justify-between gap-4 px-5 py-4">
+        <div className="min-w-0">
+          <Eyebrow tone="muted" className="text-[#99877D]">
+            直近3日間の日次レコード ／ 承認者 {session?.name}（{session ? t.role[session.role] : ""}）
+          </Eyebrow>
+          <p className="m-0 mt-1.5 text-2xl font-bold text-white">
             <span aria-hidden="true" className="mr-2">
               {pendingRows.length > 0 ? "⚠" : "✓"}
             </span>
@@ -150,17 +156,17 @@ export default function ApprovePage() {
               ? `承認まちが ${pendingRows.length}件 あります`
               : "承認まちはありません"}
           </p>
-          <p className="text-pretty text-foreground-600">
-            内容を確認して「承認する」を押します。打刻に誤りがあるときは「差戻す」を押すと、
-            本人が正しい時刻で入れ直します（承認者は打刻を直接修正できません）。
-          </p>
           {attentionRows.length > 0 ? (
-            <p className="text-pretty font-semibold text-danger">
+            <p className="m-0 mt-1.5 text-lg font-semibold text-[#F2E2DF]">
               ✕ 労働時間・休息の基準を外れている記録が {attentionRows.length}件 あります。先に確認してください。
             </p>
           ) : null}
-        </CardBody>
-      </SurfaceCard>
+        </div>
+        <p className="m-0 max-w-[420px] text-right text-base leading-relaxed text-[#DFE1E0]">
+          船長は承認・差戻しのみ行えます。打刻値そのものの書き換えはできません。
+          誤りがあるときは差戻すと、本人が正しい時刻で入れ直します。
+        </p>
+      </div>
 
       <div className="flex flex-col gap-2">
         {rows.length === 0 ? (

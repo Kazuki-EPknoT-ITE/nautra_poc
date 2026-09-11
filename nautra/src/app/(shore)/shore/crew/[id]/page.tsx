@@ -20,7 +20,7 @@ import {
   vesselNameOf,
 } from "@/server/master-service";
 import { hasShorePermission, requireShore } from "@/server/shore-session";
-import { StatusChip } from "@/ui";
+import { CrewPhoto, StatusChip } from "@/ui";
 import { ShoreGuardNotice } from "../../_components/guard";
 
 export const dynamic = "force-dynamic";
@@ -84,16 +84,12 @@ export default async function ShoreCrewKartePage({ params }: { params: Promise<{
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex items-start gap-4">
-          {/* 顔写真の枠（124×156）。カルテは実写を入れる想定の大きさで置く */}
-          <span
-            aria-hidden="true"
-            className="flex h-[156px] w-[124px] flex-none flex-col items-center justify-center gap-1.5 rounded-[14px] border border-[var(--ui-hairline)] bg-[#DFE1E0]"
-          >
-            <span className="text-5xl font-bold leading-none text-foreground-700">
-              {master.photo ?? master.name.slice(0, 1)}
-            </span>
-            <span className="font-mono text-2xs leading-none text-foreground-400">PHOTO</span>
-          </span>
+          <CrewPhoto
+            name={master.name}
+            initial={master.photo}
+            src={master.photoDataUrl}
+            size="xl"
+          />
           <div>
             <h1 className="m-0 text-3xl font-bold text-foreground-900">{master.name}</h1>
             <p className="m-0 mt-1 font-mono text-sm text-[#99877D]">{master.nameKana ?? ""}</p>
@@ -123,7 +119,129 @@ export default async function ShoreCrewKartePage({ params }: { params: Promise<{
           ) : null}
         </div>
       </div>
+      {/* 2段組: 左は「誰か」、右は「実績と資格」（デザイン正本 S-03） */}
+      <div className="grid items-start gap-5 xl:grid-cols-[340px_minmax(0,1fr)]">
+        <div className="flex flex-col gap-4">
+      {/* ── 基本情報 ── */}
+      <section aria-label="基本情報" className="ui-card p-4">
+        <h2 className="mb-2 font-bold">基本情報</h2>
+        <dl>
+          <Row label={t.crewMasterField.name} value={master.name} />
+          <Row label={t.crewMasterField.nameKana} value={master.nameKana} />
+          <Row label={t.crewMasterField.birthDate} value={master.birthDate} />
+          <Row label="年齢" value={age === null ? null : `${age}歳（生年月日から計算）`} />
+          <Row label={t.crewMasterField.bloodType} value={master.bloodType ? `${master.bloodType}型` : null} />
+          <Row label={t.crewMasterField.seamanBookNo} value={master.seamanBookNo} />
+          <Row label={t.crewMasterField.address} value={master.address} />
+          <Row label={t.crewMasterField.phone} value={master.phone} />
+          <Row label={t.crewMasterField.position} value={master.position} />
+          <Row label={t.crewMasterField.employmentType} value={master.employmentType} />
+          <Row label={t.crewMasterField.hiredOn} value={master.hiredOn} />
+          {master.retiredOn ? (
+            <Row label={t.crewMasterField.retiredOn} value={master.retiredOn} />
+          ) : null}
+        </dl>
+      </section>
 
+      {/* ── 健康（要配慮個人情報を含む） ── */}
+      <section aria-label="健康" className="ui-card p-4">
+        <h2 className="mb-2 font-bold">健康</h2>
+        {medical.length === 0 ? (
+          <p className="text-sm text-foreground-500">健康証明書が登録されていません。</p>
+        ) : (
+          <ul className="flex flex-col gap-1">
+            {medical.map((s) => (
+              <li key={s.credential.id} className="flex flex-wrap items-center gap-2 text-sm">
+                <span className="font-semibold">{s.credential.name}</span>
+                <span className="tabular-nums text-foreground-500">
+                  期限 {s.credential.expiresOn ?? "—"}
+                </span>
+                <StatusChip level={expiryLevel(s.expiry)} size="sm" label={t.expiryState[s.expiry]} />
+                <StatusChip
+                  level={freshnessLevel(s.freshness)}
+                  size="sm"
+                  label={t.freshnessState[s.freshness]}
+                />
+                <span className="text-foreground-600">{s.message}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        <div className="ui-inset mt-3 p-3">
+          <h3 className="text-sm font-bold">既往歴・服薬状況（要配慮個人情報）</h3>
+          {canSensitive ? (
+            <>
+              <dl className="mt-1">
+                <Row label={t.crewMasterField.medicalHistory} value={master.medicalHistory} />
+                <Row label={t.crewMasterField.medication} value={master.medication} />
+              </dl>
+              <p className="mt-2 text-xs text-foreground-500">
+                この欄を開いたことは記録されます（誰が・いつ見たかを残す決まりです）。
+              </p>
+            </>
+          ) : (
+            <p className="mt-1 text-sm text-foreground-600">
+              要配慮情報のため表示されません。
+            </p>
+          )}
+        </div>
+      </section>
+
+      {/* ── 緊急 ── */}
+      <section aria-label="緊急連絡先・家族構成" className="ui-card p-4">
+        <h2 className="mb-2 font-bold">緊急連絡先・家族構成</h2>
+        <dl>
+          <Row label={t.crewMasterField.emergencyContactName} value={master.emergencyContactName} />
+          <Row
+            label={t.crewMasterField.emergencyContactRelation}
+            value={master.emergencyContactRelation}
+          />
+          <Row
+            label={t.crewMasterField.emergencyContactPhone}
+            value={master.emergencyContactPhone}
+          />
+          <Row label={t.crewMasterField.familyNote} value={master.familyNote} />
+        </dl>
+      </section>
+
+      {/* ── 保険（写し。正本は外部機関） ── */}
+      <section aria-label="保険の加入状況" className="ui-card p-4">
+        <h2 className="mb-2 font-bold">保険の加入状況</h2>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[36rem] text-sm">
+            <thead>
+              <tr className="border-b border-[var(--ui-hairline)] text-left text-foreground-500">
+                <th className="py-1 pr-3 font-normal">区分</th>
+                <th className="py-1 pr-3 font-normal">記号番号</th>
+                <th className="py-1 pr-3 font-normal">資格取得日</th>
+                <th className="py-1 pr-3 font-normal">最終確認日</th>
+                <th className="py-1 font-normal">確認方法</th>
+              </tr>
+            </thead>
+            <tbody>
+              {insuranceRowsOf(master).map(({ kind, entry }) => (
+                <tr key={kind} className="border-b border-[var(--ui-hairline)] last:border-b-0">
+                  <td className="py-1.5 pr-3">{t.insuranceKind[kind]}</td>
+                  <td className="py-1.5 pr-3 tabular-nums">{entry?.number ?? "（未確認）"}</td>
+                  <td className="py-1.5 pr-3 tabular-nums">{entry?.acquiredOn ?? "—"}</td>
+                  <td className="py-1.5 pr-3 tabular-nums">{entry?.lastVerifiedOn ?? "—"}</td>
+                  <td className="py-1.5">
+                    {entry?.verifyMethod ? t.verifyMethod[entry.verifyMethod] : "—"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <p className="mt-2 text-xs text-foreground-500">
+          加入状況の正本は日本年金機構・協会けんぽ・ハローワークにあり、ここは写しです。最終確認日から
+          日が経つと「要再確認」になります（要件定義書 12.2 / 12.4）。
+        </p>
+      </section>
+        </div>
+
+        <div className="flex flex-col gap-4">
       {/* ── 業務: 配乗可否（導出値）とブロック事由 ── */}
       <section aria-label="配乗できるか" className="ui-card p-4">
         <div className="mb-2 flex flex-wrap items-center gap-3">
@@ -159,27 +277,6 @@ export default async function ShoreCrewKartePage({ params }: { params: Promise<{
           この判定は入力項目ではなく、免状・健康証明書・基本訓練・保険の確認状況と直近の労働時間から
           算出しています（要件定義書 12.3）。
         </p>
-      </section>
-
-      {/* ── 基本情報 ── */}
-      <section aria-label="基本情報" className="ui-card p-4">
-        <h2 className="mb-2 font-bold">基本情報</h2>
-        <dl>
-          <Row label={t.crewMasterField.name} value={master.name} />
-          <Row label={t.crewMasterField.nameKana} value={master.nameKana} />
-          <Row label={t.crewMasterField.birthDate} value={master.birthDate} />
-          <Row label="年齢" value={age === null ? null : `${age}歳（生年月日から計算）`} />
-          <Row label={t.crewMasterField.bloodType} value={master.bloodType ? `${master.bloodType}型` : null} />
-          <Row label={t.crewMasterField.seamanBookNo} value={master.seamanBookNo} />
-          <Row label={t.crewMasterField.address} value={master.address} />
-          <Row label={t.crewMasterField.phone} value={master.phone} />
-          <Row label={t.crewMasterField.position} value={master.position} />
-          <Row label={t.crewMasterField.employmentType} value={master.employmentType} />
-          <Row label={t.crewMasterField.hiredOn} value={master.hiredOn} />
-          {master.retiredOn ? (
-            <Row label={t.crewMasterField.retiredOn} value={master.retiredOn} />
-          ) : null}
-        </dl>
       </section>
 
       {/* ── 資格・訓練 ── */}
@@ -226,51 +323,6 @@ export default async function ShoreCrewKartePage({ params }: { params: Promise<{
             ))}
           </ul>
         )}
-      </section>
-
-      {/* ── 健康（要配慮個人情報を含む） ── */}
-      <section aria-label="健康" className="ui-card p-4">
-        <h2 className="mb-2 font-bold">健康</h2>
-        {medical.length === 0 ? (
-          <p className="text-sm text-foreground-500">健康証明書が登録されていません。</p>
-        ) : (
-          <ul className="flex flex-col gap-1">
-            {medical.map((s) => (
-              <li key={s.credential.id} className="flex flex-wrap items-center gap-2 text-sm">
-                <span className="font-semibold">{s.credential.name}</span>
-                <span className="tabular-nums text-foreground-500">
-                  期限 {s.credential.expiresOn ?? "—"}
-                </span>
-                <StatusChip level={expiryLevel(s.expiry)} size="sm" label={t.expiryState[s.expiry]} />
-                <StatusChip
-                  level={freshnessLevel(s.freshness)}
-                  size="sm"
-                  label={t.freshnessState[s.freshness]}
-                />
-                <span className="text-foreground-600">{s.message}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-
-        <div className="ui-inset mt-3 p-3">
-          <h3 className="text-sm font-bold">既往歴・服薬状況（要配慮個人情報）</h3>
-          {canSensitive ? (
-            <>
-              <dl className="mt-1">
-                <Row label={t.crewMasterField.medicalHistory} value={master.medicalHistory} />
-                <Row label={t.crewMasterField.medication} value={master.medication} />
-              </dl>
-              <p className="mt-2 text-xs text-foreground-500">
-                この欄を開いたことは記録されます（誰が・いつ見たかを残す決まりです）。
-              </p>
-            </>
-          ) : (
-            <p className="mt-1 text-sm text-foreground-600">
-              要配慮情報のため表示されません。
-            </p>
-          )}
-        </div>
       </section>
 
       {/* ── 業務: 労務・乗船履歴・評価 ── */}
@@ -353,58 +405,6 @@ export default async function ShoreCrewKartePage({ params }: { params: Promise<{
         </p>
       </section>
 
-      {/* ── 緊急 ── */}
-      <section aria-label="緊急連絡先・家族構成" className="ui-card p-4">
-        <h2 className="mb-2 font-bold">緊急連絡先・家族構成</h2>
-        <dl>
-          <Row label={t.crewMasterField.emergencyContactName} value={master.emergencyContactName} />
-          <Row
-            label={t.crewMasterField.emergencyContactRelation}
-            value={master.emergencyContactRelation}
-          />
-          <Row
-            label={t.crewMasterField.emergencyContactPhone}
-            value={master.emergencyContactPhone}
-          />
-          <Row label={t.crewMasterField.familyNote} value={master.familyNote} />
-        </dl>
-      </section>
-
-      {/* ── 保険（写し。正本は外部機関） ── */}
-      <section aria-label="保険の加入状況" className="ui-card p-4">
-        <h2 className="mb-2 font-bold">保険の加入状況</h2>
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[36rem] text-sm">
-            <thead>
-              <tr className="border-b border-[var(--ui-hairline)] text-left text-foreground-500">
-                <th className="py-1 pr-3 font-normal">区分</th>
-                <th className="py-1 pr-3 font-normal">記号番号</th>
-                <th className="py-1 pr-3 font-normal">資格取得日</th>
-                <th className="py-1 pr-3 font-normal">最終確認日</th>
-                <th className="py-1 font-normal">確認方法</th>
-              </tr>
-            </thead>
-            <tbody>
-              {insuranceRowsOf(master).map(({ kind, entry }) => (
-                <tr key={kind} className="border-b border-[var(--ui-hairline)] last:border-b-0">
-                  <td className="py-1.5 pr-3">{t.insuranceKind[kind]}</td>
-                  <td className="py-1.5 pr-3 tabular-nums">{entry?.number ?? "（未確認）"}</td>
-                  <td className="py-1.5 pr-3 tabular-nums">{entry?.acquiredOn ?? "—"}</td>
-                  <td className="py-1.5 pr-3 tabular-nums">{entry?.lastVerifiedOn ?? "—"}</td>
-                  <td className="py-1.5">
-                    {entry?.verifyMethod ? t.verifyMethod[entry.verifyMethod] : "—"}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <p className="mt-2 text-xs text-foreground-500">
-          加入状況の正本は日本年金機構・協会けんぽ・ハローワークにあり、ここは写しです。最終確認日から
-          日が経つと「要再確認」になります（要件定義書 12.2 / 12.4）。
-        </p>
-      </section>
-
       {/* ── 船内での持ち場・権限・最近の記録 ── */}
       <section aria-label="本日の当直と持ち場" className="ui-card p-4">
         <h2 className="mb-2 font-bold">本日の当直・持ち場</h2>
@@ -468,6 +468,8 @@ export default async function ShoreCrewKartePage({ params }: { params: Promise<{
           </ul>
         )}
       </section>
+        </div>
+      </div>
 
       <p className="text-xs text-foreground-500">
         この画面は参照専用です。

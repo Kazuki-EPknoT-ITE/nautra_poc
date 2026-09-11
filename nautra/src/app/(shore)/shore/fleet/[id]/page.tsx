@@ -8,7 +8,7 @@ import { credentialsOf, listVessels, todayLocal } from "@/server/master-service"
 import { requireShore } from "@/server/shore-session";
 import { listTasksForVessel, TASK_STATE_LABEL } from "@/server/task-service";
 import { buildVesselOverview } from "@/server/vessel-overview-service";
-import { DataTable, Section, StatusChip } from "@/ui";
+import { CrewPhoto, DataTable, Section, StatusChip } from "@/ui";
 import { ShoreGuardNotice } from "../../_components/guard";
 
 export const dynamic = "force-dynamic";
@@ -96,14 +96,7 @@ export default async function VesselDetailPage({ params }: { params: Promise<{ i
                 key={c.crewMemberId}
                 className="flex flex-wrap items-center gap-3.5 border-b border-[var(--ui-hairline)] px-[18px] py-3 last:border-b-0"
               >
-                <span className="flex h-[70px] w-14 flex-none flex-col items-center justify-center gap-0.5 rounded-[12px] border border-[var(--ui-hairline)] bg-[#DFE1E0]">
-                  <span className="text-2xl font-bold leading-none text-foreground-700">
-                    {c.photo ?? c.name.slice(0, 1)}
-                  </span>
-                  <span className="font-mono text-[8px] leading-none tracking-[0.06em] text-foreground-400">
-                    PHOTO
-                  </span>
-                </span>
+                <CrewPhoto name={c.name} initial={c.photo} src={c.master?.photoDataUrl} size="md" />
                 <div className="min-w-0 flex-1">
                   <p className="m-0 text-lg font-bold text-foreground-900">{c.name}</p>
                   <p className="m-0 mt-0.5 text-xs text-foreground-500">

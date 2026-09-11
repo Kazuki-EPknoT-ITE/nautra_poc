@@ -1,4 +1,7 @@
 import { chromium } from "playwright";
+import { writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 /**
  * E2E: 主要フローを実際に操作して検証する。
@@ -50,6 +53,26 @@ await v.waitForTimeout(1500);
 const incidentText = await v.locator("main").innerText();
 check("船内: ヒヤリハットを標題＋状況だけで報告できる", incidentText.includes(title));
 
+// 打刻: 作業タイル → 確認 → 「はい」で記録される（2段階。押し間違いを一度で確定させない）
+await v.goto(`${BASE}/vessel/punch`, { waitUntil: "networkidle" });
+await v.waitForTimeout(600);
+await v.getByRole("button", { name: /航海当直/ }).first().click();
+await v.waitForTimeout(300);
+const confirmText = await v.locator("main").innerText();
+check(
+  "船内: 打刻は確認の問いかけを挟む",
+  /打刻の確認/.test(confirmText) && /書き換えできません/.test(confirmText),
+);
+await v.getByRole("button", { name: /^はい、/ }).click();
+await v.waitForTimeout(1200);
+const punchedText = await v.locator("main").innerText();
+// 開始でも終了でも「記録が1件増える」ことを見る（2回目の実行では終了打刻になるため）
+check(
+  "船内: 確認して打刻すると本日の打刻に並ぶ",
+  /直前の打刻：[0-9]{2}:[0-9]{2}:[0-9]{2}/.test(punchedText),
+  punchedText.match(/直前の打刻：[^\n]{0,40}/)?.[0] ?? "",
+);
+
 // 相談を匿名で送る
 await v.goto(`${BASE}/vessel/wellbeing`, { waitUntil: "networkidle" });
 const wellbeingText0 = await v.locator("main").innerText();
@@ -98,8 +121,8 @@ const shore = await browser.newContext({ viewport: { width: 1440, height: 1100 }
 await shore.addCookies([{ name: "nautra_shore_session", value: "shore-yamaguchi", url: BASE }]);
 const s = await shore.newPage();
 
-// 事故が陸上に届いている
-await s.goto(`${BASE}/shore/safety`, { waitUntil: "networkidle" });
+// 事故が陸上に届いている（S-14 と同じく主題ごとのタブなので、事故の枚を開く）
+await s.goto(`${BASE}/shore/safety?tab=incidents`, { waitUntil: "networkidle" });
 const safetyText = await s.locator("main").innerText();
 check("陸上: 船内から送った事故報告が届く", safetyText.includes(title));
 
@@ -153,6 +176,30 @@ check(
   /履歴が不足|履歴で更新できます/.test(karteText),
   karteText.match(/直近5年の乗船は[^\n]{0,40}/)?.[0] ?? "",
 );
+
+// 顔写真: 端末で縮めて船員マスタに保存され、ほかの画面にも出る
+{
+  // 1×1 の PNG を作って選ばせる（外部のファイルに依存させない）
+  const png = Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+    "base64",
+  );
+  const photoPath = join(tmpdir(), "nautra-e2e-photo.png");
+  writeFileSync(photoPath, png);
+
+  await s.goto(`${BASE}/shore/crew/crew-terada/edit`, { waitUntil: "networkidle" });
+  await s.setInputFiles('input[type="file"]', photoPath);
+  await s.waitForTimeout(600);
+  await s.getByRole("button", { name: /保存する/ }).click();
+  await s.waitForTimeout(1500);
+  const savedText = await s.locator("main").innerText();
+  check("陸上: 顔写真を登録すると船員マスタに保存される", /顔写真/.test(savedText),
+    savedText.match(/保存しました[^\n]{0,40}/)?.[0] ?? "");
+
+  await s.goto(`${BASE}/shore/crew`, { waitUntil: "networkidle" });
+  const imgCount = await s.locator('main img[alt$="の顔写真"]').count();
+  check("陸上: 登録した顔写真が一覧にも出る", imgCount > 0, `写真 ${imgCount}枚`);
+}
 
 // 権限: 事務担当では人事考課が開けない
 const clerk = await browser.newContext();

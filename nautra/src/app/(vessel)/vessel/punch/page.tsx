@@ -15,23 +15,8 @@ import { cn } from "@/lib/cn";
 import { fmtElapsedClock, fmtTimeSec } from "@/lib/format";
 import { useLocale } from "@/lib/use-locale";
 import { recordPunch } from "@/lib/vessel-actions";
-import {
-  useCrewRecords,
-  useNowTick,
-  useSessionCrew,
-  useShiftPlans,
-} from "@/lib/vessel-hooks";
-import {
-  Button,
-  Card,
-  CardBody,
-  Checkbox,
-  Chip,
-  Input,
-  Radio,
-  RadioGroup,
-  SurfaceCard,
-} from "@/ui";
+import { useCrewRecords, useNowTick, useSessionCrew, useShiftPlans } from "@/lib/vessel-hooks";
+import { Eyebrow, FlashToast, StatusChip } from "@/ui";
 import { GroupHeader } from "../_components/group-header";
 
 const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"];
@@ -43,11 +28,11 @@ const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"];
 const LONG_OPEN_HOURS = 12;
 
 /**
- * V-01 労働時間・打刻（履歴・事後入力を同一画面に統合）。
+ * V-01 労働時間・打刻（デザイン正本 `design/poc_design` の `atPunch`）。
  *
  * - 打刻できるのは**サインイン中の本人のみ**（共用端末でも記録者を取り違えない。11.3）
  * - 作業種別は**割り当てられた当直シフトから選ぶ**（陸上・船長の計画と連携。8.3）
- * - 「作業をタップ → 作業開始/終了を押す」の2段階。開始中のボタンは色が変わる（誤操作防止。6.3）
+ * - 操作は**2段階**（作業をタップ → 確認して「はい」）。押し間違いを一度で確定させない（6.3）
  * - **並列打刻**に対応（当直しながら荷役監督など）。労働時間は和集合で集計される
  * - 時刻は秒まで表示し、打刻の証跡性を担保する
  */
@@ -58,9 +43,15 @@ export default function PunchPage() {
   const today = ymdLocal(now);
 
   const [error, setError] = useState<string | null>(null);
-  const [confirmation, setConfirmation] = useState<string | null>(null);
-  /** 2段階操作の選択中カード（タップ → 作業開始/終了を押す） */
-  const [selected, setSelected] = useState<WorkCategory | null>(null);
+  const [flash, setFlash] = useState<string | null>(null);
+
+  /**
+   * 2段階操作の2段目。作業をタップすると、確認のための問いかけを開く
+   * （デザインの `punchConfirmOpen`）。ここで初めて記録が確定する。
+   */
+  const [pending, setPending] = useState<{ category: WorkCategory; action: "start" | "end" } | null>(
+    null,
+  );
 
   /**
    * 安全臨時労働・緊急作業の別枠（要件定義書 3.2.5⑥）。
@@ -70,10 +61,12 @@ export default function PunchPage() {
   const [exceptionKind, setExceptionKind] = useState<ExceptionalWorkKind>("safety_emergency");
   const [exceptionNote, setExceptionNote] = useState("");
 
-  function clearException() {
+  function closeConfirm() {
+    setPending(null);
     setIsExceptional(false);
     setExceptionKind("safety_emergency");
     setExceptionNote("");
+    setError(null);
   }
 
   const myId = session?.id ?? "";
@@ -100,11 +93,20 @@ export default function PunchPage() {
     [assignedCategories],
   );
 
-  async function punch(workCategory: WorkCategory, action: "start" | "end") {
+  /** 本日の打刻（デザインの `todayRecords`）。新しい順に数件だけ出す */
+  const todayRecords = useMemo(
+    () =>
+      myRecords
+        .filter((r) => ymdLocal(new Date(r.occurredAt)) === today)
+        .sort((a, b) => b.occurredAt.localeCompare(a.occurredAt)),
+    [myRecords, today],
+  );
+
+  async function commit() {
+    if (!pending || !session) return;
     setError(null);
-    if (!session) return;
     // 別枠は開始打刻にだけ付く。理由は必須（後から「なぜ除外したのか」を検証できるようにする）
-    const useException = action === "start" && isExceptional;
+    const useException = pending.action === "start" && isExceptional;
     if (useException && !exceptionNote.trim()) {
       setError("緊急作業として記録するには理由を入力してください");
       return;
@@ -112,139 +114,76 @@ export default function PunchPage() {
     try {
       const rec = await recordPunch({
         crewMemberId: session.id,
-        workCategory,
-        action,
+        workCategory: pending.category,
+        action: pending.action,
         exceptionKind: useException ? exceptionKind : undefined,
         note: useException ? exceptionNote.trim() : undefined,
       });
-      setConfirmation(
-        `${tr("workCategory", workCategory)} を${tr("action", action)}しました（${fmtTimeSec(rec.occurredAt)}）` +
+      setFlash(
+        `${tr("workCategory", pending.category)} を${tr("action", pending.action)}しました（${fmtTimeSec(rec.occurredAt)}）` +
           (useException ? `／${tr("exceptionalWork", exceptionKind)}として上限の計算から外します` : ""),
       );
-      setSelected(null);
-      clearException();
+      closeConfirm();
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     }
   }
 
-
   if (!session) return null;
+
+  /** 進行中のうち、いちばん長く開いている作業（暗い帯に出す主役） */
+  const running = openIntervals
+    .slice()
+    .sort((a, b) => a.startAt.getTime() - b.startAt.getTime())[0];
 
   return (
     <div className="flex flex-col gap-4">
       <GroupHeader group="01" />
 
-      {/* 現在時刻（秒まで）と打刻者 */}
-      <SurfaceCard>
-        <CardBody className="flex flex-row flex-wrap items-end justify-between gap-3 p-5">
-          <div>
-            <p className="text-sm text-foreground-600">
-              {now.getMonth() + 1}/{now.getDate()}（{WEEKDAYS[now.getDay()]}）
-            </p>
-            <p className="tabular-nums text-5xl font-bold leading-none sm:text-6xl">
-              {String(now.getHours()).padStart(2, "0")}:
-              {String(now.getMinutes()).padStart(2, "0")}:
-              {String(now.getSeconds()).padStart(2, "0")}
-            </p>
-          </div>
-          <div className="text-right">
-            <p className="text-lg font-bold">
-              {session.name}（{tr("role", session.role)}）
-            </p>
-            <p className="text-sm text-foreground-600">打刻できるのはサインイン中の本人のみです</p>
-          </div>
-        </CardBody>
-      </SurfaceCard>
+      {/*
+        進行中の作業（暗い帯）。**いま何をしているか**と**どれだけ経ったか**だけを、
+        離れて立っていても読める大きさで出す。進行中が無いときは現在時刻を主役にする。
+      */}
+      <div className="ui-dark flex flex-wrap items-center justify-between gap-4 px-6 py-5">
+        <div className="min-w-0">
+          <Eyebrow tone="muted" className="text-[#99877D]">
+            {running ? "進行中の作業" : "現在時刻"}
+          </Eyebrow>
+          <p className="m-0 mt-1.5 text-4xl font-bold text-white">
+            {running ? tr("workCategory", running.workCategory) : `${now.getMonth() + 1}/${now.getDate()}（${WEEKDAYS[now.getDay()]}）`}
+          </p>
+          <p className="m-0 mt-1.5 text-lg text-[#DFE1E0]">
+            {running
+              ? `開始 ${fmtTimeSec(running.startAt.toISOString())}${openIntervals.length > 1 ? ` ／ ほかに${openIntervals.length - 1}件 進行中` : ""}`
+              : `${session.name}（${tr("role", session.role)}）／ 打刻できるのはサインイン中の本人のみです`}
+          </p>
+        </div>
+        <div className="flex-none text-right">
+          <p className="m-0 font-mono text-6xl font-semibold leading-none tracking-[0.01em] tabular-nums text-white">
+            {running
+              ? fmtElapsedClock(now.getTime() - running.startAt.getTime())
+              : `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}:${String(now.getSeconds()).padStart(2, "0")}`}
+          </p>
+          <p className="m-0 mt-1.5 text-lg text-[#99877D]">{running ? "経過" : "現在時刻"}</p>
+        </div>
+      </div>
 
-      {/* 進行中の作業（並列可） */}
-      <section aria-label="進行中の作業" className="flex flex-col gap-2">
-        <h2 className="text-base font-bold">
-          進行中の作業
-          <span className="ml-2 tabular-nums text-foreground-600">{openIntervals.length}件</span>
-        </h2>
-        {openIntervals.length === 0 ? (
-          <SurfaceCard>
-            <CardBody className="p-4">
-              <p className="text-foreground-600">
-                進行中の作業はありません。下の作業をタップして「作業開始」を押してください。
-              </p>
-            </CardBody>
-          </SurfaceCard>
-        ) : (
-          openIntervals.map((iv) => {
-            const isSelected = selected === iv.workCategory;
-            return (
-              <SurfaceCard key={iv.startRecordId} className="border-2 border-primary">
-                <CardBody className="flex flex-wrap items-center justify-between gap-3 p-4">
-                  <div>
-                    <p className="text-xl font-bold">
-                      {tr("workCategory", iv.workCategory)}
-                      <Chip size="sm" color="primary" radius="sm" className="ml-2 align-middle">
-                        作業中
-                      </Chip>
-                    </p>
-                    <p className="tabular-nums text-sm text-foreground-600">
-                      開始 {fmtTimeSec(iv.startAt.toISOString())}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="tabular-nums text-3xl font-bold">
-                      {fmtElapsedClock(now.getTime() - iv.startAt.getTime())}
-                    </p>
-                    {now.getTime() - iv.startAt.getTime() > LONG_OPEN_HOURS * 3600_000 ? (
-                      <p className="text-sm font-semibold text-warning-700">
-                        ⚠ {LONG_OPEN_HOURS}時間以上 進行中です。終了打刻の忘れがないか確認してください
-                      </p>
-                    ) : null}
-                  </div>
-                  {isSelected ? (
-                    <div className="flex w-full gap-2">
-                      <Button
-                        color="danger"
-                        radius="md"
-                        className="min-h-14 flex-1 text-lg font-bold"
-                        onPress={() => void punch(iv.workCategory, "end")}
-                      >
-                        {tr("workCategory", iv.workCategory)} を作業終了
-                      </Button>
-                      <Button
-                        variant="bordered"
-                        radius="md"
-                        className="min-h-14 border-[var(--ui-hairline-strong)] text-foreground"
-                        onPress={() => setSelected(null)}
-                      >
-                        やめる
-                      </Button>
-                    </div>
-                  ) : (
-                    <Button
-                      variant="bordered"
-                      radius="md"
-                      className="min-h-14 w-full border-[var(--ui-hairline-strong)] text-lg font-semibold text-foreground"
-                      onPress={() => setSelected(iv.workCategory)}
-                    >
-                      この作業を終了する
-                    </Button>
-                  )}
-                </CardBody>
-              </SurfaceCard>
-            );
-          })
-        )}
-      </section>
+      {running && now.getTime() - running.startAt.getTime() > LONG_OPEN_HOURS * 3600_000 ? (
+        <p className="m-0 rounded-small bg-warning-100 px-4 py-3 text-lg text-warning-700">
+          ⚠ {LONG_OPEN_HOURS}時間以上 進行中です。終了打刻の忘れがないか確認してください。
+        </p>
+      ) : null}
 
-      {/* 作業を開始する（割り当て作業から選ぶ） */}
-      <section aria-label="作業を開始する" className="flex flex-col gap-2">
-        <h2 className="text-base font-bold">作業を開始する</h2>
-        <p className="text-sm text-foreground-600">
+      {/* 作業のタイル。押すと確認の問いかけが開く（2段階の1段目） */}
+      <section aria-label="作業を打刻する" className="flex flex-col gap-2">
+        <p className="m-0 text-base text-foreground-500">
           {assigned.length > 0
-            ? "本日あなたに割り当てられた当直（04 シフト）の作業です。タップしてから「作業開始」を押します。複数の作業を同時に進行できます。"
+            ? "本日あなたに割り当てられた当直（04 シフト）の作業です。押すと確認の画面が出ます。複数の作業を同時に進行できます。"
             : "本日の割り当てはありません。必要な作業を選んで打刻してください。"}
         </p>
 
         {assigned.length > 0 ? (
-          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {assigned.map((a) => (
               <WorkTile
                 key={a.category}
@@ -253,8 +192,12 @@ export default function PunchPage() {
                   .map((s) => `${tr("shiftType", s.shiftType)} ${s.from}–${s.to}`)
                   .join(" / ")}
                 active={openCategories.has(a.category)}
-                selected={selected === a.category}
-                onSelect={() => setSelected(selected === a.category ? null : a.category)}
+                onSelect={() =>
+                  setPending({
+                    category: a.category,
+                    action: openCategories.has(a.category) ? "end" : "start",
+                  })
+                }
                 tr={tr}
               />
             ))}
@@ -263,140 +206,182 @@ export default function PunchPage() {
 
         {otherCategories.length > 0 ? (
           <details className="ui-card p-4">
-            <summary className="cursor-pointer text-base font-semibold">
+            <summary className="cursor-pointer text-lg font-semibold">
               割り当て外の作業を打刻する（{otherCategories.length}件）
             </summary>
-            <p className="mb-2 mt-2 text-sm text-foreground-600">
+            <p className="mb-2.5 mt-2 text-base text-foreground-500">
               臨時の作業はここから打刻できます。割り当てとの差異は 04 シフトの「計画と実績」で確認できます。
             </p>
-            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {otherCategories.map((c) => (
                 <WorkTile
                   key={c}
                   category={c}
                   active={openCategories.has(c)}
-                  selected={selected === c}
-                  onSelect={() => setSelected(selected === c ? null : c)}
+                  onSelect={() =>
+                    setPending({ category: c, action: openCategories.has(c) ? "end" : "start" })
+                  }
                   tr={tr}
                 />
               ))}
             </div>
           </details>
         ) : null}
-
-        {/* 2段階目: 選択した作業の開始/終了を確定する */}
-        {selected && !openCategories.has(selected) ? (
-          <SurfaceCard className="border-2 border-primary">
-            <CardBody className="flex flex-col gap-3 p-4">
-              <p className="text-lg">
-                <span className="font-bold">{tr("workCategory", selected)}</span> を開始します
-              </p>
-
-              {/* 3.2.5⑥ 安全臨時労働・緊急作業の別枠。既定はオフ（誤って常用させない） */}
-              <Checkbox
-                size="lg"
-                isSelected={isExceptional}
-                onValueChange={(v) => {
-                  setIsExceptional(v);
-                  if (!v) clearException();
-                }}
-              >
-                これは緊急作業・安全臨時労働です（労働時間の上限の計算から外します）
-              </Checkbox>
-
-              {isExceptional ? (
-                <div className="ui-inset flex flex-col gap-3 p-3">
-                  <RadioGroup
-                    orientation="horizontal"
-                    label="別枠の区分"
-                    value={exceptionKind}
-                    onValueChange={(v) => setExceptionKind(v as ExceptionalWorkKind)}
-                  >
-                    {EXCEPTIONAL_WORK_KINDS.map((k) => (
-                      <Radio key={k} value={k}>
-                        {tr("exceptionalWork", k)}
-                      </Radio>
-                    ))}
-                  </RadioGroup>
-                  <Input
-                    label="理由（必須）"
-                    placeholder="例: 荒天で係船索の増し取りが必要になったため"
-                    value={exceptionNote}
-                    onValueChange={setExceptionNote}
-                  />
-                  <p className="text-pretty text-sm text-foreground-600">
-                    働いた時間は記録簿に実績として残ります。上限の計算からだけ外れ、理由とあわせて
-                    後から確認できます。
-                  </p>
-                </div>
-              ) : null}
-
-              <div className="flex flex-wrap justify-end gap-2">
-                <Button
-                  variant="bordered"
-                  radius="md"
-                  className="min-h-14 border-[var(--ui-hairline-strong)] text-foreground"
-                  onPress={() => {
-                    setSelected(null);
-                    clearException();
-                  }}
-                >
-                  やめる
-                </Button>
-                <Button
-                  color="primary"
-                  radius="md"
-                  className="min-h-14 px-8 text-lg font-bold"
-                  onPress={() => void punch(selected, "start")}
-                >
-                  作業開始
-                </Button>
-              </div>
-            </CardBody>
-          </SurfaceCard>
-        ) : null}
       </section>
 
-      {error ? (
-        <Card className="ui-card border border-danger" shadow="none">
-          <CardBody>
-            <p className="text-danger">✕ {error}</p>
-          </CardBody>
-        </Card>
-      ) : null}
-      {confirmation ? (
-        <Card className="ui-card border border-[var(--ui-hairline-strong)]" shadow="none">
-          <CardBody>
-            <p className="font-semibold">✓ {confirmation}</p>
-          </CardBody>
-        </Card>
+      {/* 本日の打刻（デザインの `todayRecords`）。押した記録がその場で並ぶ */}
+      <section aria-label="本日の打刻" className="ui-card">
+        <div className="flex items-baseline justify-between gap-3 border-b border-[var(--ui-hairline-strong)] px-4 py-3">
+          <h2 className="m-0 text-xl font-bold text-foreground-900">本日の打刻</h2>
+          <p className="m-0 text-base text-foreground-500">
+            直前の打刻：
+            {todayRecords[0]
+              ? `${fmtTimeSec(todayRecords[0].occurredAt)} ${tr("workCategory", todayRecords[0].workCategory)} ${tr("action", todayRecords[0].action)}`
+              : "まだありません"}
+          </p>
+        </div>
+        {todayRecords.slice(0, 8).map((r) => (
+          <div
+            key={r.id}
+            className="flex items-center gap-3.5 border-b border-[var(--ui-hairline)] px-4 py-2.5"
+          >
+            <span className="flex-none basis-[104px] font-mono text-lg tabular-nums text-foreground-800">
+              {fmtTimeSec(r.occurredAt)}
+            </span>
+            <span className="flex-1 text-lg text-foreground-700">
+              {tr("workCategory", r.workCategory)}
+            </span>
+            <span className="flex-none basis-20 text-base text-foreground-500">
+              {tr("action", r.action)}
+            </span>
+            {r.exceptionKind ? (
+              <StatusChip level="caution" size="sm" label={`別枠 ${tr("exceptionalWork", r.exceptionKind)}`} />
+            ) : (
+              <StatusChip level="none" size="sm" label={tr("entryType", r.entryType)} />
+            )}
+          </div>
+        ))}
+        <p className="m-0 px-4 py-3 text-base leading-relaxed text-foreground-500">
+          打刻はまず端末内に保存され、通信が戻ったときに自動で送られます。押した記録はあとから
+          書き換えられません。
+          <Link href="/vessel/history" className="ml-2 text-primary underline underline-offset-2">
+            履歴・事後入力を見る →
+          </Link>
+        </p>
+      </section>
+
+      {/* 2段階目: 確認の問いかけ（デザインの `punchConfirmOpen`） */}
+      {pending ? (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-[rgba(10,10,10,0.55)] p-8">
+          <div className="ui-card w-full max-w-[560px] border-[var(--ui-hairline-strong)] shadow-modal">
+            <div className="border-b border-[var(--ui-hairline)] px-7 py-5">
+              <Eyebrow>打刻の確認 ／ {fmtTimeSec(now.toISOString())}</Eyebrow>
+              <h2 className="m-0 mt-2 text-4xl font-bold leading-snug text-foreground-900">
+                {tr("workCategory", pending.category)} を{tr("action", pending.action)}します
+              </h2>
+              <p className="m-0 mt-2.5 text-xl leading-relaxed text-foreground-700">
+                {session.name}（{tr("role", session.role)}）の記録として、いまの時刻で残します。
+              </p>
+              <p className="m-0 mt-2 text-base leading-relaxed text-foreground-500">
+                記録した打刻はあとから書き換えできません。訂正が必要なときは陸上への差戻しになります。
+              </p>
+            </div>
+
+            {/* 3.2.5⑥ 安全臨時労働・緊急作業の別枠。既定はオフ（誤って常用させない） */}
+            {pending.action === "start" ? (
+              <div className="flex flex-col gap-3 border-b border-[var(--ui-hairline)] px-7 py-4">
+                <label className="flex cursor-pointer items-center gap-3">
+                  <input
+                    type="checkbox"
+                    checked={isExceptional}
+                    onChange={(e) => {
+                      setIsExceptional(e.target.checked);
+                      if (!e.target.checked) {
+                        setExceptionKind("safety_emergency");
+                        setExceptionNote("");
+                      }
+                    }}
+                    className="h-6 w-6"
+                  />
+                  <span className="text-lg text-foreground-800">
+                    これは緊急作業・安全臨時労働です（労働時間の上限の計算から外します）
+                  </span>
+                </label>
+
+                {isExceptional ? (
+                  <div className="ui-inset flex flex-col gap-3 p-3.5">
+                    <div className="flex flex-wrap gap-2">
+                      {EXCEPTIONAL_WORK_KINDS.map((k) => (
+                        <button
+                          key={k}
+                          type="button"
+                          aria-pressed={exceptionKind === k}
+                          onClick={() => setExceptionKind(k)}
+                          className={cn("ui-btn-ghost min-h-12", exceptionKind === k && "ui-btn-selected")}
+                        >
+                          {tr("exceptionalWork", k)}
+                        </button>
+                      ))}
+                    </div>
+                    <label className="block">
+                      <span className="mb-1 block text-base text-foreground-500">理由（必須）</span>
+                      <input
+                        value={exceptionNote}
+                        onChange={(e) => setExceptionNote(e.target.value)}
+                        placeholder="例: 荒天で係船索の増し取りが必要になったため"
+                        className="ui-field min-h-[52px] text-lg"
+                      />
+                    </label>
+                    <p className="m-0 text-base leading-relaxed text-foreground-500">
+                      働いた時間は記録簿に実績として残ります。上限の計算からだけ外れ、理由とあわせて
+                      後から確認できます。
+                    </p>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+
+            {error ? (
+              <p className="m-0 border-b border-[var(--ui-hairline)] px-7 py-3 text-lg font-semibold text-danger">
+                ✕ {error}
+              </p>
+            ) : null}
+
+            <div className="grid grid-cols-2 gap-3 px-7 py-5">
+              <button type="button" onClick={closeConfirm} className="ui-btn-ghost min-h-16 text-2xl">
+                いいえ
+              </button>
+              <button
+                type="button"
+                onClick={() => void commit()}
+                className="ui-btn-primary min-h-16 text-2xl"
+              >
+                はい、{tr("action", pending.action)}する
+              </button>
+            </div>
+          </div>
+        </div>
       ) : null}
 
-      {/* 履歴と事後入力は V-02（/vessel/history）へ分けた。打刻の画面は「いま打刻する」
-          ことだけに使い、確認・訂正は別のタブで行う（1画面1目的。基本設計書 6.3） */}
-      <Link href="/vessel/history" className="ui-btn-ghost min-h-14 text-lg">
-        打刻の履歴・事後入力を見る →
-      </Link>
+      <FlashToast message={flash} onDone={() => setFlash(null)} />
     </div>
   );
 }
 
 /**
- * 作業タイル（1段階目のタップ対象）。
+ * 作業タイル（2段階の1段目）。
  * 作業中は塗り＋「作業中」表示に変わり、終了すると元の見た目に戻る（色だけに依存しない）。
  */
 function WorkTile({
   category,
   assignment,
   active,
-  selected,
   onSelect,
   tr,
 }: {
   category: WorkCategory;
   assignment?: string;
   active: boolean;
-  selected: boolean;
   onSelect: () => void;
   /** 作業種別の表示言語（要件定義書 10.2） */
   tr: (group: string, key: string) => string;
@@ -412,19 +397,18 @@ function WorkTile({
           ? // globals.css の材質クラスは utilities より後に定義されるため、
             // 塗りつぶしは important 付きで指定しないと .ui-card の背景に負けて
             // 「白地に白文字」になる（作業中のタイルが読めなくなる）
-            "border-2 border-primary !bg-primary !text-primary-foreground"
-          : "border-2 border-transparent",
-        selected && !active && "border-primary",
+            "border-primary !bg-primary !text-primary-foreground"
+          : "hover:bg-content2",
       )}
     >
-      <span className="text-lg font-bold leading-tight">{tr("workCategory", category)}</span>
+      <span className="text-2xl font-bold leading-tight">{tr("workCategory", category)}</span>
       {assignment ? (
-        <span className={cn("text-xs", active ? "opacity-90" : "text-foreground-600")}>
+        <span className={cn("text-sm", active ? "opacity-90" : "text-foreground-500")}>
           {assignment}
         </span>
       ) : null}
-      <span className={cn("text-sm font-semibold", active ? "opacity-90" : "text-foreground-600")}>
-        {active ? "● 作業中（タップで終了）" : selected ? "選択中" : "タップして選択"}
+      <span className={cn("text-base font-semibold", active ? "opacity-90" : "text-foreground-500")}>
+        {active ? "● 作業中（押すと終了）" : "押して開始"}
       </span>
     </button>
   );

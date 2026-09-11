@@ -3,6 +3,8 @@
 import type { ReactNode } from "react";
 import { cn } from "@/lib/cn";
 import { CREW_MEMBERS, type CrewMember } from "@/lib/crew";
+import { useCrewPhotos } from "@/lib/vessel-hooks";
+import { CrewPhoto } from "@/ui";
 
 /**
  * 船内サインインの見た目（デザイン正本 `design/poc_design` の `showSignIn`）。
@@ -21,6 +23,9 @@ export function CrewPickerGrid({
   selectedId: string | null;
   onSelect: (c: CrewMember) => void;
 }) {
+  // 配信済みの船員マスタに顔写真があれば使う（無ければ頭文字の枠）
+  const photos = useCrewPhotos();
+
   return (
     <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3" role="radiogroup" aria-label="船員の選択">
       {CREW_MEMBERS.map((c) => {
@@ -39,12 +44,7 @@ export function CrewPickerGrid({
                 : "border-[var(--ui-hairline)] bg-content1 hover:bg-content2",
             )}
           >
-            <span className="flex h-[58px] w-12 flex-col items-center justify-center gap-0.5 border border-[var(--ui-hairline-strong)] bg-[#DFE1E0]">
-              <span className="text-2xl font-bold leading-none text-foreground-700">{c.initial}</span>
-              <span className="font-mono text-[8px] leading-none tracking-[0.06em] text-foreground-400">
-                PHOTO
-              </span>
-            </span>
+            <CrewPhoto name={c.name} initial={c.initial} src={photos.get(c.id)} size="sm" />
             <span className="text-lg font-bold text-foreground-900">
               {active ? <span aria-hidden="true">✓ </span> : null}
               {c.name}

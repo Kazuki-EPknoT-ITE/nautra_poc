@@ -57,6 +57,8 @@ export { DataTable } from "./data-table";
 export { StepBar, type Step } from "./step-bar";
 export { ConfirmDialog, DeleteDialog, FlashToast } from "./dialogs";
 export { StatusChip } from "./status-chip";
+export { CrewPhoto } from "./crew-photo";
+export { SearchField } from "./search-field";
 export { LimitGauge } from "./limit-gauge";
 export { PunchButton } from "./punch-button";
 export { TriStateToggle } from "./tri-state-toggle";

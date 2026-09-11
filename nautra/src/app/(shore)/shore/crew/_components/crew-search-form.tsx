@@ -1,6 +1,6 @@
 "use client";
 
-import { Button, Input } from "@/ui";
+import { Button, SearchField } from "@/ui";
 
 /**
  * S-02 の氏名検索。
@@ -9,15 +9,13 @@ import { Button, Input } from "@/ui";
  */
 export function CrewSearchForm({ status, q }: { status: string; q: string }) {
   return (
-    <form action="/shore/crew" method="get" className="flex items-end gap-2">
+    <form action="/shore/crew" method="get" className="flex items-center gap-2">
       {status && status !== "all" ? <input type="hidden" name="status" value={status} /> : null}
-      <Input
+      <SearchField
         name="q"
-        size="sm"
-        label="氏名でさがす"
-        placeholder="例: 森"
         defaultValue={q}
-        className="w-48"
+        placeholder="氏名・フリガナでさがす"
+        className="w-60"
       />
       <Button type="submit" variant="bordered" size="sm">
         さがす

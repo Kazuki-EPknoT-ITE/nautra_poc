@@ -65,8 +65,14 @@ export const crewMasterPayloadSchema = z
     address: z.string().optional(),
     bloodType: z.string().optional(),
     phone: z.string().optional(),
-    /** 顔写真（PoC はイニシャル文字。本番は署名付きURL） */
+    /** 顔写真の代わりに出す頭文字（写真が無いときの表示） */
     photo: z.string().optional(),
+    /**
+     * 顔写真の実データ（PoC は縮小した data URL を直接持つ）。
+     * 本番はオブジェクトストレージに置き、ここには署名付きURLの鍵だけを持たせる。
+     * 共用端末の配乗ボードや作業割当で「顔で選ぶ」ためのもので、サイズは端末側で縮める。
+     */
+    photoDataUrl: z.string().optional(),
     position: z.string().optional(),
     role: z.string().optional(),
     /** 雇入契約情報 */

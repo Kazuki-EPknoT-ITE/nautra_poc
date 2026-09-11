@@ -44,15 +44,29 @@ const SECTIONS = [
  * 期限・入金遅延・まるめの影響といった「見落とすと困ること」を先に出し、
  * 一覧はそのあとに置く。すべて追記型で、状態の変更も新しい版として積む。
  */
+/**
+ * この画面の主題（タブ）。**1画面1主題**にして、目的の節まで延々とめくらずに済むようにする
+ * （デザイン正本 S-15 と同じやりかた。1枚が長くなりすぎない）。
+ */
+const TABS = [
+  { id: "charters", label: "傭船契約" },
+  { id: "invoices", label: "請求・入金" },
+  { id: "expenses", label: "経費" },
+  { id: "payrolls", label: "船員給与" },
+  { id: "subsidies", label: "補助金・行政手続き" },
+];
+
 export default async function ShoreOfficePage({
   searchParams,
 }: {
-  searchParams: Promise<{ month?: string }>;
+  searchParams: Promise<{ month?: string; tab?: string }>;
 }) {
   const guard = await requireShore("manage_office");
   if (!guard.ok) return <ShoreGuardNotice guard={guard} screen="傭船・請求・経理" />;
 
   const sp = await searchParams;
+  /** いま開いている主題。未指定なら先頭 */
+  const tab = TABS.some((x) => x.id === sp.tab) ? sp.tab! : TABS[0]!.id;
   const today = todayLocal();
   const vessels = listVessels();
 
@@ -149,6 +163,22 @@ export default async function ShoreOfficePage({
         </section>
       ) : null}
 
+      {/* 主題の切替（サーバ側で組み立てるためリンクで切り替える） */}
+      <nav aria-label="傭船・経理の主題" className="ui-card flex flex-wrap gap-2 p-3">
+        {TABS.map((x) => (
+          <Link
+            key={x.id}
+            href={`/shore/office?tab=${x.id}`}
+            aria-current={x.id === tab ? "page" : undefined}
+            className={`ui-btn-quiet ${x.id === tab ? "ui-btn-selected" : ""}`}
+          >
+            {x.label}
+          </Link>
+        ))}
+      </nav>
+
+      {tab === "charters" ? (
+        <>
       {/* ══════ 3.6.1 傭船契約 ══════ */}
       <section id="charters" aria-label="傭船契約" className="flex flex-col gap-3">
         <h2 className="text-lg font-bold">傭船契約</h2>
@@ -204,7 +234,11 @@ export default async function ShoreOfficePage({
         </div>
         <CharterForm vessels={vessels} contracts={charterOptions} defaultFrom={today} />
       </section>
+        </>
+      ) : null}
 
+      {tab === "invoices" ? (
+        <>
       {/* ══════ 3.6.1 / 3.6.2 請求・入金 ══════ */}
       <section id="invoices" aria-label="請求・入金" className="flex flex-col gap-3">
         <h2 className="text-lg font-bold">請求・入金</h2>
@@ -272,7 +306,11 @@ export default async function ShoreOfficePage({
         </div>
         <InvoicePaidForm invoices={unpaidOptions} defaultDate={today} />
       </section>
+        </>
+      ) : null}
 
+      {tab === "expenses" ? (
+        <>
       {/* ══════ 3.6.2 経費 ══════ */}
       <section id="expenses" aria-label="経費" className="flex flex-col gap-3">
         <h2 className="text-lg font-bold">経費</h2>
@@ -354,7 +392,11 @@ export default async function ShoreOfficePage({
         </div>
         <ExpenseForm vessels={vessels} defaultDate={today} />
       </section>
+        </>
+      ) : null}
 
+      {tab === "payrolls" ? (
+        <>
       {/* ══════ 3.6.2 船員給与 ══════ */}
       <section id="payrolls" aria-label="船員給与" className="flex flex-col gap-3">
         <h2 className="text-lg font-bold">船員給与</h2>
@@ -463,7 +505,11 @@ export default async function ShoreOfficePage({
         </div>
         <PayrollConfirmForm payrolls={draftPayrolls} />
       </section>
+        </>
+      ) : null}
 
+      {tab === "subsidies" ? (
+        <>
       {/* ══════ 3.6.3 補助金・行政手続き ══════ */}
       <section id="subsidies" aria-label="補助金・行政手続き" className="flex flex-col gap-3">
         <h2 className="text-lg font-bold">補助金・行政手続き</h2>
@@ -520,6 +566,8 @@ export default async function ShoreOfficePage({
         <SubsidyForm />
         <SubsidyStatusForm subsidies={subsidyOptions} />
       </section>
+        </>
+      ) : null}
     </div>
   );
 }

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { t } from "@/i18n/ja";
 import { personName } from "@/lib/crew";
 import { fmtDateLabel, fmtDateTime } from "@/lib/format";
@@ -35,7 +36,24 @@ const LIKELIHOOD_LABEL: Record<number, string> = {
  * 見るのは全員（view_dashboard）。**記入は運航管理の権限（manage_fleet）を持つ人だけ**で、
  * Server Action の中でも同じ権限を再チェックしている。
  */
-export default async function ShoreSafetyPage() {
+/**
+ * この画面の主題（タブ）。**1画面1主題**にして、目的の節まで延々とめくらずに済むようにする
+ * （デザイン正本 S-15 と同じやりかた。1枚が長くなりすぎない）。
+ */
+const TABS = [
+  { id: "sms", label: "安全管理規程（SMS）" },
+  { id: "incidents", label: "事故・ヒヤリハット" },
+];
+
+export default async function ShoreSafetyPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ tab?: string }>;
+}) {
+  const sp = await searchParams;
+  /** いま開いている主題。未指定なら先頭 */
+  const tab = TABS.some((x) => x.id === sp.tab) ? sp.tab! : TABS[0]!.id;
+
   const guard = await requireShore("view_dashboard");
   if (!guard.ok) return <ShoreGuardNotice guard={guard} screen="安全管理・事故報告" />;
   const canWrite = await hasShorePermission("manage_fleet");
@@ -51,6 +69,22 @@ export default async function ShoreSafetyPage() {
         </p>
       </div>
 
+      {/* 主題の切替（サーバ側で組み立てるためリンクで切り替える） */}
+      <nav aria-label="安全・事故の主題" className="ui-card flex flex-wrap gap-2 p-3">
+        {TABS.map((x) => (
+          <Link
+            key={x.id}
+            href={`/shore/safety?tab=${x.id}`}
+            aria-current={x.id === tab ? "page" : undefined}
+            className={`ui-btn-quiet ${x.id === tab ? "ui-btn-selected" : ""}`}
+          >
+            {x.label}
+          </Link>
+        ))}
+      </nav>
+
+      {tab === "sms" ? (
+        <>
       {/* ── 3.5.1 安全方針・重点施策 ── */}
       <section aria-label="安全方針・重点施策" className="ui-card p-4">
         <h2 className="mb-2 font-bold">安全方針・重点施策</h2>
@@ -238,7 +272,11 @@ export default async function ShoreSafetyPage() {
       </section>
 
       {canWrite ? <SmsForm /> : null}
+        </>
+      ) : null}
 
+      {tab === "incidents" ? (
+        <>
       {/* ── 3.5.2 ヒヤリハットの件数推移 ── */}
       <section aria-label="ヒヤリハットの件数" className="ui-card p-4">
         <h2 className="mb-1 font-bold">ヒヤリハットの報告件数（月別）</h2>
@@ -355,6 +393,8 @@ export default async function ShoreSafetyPage() {
           </ul>
         )}
       </section>
+        </>
+      ) : null}
     </div>
   );
 }

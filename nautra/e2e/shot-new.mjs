@@ -15,6 +15,8 @@ for (const [path, name] of [
   ["/shore/trash", "trash"],
   ["/shore/fleet/vessel-001", "vessel-detail"],
   ["/shore/crew", "crew-list"],
+  ["/shore/crew/crew-terada", "crew-karte"],
+  ["/shore/fleet", "fleet"],
   ["/shore/login", "shore-login"],
   ["/shore/labor", "labor"],
   ["/shore/shifts", "shifts"],

@@ -125,6 +125,8 @@ export function buildCrewMasterHistory(
 
 export interface CrewMasterFormInput {
   name: string;
+  /** 顔写真（端末で縮小済みの data URL）。空文字は「写真を外す」 */
+  photoDataUrl?: string;
   nameKana?: string;
   birthDate: string;
   seamanBookNo?: string;
@@ -206,6 +208,7 @@ export function updateCrewMaster(input: {
     address: norm(f.address),
     bloodType: norm(f.bloodType),
     phone: norm(f.phone),
+    photoDataUrl: norm(f.photoDataUrl),
     position: norm(f.position),
     employmentType: norm(f.employmentType),
     hiredOn: norm(f.hiredOn),
@@ -286,6 +289,7 @@ export function createCrewMaster(input: {
       bloodType: norm(f.bloodType),
       phone: norm(f.phone),
       photo: norm(f.name)?.slice(0, 1),
+      photoDataUrl: norm(f.photoDataUrl),
       position: norm(f.position),
       employmentType: norm(f.employmentType),
       hiredOn: norm(f.hiredOn),

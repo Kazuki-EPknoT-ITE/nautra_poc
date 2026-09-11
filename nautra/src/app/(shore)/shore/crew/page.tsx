@@ -5,7 +5,7 @@ import { fmtMinutes } from "@/lib/format";
 import { buildLaborSnapshots } from "@/server/crew-service";
 import { buildManningBoard } from "@/server/manning-service";
 import { requireShore } from "@/server/shore-session";
-import { StatusChip } from "@/ui";
+import { CrewPhoto, StatusChip } from "@/ui";
 import { ShoreGuardNotice } from "../_components/guard";
 import { CrewSearchForm } from "./_components/crew-search-form";
 
@@ -111,17 +111,7 @@ export default async function ShoreCrewPage({
               href={`/shore/crew/${r.crewMemberId}`}
               className="ui-card flex items-start gap-3.5 p-4 transition-colors hover:bg-content2"
             >
-              {/* 顔写真の枠（96×120）。写真が入るまでは頭文字と PHOTO の印を出す。
-                  空欄にすると「壊れている」と読まれるため、枠は常に同じ大きさで置く */}
-              <span
-                aria-hidden="true"
-                className="flex h-[120px] w-24 shrink-0 flex-col items-center justify-center gap-1 rounded-[12px] border border-[var(--ui-hairline)] bg-[#DFE1E0]"
-              >
-                <span className="text-4xl font-bold leading-none text-foreground-700">
-                  {r.photo ?? r.name.slice(0, 1)}
-                </span>
-                <span className="font-mono text-2xs leading-none text-foreground-400">PHOTO</span>
-              </span>
+              <CrewPhoto name={r.name} initial={r.photo} src={r.master?.photoDataUrl} size="lg" />
               <div className="min-w-0 flex-1">
                 <p className="flex flex-wrap items-center gap-2 font-bold">
                   {r.name}

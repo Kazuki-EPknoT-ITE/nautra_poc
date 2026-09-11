@@ -49,6 +49,7 @@ export default async function ShoreManningPage() {
     position: row.position,
     age: row.age,
     photo: row.photo,
+    photoDataUrl: row.master?.photoDataUrl,
     level: row.eligibility.level,
     statusLabel: onBoard
       ? row.eligibility.status === "blocked"

@@ -203,8 +203,15 @@ describe("S-12 配船・位置情報（3.7）", () => {
       ACTOR,
     );
     expect(published.source).toBe("manual");
+
+    /*
+     * 航跡に「手入力」として並ぶことを見る。
+     * *最新かどうか*では見ない——観測時刻は既定で「いま」になるので、実行した時刻が
+     * デモデータの受信時刻（その日の 09:00）より早いと最新にならず、時計しだいで
+     * 落ちるテストになるため。取得元が残ることがここで確かめたい性質。
+     */
     const view = position.buildPositionViews().find((v) => v.vesselId === "vessel-002")!;
-    expect(view.latest?.source).toBe("manual");
+    expect(view.track.some((t) => t.id === published.id && t.source === "manual")).toBe(true);
   });
 
   it("緯度経度が範囲外なら登録できない", () => {

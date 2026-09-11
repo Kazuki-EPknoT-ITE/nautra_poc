@@ -210,3 +210,19 @@ export function useNowTick(intervalMs = 30_000): Date {
   }, [intervalMs]);
   return now;
 }
+
+/**
+ * 配信済みの船員マスタから顔写真を引く（共用端末は「顔で選ぶ」ほうが速い）。
+ * 未配信・未登録なら undefined を返し、画面は頭文字の枠で描く。
+ */
+export function useCrewPhotos(): Map<string, string> {
+  const rows = useRecords("crew_master");
+  return useMemo(() => {
+    const map = new Map<string, string>();
+    // 同じ船員の版が複数届いていても、いちばん新しい1件だけを使う
+    for (const r of latestBySupersedes(rows)) {
+      if (r.photoDataUrl) map.set(r.crewMemberId, r.photoDataUrl);
+    }
+    return map;
+  }, [rows]);
+}

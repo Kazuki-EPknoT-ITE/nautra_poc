@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition, type DragEvent } from "react";
 import type { CheckLevel } from "@/domain/labor-law/types";
 import { cn } from "@/lib/cn";
-import { ConfirmDialog, FlashToast, StatusChip } from "@/ui";
+import { ConfirmDialog, CrewPhoto, FlashToast, SearchField, StatusChip } from "@/ui";
 import { moveCrewAction } from "../actions";
 
 export interface BoardCrew {
@@ -13,6 +13,8 @@ export interface BoardCrew {
   position: string;
   age: number | null;
   photo?: string;
+  /** 顔写真（縮小済みの data URL）。未登録なら頭文字の枠で描く */
+  photoDataUrl?: string;
   level: CheckLevel;
   statusLabel: string;
   /** 配乗ブロックの事由（あれば確認ダイアログに出す） */
@@ -113,12 +115,7 @@ export function ManningBoard({ pool, vessels }: { pool: BoardCrew[]; vessels: Bo
               <p className="m-0 font-mono text-2xs text-foreground-500">POOL / 配乗待ち</p>
               <span className="font-mono text-sm text-foreground-500">{pool.length}名</span>
             </div>
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="氏名・職名でしぼる"
-              className="mb-3 h-[34px] w-full rounded-small border border-[var(--ui-hairline-strong)] bg-content1 px-2.5 text-sm"
-            />
+            <SearchField value={query} onChange={setQuery} className="mb-3 w-full" />
             <div className="flex flex-col gap-2">
               {visiblePool.map((c) => (
                 <CrewCard key={c.crewMemberId} crew={c} onDragStart={() => setDragging(c)} onDragEnd={() => setDragging(null)} />
@@ -249,14 +246,7 @@ function CrewCard({
         <span aria-hidden="true" className="mt-6 font-mono text-lg tracking-[-2px] text-foreground-400">
           ⋮⋮
         </span>
-        <span className="flex h-[74px] w-[60px] flex-none flex-col items-center justify-center gap-0.5 rounded-[12px] border border-[var(--ui-hairline)] bg-[#DFE1E0]">
-          <span className="text-2xl font-bold leading-none text-foreground-700">
-            {crew.photo ?? crew.name.slice(0, 1)}
-          </span>
-          <span className="font-mono text-[8px] leading-none tracking-[0.06em] text-foreground-400">
-            PHOTO
-          </span>
-        </span>
+        <CrewPhoto name={crew.name} initial={crew.photo} src={crew.photoDataUrl} size="sm" />
         {/* 氏名・職名・状態は縦に積む。横に並べると、列が狭いときに氏名が
             1文字ずつ折り返して読めなくなる */}
         <div className="min-w-0 flex-1">

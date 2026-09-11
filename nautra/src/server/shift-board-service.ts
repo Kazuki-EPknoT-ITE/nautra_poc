@@ -48,6 +48,8 @@ export interface BoardCrew {
   name: string;
   position: string;
   photo?: string;
+  /** 顔写真（縮小済みの data URL） */
+  photoDataUrl?: string;
   /** この週に入っている当直の本数 */
   assignedCount: number;
 }
@@ -82,6 +84,7 @@ export function buildShiftBoard(vesselId: string, now = new Date()): ShiftBoard 
     name: r.name,
     position: r.position,
     photo: r.photo,
+    photoDataUrl: r.master?.photoDataUrl,
     assignedCount: 0,
   }));
   const byId = new Map(crews.map((c) => [c.crewMemberId, c]));

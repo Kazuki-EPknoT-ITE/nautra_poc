@@ -2,7 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { cn } from "@/lib/cn";
-import { DataTable, StatusChip } from "@/ui";
+import { DataTable, SearchField, StatusChip } from "@/ui";
 import { inviteUserAction, type SettingsFormState } from "../actions";
 
 export interface UserRow {
@@ -50,11 +50,11 @@ export function UserInvitePanel({
     <section id="users" aria-label="ユーザー" className="ui-card scroll-mt-20">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--ui-hairline-strong)] px-[18px] py-3.5">
         <h2 className="m-0 text-lg font-bold text-foreground-900">ユーザー</h2>
-        <input
+        <SearchField
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
+          onChange={setQuery}
           placeholder="氏名・メール・ロールでしぼる"
-          className="h-8 min-w-[190px] max-w-[280px] flex-1 rounded-small border border-[var(--ui-hairline-strong)] bg-content1 px-2.5 text-sm"
+          className="min-w-[190px] max-w-[280px] flex-1"
         />
         <button type="button" onClick={() => setOpen((v) => !v)} className="ui-btn-primary h-[34px] text-xs">
           {open ? "閉じる" : "＋ ユーザーを招待"}

@@ -138,6 +138,43 @@ export default function LedgerPage() {
   const plain = LEVEL_PLAIN[overall];
   const isSelf = crew.id === session.id;
 
+  /**
+   * 本日の3つの数字。判定（level）はドメイン関数の結果をそのまま使い、
+   * ここでは言い回しだけを決める（判定をこの画面で作らない）。
+   */
+  const restSplitCheck = daily.checks.find((c) => c.key === "rest_split");
+  const restTotalCheck = daily.checks.find((c) => c.key === "rest_total");
+  const laborKpis: { caption: string; value: string; unit: string; note: string; level: string }[] = [
+    {
+      caption: "労働時間",
+      value: fmtMinutes(daily.workedMinutes),
+      unit: `/ ${fmtMinutes(ruleSet.values.dailyMaxMinutes)}`,
+      note: dailyMaxCheck ? describeCheck(dailyMaxCheck) : "上限内です。",
+      level: dailyMaxCheck?.level ?? "ok",
+    },
+    {
+      caption: "休息時間",
+      value: fmtMinutes(daily.restTotalMinutes),
+      unit: `/ ${fmtMinutes(ruleSet.values.restMinDailyMinutes)} 以上`,
+      note: restTotalCheck ? describeCheck(restTotalCheck) : "休息は足りています。",
+      level: restTotalCheck?.level ?? "ok",
+    },
+    {
+      caption: "休息の分割",
+      value: String(restSplitCheck?.actual ?? daily.restPeriods.length),
+      unit: `回 / 上限 ${restSplitCheck?.limit ?? ruleSet.values.restSplitMax}回`,
+      note: restSplitCheck ? describeCheck(restSplitCheck) : "分割の回数は上限内です。",
+      level: restSplitCheck?.level ?? "ok",
+    },
+  ];
+
+  /** 作業種別ごとの内訳（多い順）。並列打刻ぶんは重複を含む */
+  const categoryBars = Object.entries(daily.workedByCategory)
+    .map(([category, minutes]) => ({ category, minutes: minutes ?? 0 }))
+    .filter((b) => b.minutes > 0)
+    .sort((a, b) => b.minutes - a.minutes);
+  const barScale = Math.max(ruleSet.values.dailyMaxMinutes, ...categoryBars.map((b) => b.minutes));
+
   return (
     <div className="flex flex-col gap-4">
       <GroupHeader group="02" subtitle="本日の記録" />
@@ -214,6 +251,71 @@ export default function LedgerPage() {
           ) : null}
         </CardBody>
       </SurfaceCard>
+
+      {/*
+        3つの数字（デザイン正本 V-03 の KPI）。
+        「働いた」「休んだ」「休みが何回に分かれたか」は船員が毎日いちばん気にする3つで、
+        言い換えの文よりも**数字そのもの**を先に大きく出す。判定の色は上限に触れたときだけ。
+      */}
+      <section aria-label="本日の数字" className="grid gap-3 sm:grid-cols-3">
+        {laborKpis.map((k) => (
+          <div key={k.caption} className="ui-card px-[18px] py-4">
+            <p className="m-0 text-base text-foreground-500">{k.caption}</p>
+            <p className="m-0 mt-2 flex items-baseline gap-2">
+              <span
+                className={cn(
+                  "font-mono text-5xl font-semibold leading-none tabular-nums",
+                  k.level === "violation"
+                    ? "text-danger"
+                    : k.level === "caution"
+                      ? "text-warning-700"
+                      : "text-foreground-900",
+                )}
+              >
+                {k.value}
+              </span>
+              <span className="font-mono text-lg text-foreground-400">{k.unit}</span>
+            </p>
+            <p className="m-0 mt-2 text-base leading-relaxed text-foreground-700">{k.note}</p>
+          </div>
+        ))}
+      </section>
+
+      {/* 作業種別ごとの内訳（デザイン正本 V-03 の横棒）。並列打刻ぶんは重複を含む */}
+      {categoryBars.length > 0 ? (
+        <section aria-label="作業種別ごとの内訳" className="ui-card">
+          <div className="flex items-baseline justify-between gap-3 border-b border-[var(--ui-hairline-strong)] px-4 py-3">
+            <h2 className="m-0 text-xl font-bold text-foreground-900">作業種別ごとの内訳（今日）</h2>
+            <span className="text-base text-foreground-400">
+              縦線 = 上限 {fmtMinutes(ruleSet.values.dailyMaxMinutes)}
+            </span>
+          </div>
+          <div className="px-4 pb-3 pt-1.5">
+            {categoryBars.map((b) => (
+              <div key={b.category} className="flex items-center gap-3.5 py-2">
+                <span className="flex-none basis-32 text-lg text-foreground-700">
+                  {tr("workCategory", b.category)}
+                </span>
+                <span className="relative block flex-1">
+                  <span className="block h-5 overflow-hidden rounded-[2px] bg-[#DFE1E0]">
+                    <span
+                      className="block h-full bg-foreground-700"
+                      style={{ width: `${Math.min(100, (b.minutes / barScale) * 100)}%` }}
+                    />
+                  </span>
+                </span>
+                <span className="flex-none basis-[66px] text-right font-mono text-xl tabular-nums text-foreground-800">
+                  {fmtMinutes(b.minutes)}
+                </span>
+              </div>
+            ))}
+            <p className="m-0 mt-1.5 text-base leading-relaxed text-foreground-500">
+              同時に進めた作業は種別ごとに数えるため、内訳の合計は「働いた時間」より長くなることが
+              あります（労働時間は重なりを1回だけ数えます）。
+            </p>
+          </div>
+        </section>
+      ) : null}
 
       {/* 労働時間: 残り時間を数字と帯で示す */}
       <SurfaceCard>

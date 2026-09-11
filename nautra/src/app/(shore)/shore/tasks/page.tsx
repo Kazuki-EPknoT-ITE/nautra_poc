@@ -8,7 +8,7 @@ import {
   TASK_STATE_LABEL,
   type TaskRow,
 } from "@/server/task-service";
-import { DataTable, Section, StatusChip } from "@/ui";
+import { CrewPhoto, DataTable, Section, StatusChip } from "@/ui";
 import type { WorkTaskState } from "@/sync-protocol/masters";
 import { ShoreGuardNotice } from "../_components/guard";
 import { advanceTaskAction, assignTaskAction, deleteTaskAction } from "./actions";
@@ -50,6 +50,9 @@ export default async function ShoreTasksPage() {
   const vessels = listVessels();
   const crews = listCrewMasters();
   const openByCrew = openTaskCountByCrew();
+  /** 顔写真は船員マスタから引く（画面ごとに持たない） */
+  const photoOf = (crewMemberId?: string) =>
+    crews.find((c) => c.crewMemberId === crewMemberId)?.photoDataUrl;
   const today = todayLocal();
 
   return (
@@ -122,14 +125,11 @@ export default async function ShoreTasksPage() {
                   <div key={r.task.id} className="rounded-small border border-[var(--ui-hairline)] p-3">
                     <p className="m-0 text-base font-bold leading-snug text-foreground-900">{r.task.title}</p>
                     <div className="mt-2.5 flex items-center gap-2.5">
-                      <span className="flex h-[54px] w-11 flex-none flex-col items-center justify-center gap-0.5 rounded-[12px] border border-[var(--ui-hairline)] bg-[#DFE1E0]">
-                        <span className="text-lg font-bold leading-none text-foreground-700">
-                          {r.assigneeName.slice(0, 1)}
-                        </span>
-                        <span className="font-mono text-[8px] leading-none tracking-[0.06em] text-foreground-400">
-                          PHOTO
-                        </span>
-                      </span>
+                      <CrewPhoto
+                        name={r.assigneeName}
+                        src={photoOf(r.task.assigneeCrewId)}
+                        size="xs"
+                      />
                       <span className="min-w-0 flex-1">
                         <span className="block text-sm text-foreground-700">{r.assigneeName}</span>
                         <span className="block text-xs text-foreground-400">{r.vesselName}</span>
@@ -184,14 +184,13 @@ export default async function ShoreTasksPage() {
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           {crews.map((c) => (
             <div key={c.crewMemberId} className="flex items-center gap-2.5 rounded-small bg-[#DFE1E0] px-3 py-2.5">
-              <span className="flex h-[54px] w-11 flex-none flex-col items-center justify-center gap-0.5 rounded-[12px] border border-[var(--ui-hairline)] bg-content1">
-                <span className="text-lg font-bold leading-none text-foreground-700">
-                  {c.photo ?? c.name.slice(0, 1)}
-                </span>
-                <span className="font-mono text-[8px] leading-none tracking-[0.06em] text-foreground-400">
-                  PHOTO
-                </span>
-              </span>
+              <CrewPhoto
+                name={c.name}
+                initial={c.photo}
+                src={c.photoDataUrl}
+                size="xs"
+                className="!bg-content1"
+              />
               <span className="min-w-0 flex-1">
                 <span className="block text-sm font-bold text-foreground-800">{c.name}</span>
                 <span className="block text-xs text-foreground-500">{c.position ?? "—"}</span>

@@ -6,7 +6,7 @@ import { useState, useTransition, type DragEvent } from "react";
 import type { CheckLevel } from "@/domain/labor-law/types";
 import { cn } from "@/lib/cn";
 import { fmtDateLabel } from "@/lib/format";
-import { FlashToast, StatusChip } from "@/ui";
+import { CrewPhoto, FlashToast, SearchField, StatusChip } from "@/ui";
 import { assignWatchAction, clearWatchAction } from "../actions";
 
 export interface BoardSlot {
@@ -19,6 +19,8 @@ export interface BoardCrewView {
   name: string;
   position: string;
   photo?: string;
+  /** 顔写真（縮小済みの data URL） */
+  photoDataUrl?: string;
   assignedCount: number;
 }
 
@@ -143,12 +145,7 @@ export function ShiftBoard({
             <p className="m-0 mt-1 text-xs text-foreground-400">カードを枡へドラッグ</p>
           </div>
           <div className="flex flex-col gap-2.5 p-3">
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="氏名・職名でしぼる"
-              className="h-[34px] w-full rounded-small border border-[var(--ui-hairline-strong)] bg-content1 px-2.5 text-sm"
-            />
+            <SearchField value={query} onChange={setQuery} className="w-full" />
             {visibleCrews.map((c) => (
               <div
                 key={c.crewMemberId}
@@ -164,14 +161,7 @@ export function ShiftBoard({
                 <span aria-hidden="true" className="font-mono text-base tracking-[-2px] text-foreground-400">
                   ⋮⋮
                 </span>
-                <span className="flex h-[60px] w-12 flex-none flex-col items-center justify-center gap-0.5 rounded-[12px] border border-[var(--ui-hairline)] bg-[#DFE1E0]">
-                  <span className="text-xl font-bold leading-none text-foreground-700">
-                    {c.photo ?? c.name.slice(0, 1)}
-                  </span>
-                  <span className="font-mono text-[8px] leading-none tracking-[0.06em] text-foreground-400">
-                    PHOTO
-                  </span>
-                </span>
+                <CrewPhoto name={c.name} initial={c.photo} src={c.photoDataUrl} size="sm" />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-base font-bold text-foreground-900">{c.name}</span>
                   <span className="block text-xs text-foreground-500">{c.position}</span>

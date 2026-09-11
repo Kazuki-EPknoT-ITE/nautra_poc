@@ -41,6 +41,8 @@ export default async function ShoreCrewEditPage({ params }: { params: Promise<{ 
   const values: CrewMasterFormValues = {
     crewMemberId: id,
     name: master.name ?? "",
+    photo: master.photo,
+    photoDataUrl: master.photoDataUrl,
     nameKana: master.nameKana ?? "",
     birthDate: master.birthDate ?? "",
     seamanBookNo: master.seamanBookNo ?? "",

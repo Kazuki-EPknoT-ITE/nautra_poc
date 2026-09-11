@@ -5,6 +5,7 @@ import { t } from "@/i18n/ja";
 import type { InsuranceKind } from "@/sync-protocol/records";
 import { Button, Input, Select, SelectItem, Textarea } from "@/ui";
 import { createCrewMasterAction, saveCrewMasterAction, type CrewMasterFormState } from "../actions";
+import { PhotoField } from "./photo-field";
 
 export interface InsuranceFormValue {
   kind: InsuranceKind;
@@ -17,6 +18,10 @@ export interface InsuranceFormValue {
 export interface CrewMasterFormValues {
   crewMemberId: string;
   name: string;
+  /** 写真が無いときに出す頭文字 */
+  photo?: string;
+  /** 顔写真（縮小済みの data URL） */
+  photoDataUrl?: string;
   nameKana: string;
   birthDate: string;
   seamanBookNo: string;
@@ -79,6 +84,7 @@ export function CrewMasterForm({
       <input type="hidden" name="crewMemberId" value={values.crewMemberId} />
 
       <Section title="基本情報">
+        <PhotoField name={values.name || "新しい船員"} initial={values.photo} defaultValue={values.photoDataUrl} />
         <div className="grid gap-3 sm:grid-cols-2">
           <Input name="name" label={t.crewMasterField.name} defaultValue={values.name} isRequired />
           <Input
