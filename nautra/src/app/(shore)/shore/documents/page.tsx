@@ -13,6 +13,7 @@ import {
 import { todayLocal } from "@/server/master-service";
 import { requireShore } from "@/server/shore-session";
 import { DOCUMENT_KINDS, type DocumentKind } from "@/sync-protocol/masters";
+import { Section, StatBlock, StatusChip } from "@/ui";
 import { ShoreGuardNotice } from "../_components/guard";
 import { OpinionForm } from "./_components/opinion-form";
 import { ReportForm } from "./_components/report-form";
@@ -69,13 +70,34 @@ export default async function ShoreDocumentsPage({
         </p>
       </div>
 
-      <section aria-label="種別の絞り込み" className="ui-card flex flex-wrap items-center gap-2 p-4">
+      {/*
+        要約（デザインの S-14 上段）。「作った数」より **未提出が何件あるか**が
+        この画面の用件なので、提出の状態を先に置く。
+      */}
+      <section aria-label="書類の要約" className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <StatBlock label="作成した書類" value={allRows.length} unit="件" note="種別を問わず累計" />
+        <StatBlock
+          label="未提出"
+          value={allRows.filter((r) => !r.submitted).length}
+          unit="件"
+          tone="caution"
+          note="提出記録が残っていないもの"
+        />
+        <StatBlock
+          label="提出済み"
+          value={allRows.filter((r) => r.submitted).length}
+          unit="件"
+          note="提出日と提出先を記録済み"
+        />
+        <StatBlock label="種別" value={presentKinds.length} unit="種" note="いま存在する書類の種別" />
+      </section>
+
+      <section aria-label="種別の絞り込み" className="ui-card flex flex-wrap items-center gap-2 px-[18px] py-3.5">
         <span className="text-sm text-foreground-500">種別</span>
         <Link
           href="/shore/documents"
-          className={`rounded-medium px-3 py-1.5 text-sm ${
-            kindFilter === "all" ? "bg-primary text-primary-foreground" : "bg-default-100"
-          }`}
+          aria-current={kindFilter === "all" ? "true" : undefined}
+          className={`ui-btn-quiet ${kindFilter === "all" ? "ui-btn-selected" : ""}`}
         >
           すべて（{allRows.length}件）
         </Link>
@@ -83,54 +105,55 @@ export default async function ShoreDocumentsPage({
           <Link
             key={k}
             href={`/shore/documents?kind=${k}`}
-            className={`rounded-medium px-3 py-1.5 text-sm ${
-              kindFilter === k ? "bg-primary text-primary-foreground" : "bg-default-100"
-            }`}
+            aria-current={kindFilter === k ? "true" : undefined}
+            className={`ui-btn-quiet ${kindFilter === k ? "ui-btn-selected" : ""}`}
           >
             {t.documentKind[k]}
           </Link>
         ))}
+        <Link href="/shore/exports?set=filing" className="ui-btn-ghost ml-auto h-9">
+          CSVで書き出す
+        </Link>
       </section>
 
-      <section aria-label="書類の一覧" className="ui-card overflow-x-auto">
-        <h2 className="px-4 pt-4 font-bold">作成した書類（新しい順）</h2>
+      <Section title="生成書類・提出記録" note={`${rows.length}件（新しい順）`} bodyClassName="p-0">
         {rows.length === 0 ? (
-          <p className="px-4 py-3 text-sm text-foreground-500">この種別の書類はありません。</p>
+          <p className="m-0 px-[18px] py-5 text-sm text-foreground-500">この種別の書類はありません。</p>
         ) : (
-          <table className="mt-3 w-full min-w-[980px] text-sm">
+          <div className="ui-table-scroll" style={{ maxHeight: 520 }}>
+          <table className="ui-table min-w-[980px]">
             <thead>
-              <tr className="border-b border-[var(--ui-hairline)] text-left text-foreground-500">
-                <th className="px-4 py-2 font-medium">種別</th>
-                <th className="px-2 py-2 font-medium">標題</th>
-                <th className="px-2 py-2 font-medium">対象</th>
-                <th className="px-2 py-2 font-medium">作成日</th>
-                <th className="px-2 py-2 font-medium">形式</th>
-                <th className="px-2 py-2 font-medium">提出記録</th>
-                <th className="px-2 py-2 font-medium">再出力</th>
+              <tr>
+                <th>種別</th>
+                <th>標題</th>
+                <th>対象</th>
+                <th className="num">作成日</th>
+                <th>形式</th>
+                <th>提出記録</th>
+                <th className="num">再出力</th>
               </tr>
             </thead>
             <tbody>
               {rows.map(({ record, submitted }) => (
-                <tr key={record.id} className="border-b border-[var(--ui-hairline)] last:border-b-0">
-                  <td className="px-4 py-2">{t.documentKind[record.kind] ?? record.kind}</td>
-                  <td className="px-2 py-2 font-semibold">{record.title}</td>
-                  <td className="px-2 py-2 text-foreground-600">{record.subjectLabel ?? "—"}</td>
-                  <td className="px-2 py-2 tabular-nums">{record.generatedOn}</td>
-                  <td className="px-2 py-2">{t.documentFormat[record.format] ?? record.format}</td>
-                  <td className="px-2 py-2">
+                <tr key={record.id}>
+                  <td className="text-foreground-500">{t.documentKind[record.kind] ?? record.kind}</td>
+                  <td className="font-medium text-foreground-800">{record.title}</td>
+                  <td className="text-foreground-500">{record.subjectLabel ?? "—"}</td>
+                  <td className="num">{record.generatedOn}</td>
+                  <td className="font-mono text-xs text-foreground-500">
+                    {t.documentFormat[record.format] ?? record.format}
+                  </td>
+                  <td>
                     {submitted ? (
-                      <span className="tabular-nums">
-                        ✓ {record.submittedOn}
-                        <span className="ml-1 text-xs text-foreground-500">{record.submittedTo}</span>
-                      </span>
+                      <StatusChip level="ok" size="sm" label={`${record.submittedOn} ${record.submittedTo ?? ""}`} />
                     ) : (
-                      <span className="text-warning-700">⚠ 未提出</span>
+                      <StatusChip level="caution" size="sm" label="未提出" />
                     )}
                   </td>
-                  <td className="px-2 py-2">
+                  <td className="num">
                     <Link
                       href={`/shore/documents/${record.id}/print`}
-                      className="rounded-medium border border-[var(--ui-hairline)] px-3 py-1.5 text-sm"
+                      className="ui-btn-quiet"
                       prefetch={false}
                     >
                       印刷する
@@ -140,12 +163,13 @@ export default async function ShoreDocumentsPage({
               ))}
             </tbody>
           </table>
+          </div>
         )}
-        <p className="px-4 py-3 text-xs text-foreground-500">
+        <p className="m-0 border-t border-[var(--ui-hairline)] px-[18px] py-3 text-xs text-foreground-500">
           提出した書類は作成した時点の内容のまま残します。あとから船員マスタや実績が変わっても
           書き換えません（提出したときの証しとして保全するため）。
         </p>
-      </section>
+      </Section>
 
       <SubmissionForm documents={unsubmitted} defaultDate={today} />
 

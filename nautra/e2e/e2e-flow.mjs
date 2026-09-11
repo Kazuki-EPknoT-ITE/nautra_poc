@@ -130,13 +130,20 @@ const trainText = await s.locator("main").innerText();
 check("陸上: 基本訓練の未修了が警告される", /未修了|受講が必要/.test(trainText));
 
 // 設定: 接続4類型・認証方式・縮退構成
-await s.goto(`${BASE}/shore/settings`, { waitUntil: "networkidle" });
-const setText = await s.locator("main").innerText();
+// S-15 は主題ごとのタブに分かれているので、1枚ずつ開いて確かめる
+async function settingsTab(tab) {
+  await s.goto(`${BASE}/shore/settings?tab=${tab}`, { waitUntil: "networkidle" });
+  return s.locator("main").innerText();
+}
+const connText = await settingsTab("connectivity");
+const punchText = await settingsTab("punch-auth");
+const tierText = await settingsTab("tiers");
 check(
   "陸上: 回線4類型・打刻の本人確認・導入構成が出る",
-  /常時つながる/.test(setText) && /打刻のときの本人確認/.test(setText) && /最小構成/.test(setText),
+  /常時つながる/.test(connText) && /打刻のときの本人確認/.test(punchText) && /最小構成/.test(tierText),
 );
-check("陸上: 監査ログに要配慮情報の参照が残る", /要配慮情報の参照/.test(setText));
+const auditText = await settingsTab("audit");
+check("陸上: 監査ログに要配慮情報の参照が残る", /要配慮情報の参照/.test(auditText));
 
 // 船員カルテ: 乗船履歴要件
 await s.goto(`${BASE}/shore/crew/crew-nakahara`, { waitUntil: "networkidle" });

@@ -41,6 +41,11 @@ import { AgreementForm, type OverrideField } from "./_components/agreement-form"
 export const dynamic = "force-dynamic";
 
 /** 画面内の節（目次の並びと各 section の id を1か所で持つ） */
+/**
+ * 設定の主題（タブ）。8つの主題を1枚に積むと目的の節まで延々とめくることになるため、
+ * **1画面1主題**に分ける（デザイン正本 S-15）。労使協定と判定に使う値は
+ * 「協定を変えると閾値が変わる」関係なので同じ枚に置く。
+ */
 const SECTIONS = [
   { id: "tenant", label: "事業者の設定" },
   { id: "connectivity", label: "回線の運用" },
@@ -48,9 +53,8 @@ const SECTIONS = [
   { id: "tiers", label: "導入の構成" },
   { id: "users", label: "ユーザー" },
   { id: "permissions", label: "権限表" },
-  { id: "agreements", label: "労使協定" },
-  { id: "thresholds", label: "判定に使う値" },
-  { id: "audit", label: "監査ログ" },
+  { id: "agreements", label: "労使協定・判定に使う値" },
+  { id: "audit", label: "監査ログ・同期" },
 ];
 
 /** 監査ログの実施者名（陸上スタッフ・船員のどちらでも解決する） */
@@ -69,12 +73,14 @@ function actorName(id: string): string {
 export default async function ShoreSettingsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ audit?: string }>;
+  searchParams: Promise<{ audit?: string; tab?: string }>;
 }) {
   const guard = await requireShore("manage_settings");
   if (!guard.ok) return <ShoreGuardNotice guard={guard} screen="設定・権限・監査" />;
 
   const sp = await searchParams;
+  /** いま開いている主題。未指定なら先頭 */
+  const tab = SECTIONS.some((x) => x.id === sp.tab) ? sp.tab! : SECTIONS[0]!.id;
   const sync = getSyncStats();
   const labor = currentLaborRuleSet();
   const safety = DEFAULT_SAFETY_RULE_SET;
@@ -113,22 +119,22 @@ export default async function ShoreSettingsPage({
         </p>
       </div>
 
-      {/*
-        節への近道。この画面は8つの主題を1ページに載せているため、
-        目的の節まで延々とめくらずに飛べるようにする（見出しは下の各 section の id と対応）。
-      */}
-      <nav aria-label="この画面の目次" className="ui-card flex flex-wrap gap-2 p-3">
-        {SECTIONS.map((s) => (
-          <a
-            key={s.id}
-            href={`#${s.id}`}
-            className="rounded-medium bg-default-100 px-3 py-1.5 text-sm hover:bg-default-200"
+      {/* 主題の切替。1枚に1主題だけ出す（サーバ側で組み立てるためリンクで切り替える） */}
+      <nav aria-label="設定の主題" className="ui-card flex flex-wrap gap-2 p-3">
+        {SECTIONS.map((x) => (
+          <Link
+            key={x.id}
+            href={`/shore/settings?tab=${x.id}`}
+            aria-current={x.id === tab ? "page" : undefined}
+            className={`ui-btn-quiet ${x.id === tab ? "ui-btn-selected" : ""}`}
           >
-            {s.label}
-          </a>
+            {x.label}
+          </Link>
         ))}
       </nav>
 
+      {tab === "tenant" ? (
+        <>
       {/* ── テナント設定 ── */}
       <section id="tenant" aria-label="事業者の設定" className="ui-card scroll-mt-20 p-4">
         <h2 className="mb-2 font-bold">事業者の設定</h2>
@@ -167,7 +173,11 @@ export default async function ShoreSettingsPage({
           記録しているため、基準を変えても過去の判定の意味は変わりません。
         </p>
       </section>
+        </>
+      ) : null}
 
+      {tab === "connectivity" ? (
+        <>
       {/* ── 10.1 接続4類型ごとの運用構成 ── */}
       <section id="connectivity" aria-label="回線の状況に合わせた運用" className="ui-card scroll-mt-20 p-4">
         <h2 className="mb-1 font-bold">回線の状況に合わせた運用</h2>
@@ -200,7 +210,11 @@ export default async function ShoreSettingsPage({
           ))}
         </div>
       </section>
+        </>
+      ) : null}
 
+      {tab === "punch-auth" ? (
+        <>
       {/* ── 3.2.1 打刻認証の方式 ── */}
       <section id="punch-auth" aria-label="打刻のときの本人確認" className="ui-card scroll-mt-20 p-4">
         <h2 className="mb-1 font-bold">打刻のときの本人確認</h2>
@@ -231,7 +245,11 @@ export default async function ShoreSettingsPage({
           ))}
         </div>
       </section>
+        </>
+      ) : null}
 
+      {tab === "tiers" ? (
+        <>
       {/* ── 10.5 段階的実装・縮退構成 ── */}
       <section id="tiers" aria-label="導入の構成" className="ui-card scroll-mt-20 p-4">
         <h2 className="mb-1 font-bold">導入の構成（段階的に増やせます）</h2>
@@ -295,7 +313,11 @@ export default async function ShoreSettingsPage({
           </table>
         </div>
       </section>
+        </>
+      ) : null}
 
+      {tab === "users" ? (
+        <>
       {/* ── ユーザ・ロール（陸上） ── */}
       <UserInvitePanel
         users={SHORE_STAFF_ACCOUNTS.map((a) => ({
@@ -311,6 +333,10 @@ export default async function ShoreSettingsPage({
         roles={SHORE_ROLES.map((r) => ({ value: t.shoreRole[r] ?? r, label: t.shoreRole[r] ?? r }))}
         vessels={vessels.map((v) => v.name)}
       />
+        </>
+      ) : null}
+      {tab === "permissions" ? (
+        <>
 
       <section id="permissions" aria-label="陸上ロールの権限表" className="ui-card scroll-mt-20 overflow-x-auto">
         <h2 className="px-4 pt-4 font-bold">できること（陸上）</h2>
@@ -413,7 +439,11 @@ export default async function ShoreSettingsPage({
           </div>
         ))}
       </section>
+        </>
+      ) : null}
 
+      {tab === "agreements" ? (
+        <>
       {/* ── 労使協定 → 判定閾値（6.5） ── */}
       <section id="agreements" aria-label="協定・就業規則" className="ui-card scroll-mt-20 p-4">
         <h2 className="mb-2 font-bold">労使協定・就業規則</h2>
@@ -528,7 +558,11 @@ export default async function ShoreSettingsPage({
         }))}
         today={today}
       />
+        </>
+      ) : null}
 
+      {tab === "audit" ? (
+        <>
       {/* ── 監査ログ（12.6） ── */}
       <section id="audit" aria-label="監査ログ" className="ui-card scroll-mt-20 overflow-x-auto">
         <div className="flex flex-wrap items-center justify-between gap-2 px-4 pt-4">
@@ -540,7 +574,7 @@ export default async function ShoreSettingsPage({
         <div className="flex flex-wrap items-center gap-2 px-4 pb-2 pt-2">
           <span className="text-sm text-foreground-500">絞り込み</span>
           <Link
-            href="/shore/settings"
+            href="/shore/settings?tab=audit"
             className={`rounded-medium px-3 py-1.5 text-sm ${
               !auditFilter ? "bg-primary text-primary-foreground" : "bg-default-100"
             }`}
@@ -550,7 +584,7 @@ export default async function ShoreSettingsPage({
           {auditActions.map((a) => (
             <Link
               key={a}
-              href={`/shore/settings?audit=${a}`}
+              href={`/shore/settings?tab=audit&audit=${a}`}
               className={`rounded-medium px-3 py-1.5 text-sm ${
                 auditFilter === a ? "bg-primary text-primary-foreground" : "bg-default-100"
               }`}
@@ -639,6 +673,8 @@ export default async function ShoreSettingsPage({
           </span>
         </div>
       </section>
+        </>
+      ) : null}
     </div>
   );
 }

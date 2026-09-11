@@ -17,6 +17,10 @@ for (const [path, name] of [
   ["/shore/crew", "crew-list"],
   ["/shore/login", "shore-login"],
   ["/shore/labor", "labor"],
+  ["/shore/shifts", "shifts"],
+  ["/shore/training", "training"],
+  ["/shore/dispatch", "dispatch"],
+  ["/shore/documents", "documents"],
   ["/shore/filings", "filings"],
   ["/shore/settings", "settings"],
 ]) {

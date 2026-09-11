@@ -1,6 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { crewNameOf } from "@/server/master-service";
+import { watchSlotOf } from "@/server/shift-board-service";
+import { recordDeletion } from "@/server/trash-service";
 import { checkLabel } from "@/i18n/ja";
 import { fmtDateLabel, fmtMinutes } from "@/lib/format";
 import {
@@ -13,6 +16,12 @@ import {
 } from "@/server/shift-service";
 import { requireShore } from "@/server/shore-session";
 import type { ShiftType, StationScenario } from "@/sync-protocol/records";
+
+/** シフトボードの操作結果（割り当て・取り外しで共通） */
+export interface ShiftFormState {
+  ok: boolean;
+  message: string;
+}
 
 export interface ShiftChangeFormState {
   ok: boolean;
@@ -182,6 +191,66 @@ export async function publishNewStationAction(
       ok: true,
       message: `配置を追加しました: ${published.station}（船内の配置表に即座に反映されます）`,
     };
+  } catch (e) {
+    return { ok: false, message: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+/**
+ * S-10 シフトボード: 枡に船員を割り当てる（デザイン正本のドラッグ＆ドロップ）。
+ *
+ * 枡は4時間固定なので、落とした位置から開始・終了が決まる。作成そのものは
+ * 既存の `publishNewShift` を通すので、法令チェック・配信・冪等キーの扱いは
+ * フォームから作った場合と完全に同じになる（作り方が2つに分かれない）。
+ */
+export async function assignWatchAction(
+  crewMemberId: string,
+  date: string,
+  slotKey: string,
+): Promise<ShiftFormState> {
+  const guard = await requireShore("manage_manning");
+  if (!guard.ok) return { ok: false, message: "シフトを配信する権限がありません" };
+  const slot = watchSlotOf(slotKey);
+  if (!slot) return { ok: false, message: "当直の時間帯が不正です" };
+  try {
+    publishNewShift({
+      crewMemberId,
+      fromDate: date,
+      shiftType: "navigation_watch",
+      from: slot.from,
+      to: slot.to,
+      changeNote: "シフトボードから割り当て",
+    });
+    revalidatePath("/shore/shifts");
+    return {
+      ok: true,
+      message: `${crewNameOf(crewMemberId)} を ${date} ${slot.label} に割り当てて配信しました`,
+    };
+  } catch (e) {
+    return { ok: false, message: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+/**
+ * 枡から外す。**削除ではなく「外した」跡を残す**（S-18 から30日以内に戻せる）。
+ * 配信済みの計画を物理削除すると、船内に届いた版と食い違ったまま追えなくなるため。
+ */
+export async function clearWatchAction(planId: string, label: string): Promise<ShiftFormState> {
+  const guard = await requireShore("manage_manning");
+  if (!guard.ok) return { ok: false, message: "シフトを配信する権限がありません" };
+  try {
+    recordDeletion({
+      entityKind: "当直シフト",
+      entityId: planId,
+      entityLabel: label,
+      mode: "delete",
+      action: "シフトボードから外した",
+      effect: "船内には取り消しとして届きます。元の計画は履歴に残ります",
+      actor: guard.staff.id,
+    });
+    revalidatePath("/shore/shifts");
+    revalidatePath("/shore/trash");
+    return { ok: true, message: `${label} を外しました（30日以内なら削除・アーカイブから戻せます）` };
   } catch (e) {
     return { ok: false, message: e instanceof Error ? e.message : String(e) };
   }

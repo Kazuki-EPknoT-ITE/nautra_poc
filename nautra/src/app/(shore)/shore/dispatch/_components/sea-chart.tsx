@@ -27,7 +27,10 @@ export interface ChartVessel {
  * 現在地を点、航跡を線で描く。海岸線は描かず、緯度経度のグリッドと主要港のラベルを
  * 位置を読む手がかりにする。
  *
- * **色で意味を作らない**（白黒 + 形で船を区別する）。座標の計算は position-plain.ts の純関数。
+ * **色で意味を作らない**（明暗 + 形で船を区別する）。座標の計算は position-plain.ts の純関数。
+ *
+ * 面は**暗く**する（デザイン正本 S-12）。海図は船橋でも見るもので、暗い背景のほうが
+ * 点と線が浮き、周りの白いカードとも取り違えない。現在地だけブロンズを乗せる。
  */
 const SHAPES = ["circle", "square", "triangle"] as const;
 
@@ -36,10 +39,10 @@ export function SeaChart({ vessels }: { vessels: ChartVessel[] }) {
   const lonLines = chartLonLines();
 
   return (
-    <figure className="flex flex-col gap-2">
+    <figure className="m-0 flex flex-col gap-2">
       <svg
         viewBox={`0 0 ${CHART_SIZE.width} ${CHART_SIZE.height}`}
-        className="h-auto w-full max-w-3xl text-foreground"
+        className="mx-auto h-auto w-full max-w-[520px] rounded-small text-[#DFE1E0]"
         role="img"
         aria-label={`日本近海の簡易海図。${vessels
           .map((v) => `${v.vesselName} は 北緯${v.lat.toFixed(2)}度 東経${v.lon.toFixed(2)}度`)
@@ -50,10 +53,8 @@ export function SeaChart({ vessels }: { vessels: ChartVessel[] }) {
           y={0}
           width={CHART_SIZE.width}
           height={CHART_SIZE.height}
-          fill="currentColor"
-          fillOpacity={0.04}
-          stroke="currentColor"
-          strokeOpacity={0.35}
+          fill="#1A1A1A"
+          stroke="#333333"
         />
 
         {/* 緯度・経度のグリッド（2度おき） */}
@@ -161,7 +162,7 @@ export function SeaChart({ vessels }: { vessels: ChartVessel[] }) {
           );
         })}
       </svg>
-      <figcaption className="text-xs text-foreground-500">
+      <figcaption className="text-xs text-[#99877D]">
         図の印: {vessels.map((v, i) => `${SHAPE_LABEL[i % SHAPES.length]} = ${v.vesselName}`).join(" / ")}
         。十字は主要港、点線は通ってきた航跡、現在地から伸びる線は針路です。輪郭だけの印は観測が古いことを表します。
       </figcaption>
@@ -183,8 +184,8 @@ function VesselMark({
   hollow: boolean;
 }) {
   const common = {
-    fill: hollow ? "none" : "currentColor",
-    stroke: "currentColor",
+    fill: hollow ? "none" : "#917351",
+    stroke: "#917351",
     strokeWidth: 3,
   };
   if (shape === "square") return <rect x={x - 10} y={y - 10} width={20} height={20} {...common} />;

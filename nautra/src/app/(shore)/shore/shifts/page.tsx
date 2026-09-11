@@ -5,7 +5,10 @@ import { fmtDateLabel, fmtDateTime, fmtMinutes } from "@/lib/format";
 import { crewNameOf, listCrewMasters } from "@/server/master-service";
 import { buildWatchLoad, getShiftWeek, getStationPlans } from "@/server/shift-service";
 import { requireShore } from "@/server/shore-session";
+import { listVessels } from "@/server/master-service";
+import { buildShiftBoard, WATCH_SLOTS } from "@/server/shift-board-service";
 import { ShoreGuardNotice } from "../_components/guard";
+import { ShiftBoard } from "./_components/shift-board";
 import { NewShiftForm, type CrewOption } from "./_components/new-shift-form";
 import { NewStationForm } from "./_components/new-station-form";
 import { ShiftChangeForm, type ShiftOption } from "./_components/shift-change-form";
@@ -21,9 +24,18 @@ export const dynamic = "force-dynamic";
  * 直近2週間の当直時間を船員別に並べて偏りを見えるようにし、
  * 作成前にその計画で基準を超えないかを判定できるようにしている。
  */
-export default async function ShoreShiftsPage() {
+export default async function ShoreShiftsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ vessel?: string }>;
+}) {
   const guard = await requireShore("manage_manning");
   if (!guard.ok) return <ShoreGuardNotice guard={guard} screen="シフト・配置表" />;
+
+  const sp = await searchParams;
+  const vessels = listVessels();
+  const vesselId = vessels.find((v) => v.id === sp.vessel)?.id ?? vessels[0]?.id ?? "";
+  const board = buildShiftBoard(vesselId);
 
   const week = getShiftWeek();
   const load = buildWatchLoad();
@@ -83,8 +95,23 @@ export default async function ShoreShiftsPage() {
         </Link>
       </section>
 
+      <ShiftBoard
+        vesselName={board.vesselName}
+        vessels={vessels}
+        activeVesselId={vesselId}
+        days={board.days}
+        today={board.today}
+        slots={WATCH_SLOTS.map((sl) => ({ key: sl.key, label: sl.label }))}
+        crews={board.crews}
+        cells={board.cells}
+        filled={board.filled}
+        total={board.total}
+        warnings={board.warnings}
+        appliedRuleVersion={board.appliedRuleVersion}
+      />
+
       <section aria-label="週間当直表" className="ui-card overflow-x-auto">
-        <h2 className="px-4 pt-4 font-bold">今週の当直</h2>
+        <h2 className="px-4 pt-4 font-bold">今週の当直（変則の時間帯を含む一覧）</h2>
         <table className="mt-2 w-full min-w-[760px] text-sm">
           <thead>
             <tr className="border-b border-[var(--ui-hairline)] text-left text-foreground-500">

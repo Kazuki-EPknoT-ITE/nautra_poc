@@ -111,12 +111,19 @@ export default async function ShoreDispatchPage() {
       </section>
 
       {/* 簡易海図（外部の地図タイル・ライブラリは使わない） */}
-      <section aria-label="簡易海図" className="ui-card p-4">
-        <h2 className="mb-2 font-bold">簡易海図（日本近海）</h2>
+      <section aria-label="簡易海図" className="ui-dark px-5 py-[18px]">
+        <div className="flex flex-wrap items-baseline justify-between gap-3">
+          <h2 className="m-0 text-xl font-bold text-white">現在位置（AIS/GPS 受信・日本近海）</h2>
+          <span className="font-mono text-xs text-[#99877D]">
+            本番は海図タイル／ここは緯度経度の簡易表示
+          </span>
+        </div>
         {chartVessels.length === 0 ? (
-          <p className="text-sm text-foreground-500">図に出せる位置がありません。</p>
+          <p className="m-0 mt-3.5 text-base text-[#DFE1E0]">図に出せる位置がありません。</p>
         ) : (
-          <SeaChart vessels={chartVessels} />
+          <div className="mt-3.5">
+            <SeaChart vessels={chartVessels} />
+          </div>
         )}
       </section>
 

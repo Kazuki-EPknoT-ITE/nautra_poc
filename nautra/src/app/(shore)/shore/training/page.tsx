@@ -12,7 +12,7 @@ import {
   STCW_BASIC_REQUIRED_FROM,
   trainingFormOptions,
 } from "@/server/training-service";
-import { StatusChip } from "@/ui";
+import { Section, StatusChip } from "@/ui";
 import { ShoreGuardNotice } from "../_components/guard";
 import {
   ArrangeTrainingForm,
@@ -60,43 +60,49 @@ export default async function ShoreTrainingPage() {
       </div>
 
       {/* ① 船員ごとの修了状況と未修了アラート */}
-      <section aria-label="船員ごとの修了状況" className="ui-card p-4">
-        <h2 className="mb-1 font-bold">船員ごとの修了状況</h2>
+      <Section
+        title="船員ごとの修了状況"
+        note={`${crewRows.length}名`}
+        actions={
+          riskCount > 0 ? (
+            <StatusChip level="violation" size="sm" label={`未修了あり ${riskCount}名`} />
+          ) : (
+            <StatusChip level="ok" size="sm" label="雇入届出で問題になる未修了なし" />
+          )
+        }
+        bodyClassName="p-0"
+      >
         {riskCount > 0 ? (
-          <p className="mb-2 text-sm font-semibold text-danger">
+          <p className="m-0 border-b border-[var(--ui-hairline)] bg-danger-100 px-[18px] py-3 text-sm leading-relaxed text-danger">
             ✕ {riskCount}名 に未修了があります。{STCW_BASIC_REQUIRED_FROM} 以降に雇入契約の届出を
             出すと、修了が確認できず受理が保留になることがあります。乗船の予定より前に受講を
             手配してください。
           </p>
-        ) : (
-          <p className="mb-2 text-sm font-semibold text-success">
-            ✓ 雇入届出で問題になる未修了はありません。
-          </p>
-        )}
+        ) : null}
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[840px] text-sm">
+          <table className="ui-table min-w-[840px]">
             <thead>
-              <tr className="border-b border-[var(--ui-hairline)] text-left text-foreground-500">
-                <th className="px-2 py-2 font-medium">船員</th>
-                <th className="px-2 py-2 font-medium">全体</th>
-                <th className="px-2 py-2 font-medium">基本訓練</th>
-                <th className="px-2 py-2 font-medium">実技講習</th>
-                <th className="px-2 py-2 font-medium">免状・更新講習</th>
+              <tr>
+                <th>船員</th>
+                <th>全体</th>
+                <th>基本訓練</th>
+                <th>実技講習</th>
+                <th>免状・更新講習</th>
               </tr>
             </thead>
             <tbody>
               {crewRows.map((row) => (
-                <tr key={row.crewMemberId} className="border-b border-[var(--ui-hairline)] last:border-b-0">
-                  <td className="px-2 py-2">
+                <tr key={row.crewMemberId}>
+                  <td>
                     <Link
                       href={`/shore/crew/${row.crewMemberId}`}
-                      className="font-semibold text-primary underline-offset-2 hover:underline"
+                      className="font-semibold text-foreground-800 underline-offset-2 hover:underline"
                     >
                       {row.name}
                     </Link>
-                    <p className="text-xs text-foreground-500">{row.position}</p>
+                    <p className="m-0 mt-0.5 text-xs text-foreground-400">{row.position}</p>
                   </td>
-                  <td className="px-2 py-2">
+                  <td>
                     <StatusChip
                       size="sm"
                       level={row.level}
@@ -104,23 +110,23 @@ export default async function ShoreTrainingPage() {
                     />
                   </td>
                   {row.items.map((item) => (
-                    <td key={item.category} className="px-2 py-2">
+                    <td key={item.category}>
                       {!item.required ? (
-                        <span className="text-foreground-500">対象外</span>
+                        <span className="text-foreground-400">対象外</span>
                       ) : (
                         <>
-                          <span
-                            className={
+                          <StatusChip
+                            size="sm"
+                            level={item.level}
+                            label={
                               item.level === "violation"
-                                ? "font-bold text-danger"
+                                ? "未修了"
                                 : item.level === "caution"
-                                  ? "font-bold text-warning-700"
-                                  : "font-bold text-success"
+                                  ? "手配中"
+                                  : "修了"
                             }
-                          >
-                            {item.level === "violation" ? "✕ 未修了" : item.level === "caution" ? "⚠ 手配中" : "✓ 修了"}
-                          </span>
-                          <p className="text-xs text-foreground-600">{item.message}</p>
+                          />
+                          <p className="m-0 mt-1 text-xs text-foreground-500">{item.message}</p>
                         </>
                       )}
                     </td>
@@ -130,7 +136,7 @@ export default async function ShoreTrainingPage() {
             </tbody>
           </table>
         </div>
-      </section>
+      </Section>
 
       {/* ② 受講手配 */}
       <section aria-label="受講の手配" className="ui-card p-4">
