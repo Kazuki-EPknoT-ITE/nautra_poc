@@ -9,7 +9,7 @@ import {
 } from "@/server/filing-service";
 import { todayLocal } from "@/server/master-service";
 import { requireShore } from "@/server/shore-session";
-import { StatusChip } from "@/ui";
+import { StatusChip, StepBar, type Step } from "@/ui";
 import { ShoreGuardNotice } from "../_components/guard";
 import { FilingSteps } from "./_components/filing-steps";
 import { FilingWizard } from "./_components/filing-wizard";
@@ -72,12 +72,37 @@ function RequirementTable({ result }: { result: CrewRequirementResult }) {
   );
 }
 
+/**
+ * 届出の手順（デザイン正本 S-07）。
+ * 「受理保留を先に潰す」ための添付要件チェックを、書類を作る**前**に置くのが要点
+ * （作ってから不備に気づくと、生成物ごと作り直しになるため。3.8.3⑥）。
+ */
+const FILING_STEPS: Step[] = [
+  { no: 1, title: "種別・方式", note: "何をどう出すか" },
+  { no: 2, title: "対象の選択", note: "複数船員・複数船舶" },
+  { no: 3, title: "添付要件チェック", note: "受理保留を先に潰す" },
+  { no: 4, title: "書類の生成", note: "スナップショット保存" },
+  { no: 5, title: "提出の記録", note: "手帳の記帳もここで" },
+];
+
 function FilingCard({ row, today }: { row: FilingRow; today: string }) {
   const { filing, targets, check, documents } = row;
   const isDone = filing.status === "submitted" || filing.status === "accepted";
 
+  /** 状態 → 手順番号。届出は追記だけで進むので、状態がそのまま進捗になる */
+  const step =
+    filing.status === "draft"
+      ? 2
+      : filing.status === "checked"
+        ? 3
+        : filing.status === "documents_ready"
+          ? 4
+          : 5;
+
   return (
-    <div className="ui-card flex flex-col gap-3 p-4">
+    <div className="ui-card flex flex-col">
+      <StepBar steps={FILING_STEPS} current={step} />
+      <div className="flex flex-col gap-3 p-4">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h3 className="font-bold">
           {t.filingType[filing.filingType]}
@@ -193,6 +218,7 @@ function FilingCard({ row, today }: { row: FilingRow; today: string }) {
       ) : (
         <FilingSteps filingId={filing.id} status={filing.status} today={today} />
       )}
+      </div>
     </div>
   );
 }

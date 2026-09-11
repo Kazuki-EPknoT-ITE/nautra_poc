@@ -210,13 +210,19 @@ function ledgerSubject(crewMemberId: string): { id: string; name: string; positi
 /** 記録簿で切り替えられる船員（マスタ順） */
 export function ledgerCrewOptions(): { id: string; name: string; position: string }[] {
   const masters = listCrewMasters();
-  if (masters.length > 0)
-    return masters.map((m) => ({
-      id: m.crewMemberId,
-      name: m.name,
-      position: m.position ?? "",
-    }));
-  return CREW_MEMBERS.map((c) => ({ id: c.id, name: c.name, position: c.position }));
+  if (masters.length === 0)
+    return CREW_MEMBERS.map((c) => ({ id: c.id, name: c.name, position: c.position }));
+
+  /**
+   * **打刻のある船員を先に並べる**。画面は先頭の船員を既定で開くため、
+   * 配乗待ちの人が先頭に来ると「集計が全部 0 の画面」で迎えることになる。
+   * 並びの根拠は打刻の有無（CREW_MEMBERS = 打刻端末のある船の乗組員）。
+   */
+  const order = new Map(CREW_MEMBERS.map((c, i) => [c.id, i]));
+  return masters
+    .slice()
+    .sort((a, b) => (order.get(a.crewMemberId) ?? 99) - (order.get(b.crewMemberId) ?? 99))
+    .map((m) => ({ id: m.crewMemberId, name: m.name, position: m.position ?? "" }));
 }
 
 /**

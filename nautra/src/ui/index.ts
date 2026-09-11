@@ -54,6 +54,7 @@ export { ClientOnly } from "./client-only";
 export { SurfaceCard, SurfaceRow, StatBlock, useModalProps } from "./surface";
 export { Section, Eyebrow } from "./section";
 export { DataTable } from "./data-table";
+export { StepBar, type Step } from "./step-bar";
 export { ConfirmDialog, DeleteDialog, FlashToast } from "./dialogs";
 export { StatusChip } from "./status-chip";
 export { LimitGauge } from "./limit-gauge";

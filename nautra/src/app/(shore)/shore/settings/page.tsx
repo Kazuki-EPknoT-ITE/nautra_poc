@@ -35,6 +35,7 @@ import { crewNameOf, listAuditLogs, listVessels } from "@/server/master-service"
 import { requireShore, SHORE_STAFF_ACCOUNTS, shoreStaffById } from "@/server/shore-session";
 import { getSyncStats } from "@/server/store";
 import { ShoreGuardNotice } from "../_components/guard";
+import { UserInvitePanel } from "./_components/user-invite";
 import { AgreementForm, type OverrideField } from "./_components/agreement-form";
 
 export const dynamic = "force-dynamic";
@@ -45,7 +46,7 @@ const SECTIONS = [
   { id: "connectivity", label: "回線の運用" },
   { id: "punch-auth", label: "打刻の本人確認" },
   { id: "tiers", label: "導入の構成" },
-  { id: "staff", label: "担当者" },
+  { id: "users", label: "ユーザー" },
   { id: "permissions", label: "権限表" },
   { id: "agreements", label: "労使協定" },
   { id: "thresholds", label: "判定に使う値" },
@@ -296,30 +297,20 @@ export default async function ShoreSettingsPage({
       </section>
 
       {/* ── ユーザ・ロール（陸上） ── */}
-      <section id="staff" aria-label="陸上の担当者" className="ui-card scroll-mt-20 p-4">
-        <h2 className="mb-2 font-bold">陸上の担当者</h2>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {SHORE_STAFF_ACCOUNTS.map((s) => (
-            <div
-              key={s.id}
-              className={`ui-inset p-3 ${s.id === guard.staff.id ? "ring-1 ring-primary" : ""}`}
-            >
-              <p className="font-semibold">
-                {s.name}
-                {s.id === guard.staff.id ? (
-                  <span className="ml-1 text-xs text-foreground-500">（サインイン中）</span>
-                ) : null}
-              </p>
-              <p className="text-sm text-foreground-600">{t.shoreRole[s.role]}</p>
-              <p className="text-xs text-foreground-500">{s.title}</p>
-            </div>
-          ))}
-        </div>
-        <p className="mt-2 text-xs text-foreground-500">
-          PoC は担当者を選ぶだけの簡易サインインです。本番は Supabase Auth（管理者は多要素認証）と
-          行レベルのアクセス制御を併用します（基本設計書 11.3）。
-        </p>
-      </section>
+      <UserInvitePanel
+        users={SHORE_STAFF_ACCOUNTS.map((a) => ({
+          id: a.id,
+          name: a.name,
+          email: a.email,
+          role: t.shoreRole[a.role] ?? a.role,
+          title: a.title,
+          pending: Boolean(a.invitePending),
+          current: a.id === guard.staff.id,
+          sensitive: canShore(a.role, "view_sensitive_health"),
+        }))}
+        roles={SHORE_ROLES.map((r) => ({ value: t.shoreRole[r] ?? r, label: t.shoreRole[r] ?? r }))}
+        vessels={vessels.map((v) => v.name)}
+      />
 
       <section id="permissions" aria-label="陸上ロールの権限表" className="ui-card scroll-mt-20 overflow-x-auto">
         <h2 className="px-4 pt-4 font-bold">できること（陸上）</h2>

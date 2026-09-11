@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import type { LaborRuleValues } from "@/domain/labor-law/types";
 import { publishAgreement, RULE_VALUE_KEYS } from "@/server/labor-rules";
+import { writeAuditLog } from "@/server/master-service";
 import { requireShore } from "@/server/shore-session";
 
 export interface AgreementFormState {
@@ -56,4 +57,44 @@ export async function publishAgreementAction(
   } catch (e) {
     return { ok: false, message: e instanceof Error ? e.message : String(e) };
   }
+}
+
+export interface SettingsFormState {
+  ok: boolean;
+  message: string;
+}
+
+/**
+ * S-15: ユーザーを招待する（デザイン正本 `design/poc_design`）。
+ *
+ * 招待そのものは**監査ログだけ**に積む。PoC はアカウントの実体をコード上の定数で
+ * 持っているため（`SHORE_STAFF_ACCOUNTS`）、ここで新しい行を生やすと「再起動で消える
+ * ユーザー」ができてしまい、かえって誤解を招くため。本番は Supabase Auth の招待に置き換える。
+ */
+export async function inviteUserAction(
+  _prev: SettingsFormState,
+  formData: FormData,
+): Promise<SettingsFormState> {
+  const guard = await requireShore("manage_settings");
+  if (!guard.ok) return { ok: false, message: "ユーザーを招待する権限がありません" };
+
+  const email = String(formData.get("email") ?? "").trim();
+  const role = String(formData.get("role") ?? "");
+  const scope = String(formData.get("scope") ?? "all");
+  if (!email.includes("@")) return { ok: false, message: "メールアドレスを入力してください" };
+
+  writeAuditLog({
+    action: "create",
+    entityKind: "shore_user_invite",
+    entityId: email,
+    actor: guard.staff.id,
+    after: `${role} / ${scope === "all" ? "すべての船" : scope}`,
+    summary: `${email} を ${role} として招待`,
+  });
+  revalidatePath("/shore/settings");
+
+  return {
+    ok: true,
+    message: `${email} に招待を記録しました（PoC はメールを送らず、監査ログに残すところまでです）。`,
+  };
 }

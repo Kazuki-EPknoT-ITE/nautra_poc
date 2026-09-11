@@ -16,6 +16,9 @@ for (const [path, name] of [
   ["/shore/fleet/vessel-001", "vessel-detail"],
   ["/shore/crew", "crew-list"],
   ["/shore/login", "shore-login"],
+  ["/shore/labor", "labor"],
+  ["/shore/filings", "filings"],
+  ["/shore/settings", "settings"],
 ]) {
   await p.goto("http://localhost:3100" + path, { waitUntil: "networkidle" });
   await p.screenshot({ path: `shots/${name}.png` });
