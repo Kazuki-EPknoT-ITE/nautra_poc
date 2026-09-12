@@ -103,21 +103,6 @@ export function diffCrewMaster(
     });
   }
 
-  /**
-   * 顔写真は data URL なので、**中身を差分に載せない**（監査ログが画像で埋まる）。
-   * 「登録した / 差し替えた / 外した」だけを記録する。
-   */
-  const beforePhoto = normalizeField(before.photoDataUrl);
-  const afterPhoto = normalizeField(after.photoDataUrl);
-  if (beforePhoto !== afterPhoto) {
-    changes.push({
-      label: "顔写真",
-      before: beforePhoto ? "登録あり" : "未登録",
-      after: afterPhoto ? "登録あり" : "未登録",
-      sensitive: false,
-    });
-  }
-
   const beforeIns = (before.insurances ?? []) as InsuranceEntry[];
   const afterIns = (after.insurances ?? []) as InsuranceEntry[];
   for (const kind of INSURANCE_KINDS) {

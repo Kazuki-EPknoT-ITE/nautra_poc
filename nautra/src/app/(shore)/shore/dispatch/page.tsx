@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { t } from "@/i18n/ja";
 import { fmtDateTime } from "@/lib/format";
 import { fmtLatLon } from "@/lib/position-plain";
@@ -20,7 +21,26 @@ export const dynamic = "force-dynamic";
  * データ品質の保証がないため、画面でそのことを明示し、観測が古いものには注意を出す。
  * 取得は position-service の `fetchPositions()`（商用 API への差替え点）に閉じてある。
  */
-export default async function ShoreDispatchPage() {
+/**
+ * この画面の主題（タブ）。**1画面1主題**にして、目的の節まで延々とめくらずに済むようにする
+ * （デザイン正本 S-15 と同じやりかた。1枚が 3000px を超えないようにする）。
+ * 位置と配船を分けても迷わないのは、「いまどこにいるか」と「次にどこへ行くか」で
+ * 見に来る目的がはっきり違うため。
+ */
+const TABS = [
+  { id: "position", label: "いまの位置・海図" },
+  { id: "schedule", label: "配船スケジュール" },
+];
+
+export default async function ShoreDispatchPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ tab?: string }>;
+}) {
+  const sp = await searchParams;
+  /** いま開いている主題。未指定なら先頭 */
+  const tab = TABS.some((x) => x.id === sp.tab) ? sp.tab! : TABS[0]!.id;
+
   const guard = await requireShore("manage_dispatch");
   if (!guard.ok) return <ShoreGuardNotice guard={guard} screen="配船・位置情報" />;
 
@@ -57,6 +77,22 @@ export default async function ShoreDispatchPage() {
         </p>
       </section>
 
+      {/* 主題の切替（サーバ側で組み立てるためリンクで切り替える） */}
+      <nav aria-label="配船・位置情報の主題" className="ui-card flex flex-wrap gap-2 p-3">
+        {TABS.map((x) => (
+          <Link
+            key={x.id}
+            href={`/shore/dispatch?tab=${x.id}`}
+            aria-current={x.id === tab ? "page" : undefined}
+            className={`ui-btn-quiet ${x.id === tab ? "ui-btn-selected" : ""}`}
+          >
+            {x.label}
+          </Link>
+        ))}
+      </nav>
+
+      {tab === "position" ? (
+        <>
       {/* 3.7.1 船ごとの最新位置 */}
       <section aria-label="いまの位置" className="ui-card p-4">
         <h2 className="mb-2 font-bold">いまの位置</h2>
@@ -127,6 +163,12 @@ export default async function ShoreDispatchPage() {
         )}
       </section>
 
+      <ManualPositionForm vessels={vessels} />
+        </>
+      ) : null}
+
+      {tab === "schedule" ? (
+        <>
       {/* 3.7.2 配船スケジュール */}
       <section aria-label="配船スケジュール" className="flex flex-col gap-3">
         <h2 className="font-bold">
@@ -184,7 +226,8 @@ export default async function ShoreDispatchPage() {
       </section>
 
       <ScheduleForm vessels={vessels} />
-      <ManualPositionForm vessels={vessels} />
+        </>
+      ) : null}
     </div>
   );
 }

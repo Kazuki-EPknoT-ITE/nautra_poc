@@ -24,10 +24,21 @@ export const dynamic = "force-dynamic";
  * 直近2週間の当直時間を船員別に並べて偏りを見えるようにし、
  * 作成前にその計画で基準を超えないかを判定できるようにしている。
  */
+/**
+ * この画面の主題（タブ）。**1画面1主題**にして、目的の節まで延々とめくらずに済むようにする
+ * （デザイン正本 S-15 と同じやりかた。1枚が 3000px を超えないようにする）。
+ * 当直を組む・配置表を決める・配信の結果を確かめるは、同じ画面でも別の作業になる。
+ */
+const TABS = [
+  { id: "watch", label: "当直を組む" },
+  { id: "stations", label: "配置表" },
+  { id: "history", label: "配信の履歴・競合" },
+];
+
 export default async function ShoreShiftsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ vessel?: string }>;
+  searchParams: Promise<{ tab?: string; vessel?: string }>;
 }) {
   const guard = await requireShore("manage_manning");
   if (!guard.ok) return <ShoreGuardNotice guard={guard} screen="シフト・配置表" />;
@@ -35,6 +46,8 @@ export default async function ShoreShiftsPage({
   const sp = await searchParams;
   const vessels = listVessels();
   const vesselId = vessels.find((v) => v.id === sp.vessel)?.id ?? vessels[0]?.id ?? "";
+  /** いま開いている主題。未指定なら先頭 */
+  const tab = TABS.some((x) => x.id === sp.tab) ? sp.tab! : TABS[0]!.id;
   const board = buildShiftBoard(vesselId);
 
   const week = getShiftWeek();
@@ -95,6 +108,22 @@ export default async function ShoreShiftsPage({
         </Link>
       </section>
 
+      {/* 主題の切替（サーバ側で組み立てるためリンクで切り替える） */}
+      <nav aria-label="シフト作成の主題" className="ui-card flex flex-wrap gap-2 p-3">
+        {TABS.map((x) => (
+          <Link
+            key={x.id}
+            href={`/shore/shifts?tab=${x.id}`}
+            aria-current={x.id === tab ? "page" : undefined}
+            className={`ui-btn-quiet ${x.id === tab ? "ui-btn-selected" : ""}`}
+          >
+            {x.label}
+          </Link>
+        ))}
+      </nav>
+
+      {tab === "watch" ? (
+        <>
       <ShiftBoard
         vesselName={board.vesselName}
         vessels={vessels}
@@ -199,9 +228,19 @@ export default async function ShoreShiftsPage({
 
       <ShiftChangeForm options={options} />
 
+        </>
+      ) : null}
+
+      {tab === "stations" ? (
+        <>
       <NewStationForm crews={crews} />
 
       <StationChangeForm options={stationOptions} />
+        </>
+      ) : null}
+
+      {tab === "history" ? (
+        <>
 
       {week.conflicts.length > 0 ? (
         <section aria-label="競合（要確認）" className="ui-card border border-danger p-4">
@@ -240,6 +279,8 @@ export default async function ShoreShiftsPage({
           </ul>
         )}
       </section>
+        </>
+      ) : null}
     </div>
   );
 }

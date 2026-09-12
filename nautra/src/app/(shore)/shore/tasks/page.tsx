@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { fmtDateTime } from "@/lib/format";
+import { crewPhotoMap } from "@/server/crew-photo-service";
 import { listCrewMasters, listVessels, todayLocal } from "@/server/master-service";
 import { requireShore } from "@/server/shore-session";
 import {
@@ -52,8 +53,9 @@ export default async function ShoreTasksPage() {
   const crews = listCrewMasters();
   const openByCrew = openTaskCountByCrew();
   /** 顔写真は船員マスタから引く（画面ごとに持たない） */
+  const photos = crewPhotoMap();
   const photoOf = (crewMemberId?: string) =>
-    crews.find((c) => c.crewMemberId === crewMemberId)?.photoDataUrl;
+    crewMemberId ? photos.get(crewMemberId) : undefined;
   const today = todayLocal();
 
   return (
@@ -185,7 +187,7 @@ export default async function ShoreTasksPage() {
               <CrewPhoto
                 name={c.name}
                 initial={c.photo}
-                src={c.photoDataUrl}
+                src={photos.get(c.crewMemberId)}
                 size="xs"
                 className="!bg-content1"
               />

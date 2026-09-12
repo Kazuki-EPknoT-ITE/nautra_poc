@@ -6,7 +6,7 @@ import { PRODUCT_NAME, t } from "@/i18n/ja";
 import { DEMO_COMPANY } from "@/lib/crew";
 import { currentLaborRuleSet } from "@/server/labor-rules";
 import { listVessels, writeAuditLog } from "@/server/master-service";
-import { clearShoreSession, getShoreSession, RESPONSIBLE_MANAGER } from "@/server/shore-session";
+import { clearShoreSession, getShoreSession, responsibleManager } from "@/server/shore-session";
 import { getSyncStats } from "@/server/store";
 import { AppShell } from "@/ui";
 import { NavLink } from "./_components/nav-link";
@@ -84,6 +84,7 @@ const NAV_GROUPS: {
  */
 export default async function ShoreLayout({ children }: { children: ReactNode }) {
   const staff = await getShoreSession();
+  const manager = responsibleManager();
 
   async function signOutAction() {
     "use server";
@@ -162,9 +163,9 @@ export default async function ShoreLayout({ children }: { children: ReactNode })
             </Link>
             {/* 承認の最終権限者。誰に上げれば止まっている案件が進むのかを常に見せる（3.2） */}
             <p className="m-0 text-xs leading-normal text-[#666666]">
-              {RESPONSIBLE_MANAGER.title}
+              {manager.title}
               <br />
-              <span className="text-[#99877D]">{RESPONSIBLE_MANAGER.name}</span>
+              <span className="text-[#99877D]">{manager.name}</span>
             </p>
           </div>
         </aside>

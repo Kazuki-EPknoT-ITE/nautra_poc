@@ -3,6 +3,7 @@ import { checkLabel } from "@/i18n/ja";
 import type { CheckLevel } from "@/domain/labor-law/types";
 import { buildVesselManning } from "@/server/manning-service";
 import { checkShiftPlanCompliance, getShiftWeek } from "@/server/shift-service";
+import { crewPhotoMap } from "@/server/crew-photo-service";
 import { trashedEntityIds } from "@/server/trash-service";
 import type { ShiftType } from "@/sync-protocol/records";
 
@@ -78,13 +79,14 @@ export function buildShiftBoard(vesselId: string, now = new Date()): ShiftBoard 
   const week = getShiftWeek(now);
   const manning = buildVesselManning(now).find((v) => v.vesselId === vesselId);
   const removed = trashedEntityIds("当直シフト");
+  const photos = crewPhotoMap();
 
   const crews: BoardCrew[] = (manning?.onBoard ?? []).map((r) => ({
     crewMemberId: r.crewMemberId,
     name: r.name,
     position: r.position,
     photo: r.photo,
-    photoDataUrl: r.master?.photoDataUrl,
+    photoDataUrl: photos.get(r.crewMemberId),
     assignedCount: 0,
   }));
   const byId = new Map(crews.map((c) => [c.crewMemberId, c]));

@@ -771,8 +771,11 @@ export const t = {
     voyage_schedule: "配船スケジュール",
     generated_document: "生成帳票",
     agreement: "労使協定・就業規則",
+    crew_photo: "顔写真",
     work_task: "作業指示・タスク",
     trash_entry: "削除・アーカイブ",
+    shore_user: "陸上ユーザー",
+    shore_user_invite: "陸上ユーザーの招待",
     audit_log: "監査ログ",
   } as Record<string, string>,
 } as const;

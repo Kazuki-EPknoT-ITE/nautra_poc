@@ -22,6 +22,16 @@ export function makeIdempotencyKey(deviceId: string, eventId: string): string {
   return `${deviceId}:${eventId}`;
 }
 
+/**
+ * 配信範囲（8.1 差分配信）。既定は `all`（船内端末にも配る）。
+ *
+ * `shore_only` は**船内へ配らない**エンティティ。陸上の事務アカウントのように
+ * 船内端末が一度も読まないものまで配ると、細い回線を無駄に使ううえ、
+ * 共用端末に置く理由のない情報が端末に残るため（10.1 / 10.3）。
+ * 判定は `isVesselDistributable` だけを通し、配信側に条件を散らさない。
+ */
+export type Distribution = "all" | "shore_only";
+
 /** 競合ポリシー種別（8.3 の分類を列挙型で保持し、エンティティごとに宣言する） */
 export type ConflictPolicy =
   | "append_only" // 打刻・一次記録: 追記のみ。競合は構造的に発生しない
@@ -129,6 +139,8 @@ export const SYNC_ENTITY_REGISTRY = {
      船内での変更は「変更依頼」として起票し、陸上の承認を経て反映する。
      船内端末から直接 Push された場合は checkOriginPolicy で隔離される（破棄しない）。 */
   crew_master: { payload: RECORD_PAYLOAD_SCHEMAS.crew_master, policy: "shore_priority", origin: "shore" },
+  // 顔写真（マスタとは別に持つ。差し替えでマスタの版を増やさない）
+  crew_photo: { payload: RECORD_PAYLOAD_SCHEMAS.crew_photo, policy: "shore_priority", origin: "shore" },
   credential: { payload: RECORD_PAYLOAD_SCHEMAS.credential, policy: "shore_priority", origin: "shore" },
   vessel_master: {
     payload: RECORD_PAYLOAD_SCHEMAS.vessel_master,
@@ -222,14 +234,36 @@ export const SYNC_ENTITY_REGISTRY = {
     policy: "shore_priority",
     origin: "shore",
   },
+  // 陸上アプリのユーザーアカウント（10.3）: 船内端末では使わないので配らない
+  shore_user: {
+    payload: RECORD_PAYLOAD_SCHEMAS.shore_user,
+    policy: "shore_priority",
+    origin: "shore",
+    distribution: "shore_only",
+  },
   // 監査証跡（12.6）: 陸上・船内・外部連携のいずれからも積まれる追記専用ログ
   audit_log: { payload: RECORD_PAYLOAD_SCHEMAS.audit_log, policy: "append_only", origin: "both" },
 } as const satisfies Record<
   string,
-  { payload: z.ZodTypeAny; policy: ConflictPolicy; origin: "vessel" | "shore" | "both" }
+  {
+    payload: z.ZodTypeAny;
+    policy: ConflictPolicy;
+    origin: "vessel" | "shore" | "both";
+    distribution?: Distribution;
+  }
 >;
 
 export type SyncKind = keyof typeof SYNC_ENTITY_REGISTRY;
+
+/**
+ * 船内端末へ配ってよい種別か（差分配信の絞り込み）。
+ * 未知の種別は「配る」に倒す——船内で未知種別は破棄されず隔離され、
+ * アプリ更新後の再処理で拾えるため（ガードレール⑧）、落とすより残すほうが安全。
+ */
+export function isVesselDistributable(kind: string): boolean {
+  const def = (SYNC_ENTITY_REGISTRY as Record<string, { distribution?: Distribution }>)[kind];
+  return def?.distribution !== "shore_only";
+}
 export const SYNC_KINDS = Object.keys(SYNC_ENTITY_REGISTRY) as SyncKind[];
 
 /**

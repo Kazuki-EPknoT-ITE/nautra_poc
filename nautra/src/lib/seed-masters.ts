@@ -7,6 +7,7 @@ import type {
   CharterContractPayload,
   CredentialPayload,
   CrewMasterPayload,
+  CrewPhotoPayload,
   DockPlanPayload,
   EmbarkationPayload,
   EvaluationPayload,
@@ -20,6 +21,7 @@ import type {
   PartStockPayload,
   PayrollPayload,
   ProcedureTaskPayload,
+  ShoreUserPayload,
   SmsDocumentPayload,
   SubsidyPayload,
   TrainingPlanPayload,
@@ -1717,7 +1719,7 @@ function trashSeed(today: string): SyncEvent[] {
   const rows: TrashEntryPayload[] = (
     [
       ["tr1", "船員", "crew-retired-01", "旧 機関員（退職）", "disable", "退職として無効化", "打刻・労務記録は保存期間5年のため残ります", -6],
-      ["tr2", "ユーザー", "shore-shintani", "新谷 実（労務担当）", "disable", "招待を取り消し", "ログイン不可。監査ログは残ります", -5],
+      ["tr2", "ユーザー", "shore-ex-okada", "岡田 誠（経理・事務／退職）", "disable", "退職として無効化", "ログイン不可。承認・書き出しの監査ログは残ります", -5],
       ["tr3", "作業タスク", "task-archived-01", "燃料受入の立会・記録（第七豊洋丸）", "delete", "タスクを削除", "完了報告のない未着手タスクでした", -4],
       ["tr4", "船舶", "vessel-sold-01", "第五昭運丸（199GT・売船）", "archive", "運航終了としてアーカイブ", "過去の配乗・記録簿は参照できます", -9],
       ["tr5", "当直シフト", "shift-draft-01", "第一昭運丸 3週間前の週", "delete", "配信前の下書きを削除", "船内へは配信されていません", -13],
@@ -1733,6 +1735,97 @@ function trashSeed(today: string): SyncEvent[] {
     restorableUntil: addDays(today, offset + 30),
   }));
   return rows.map((r) => makeRecordEvent("trash_entry", r, SEED_DEVICE));
+}
+
+/* ───────────── 顔写真（3.1.1。マスタとは別のエンティティ） ───────────── */
+
+/**
+ * デモの顔写真。
+ *
+ * 実在しない人のデモなので**写真の代わりにシルエットを置く**。作り物の顔を並べると
+ * 「この人は誰か」を確かめる画面（配乗ボード・作業割当・共用端末のサインイン）で、
+ * 見た目の印象が判断に混ざってしまうため。ここで確かめたいのは
+ * 「**写真がある人と無い人が、同じ大きさの枠で混ざっても並びが崩れないか**」。
+ *
+ * 全員には付けない。無いときの表示（頭文字と PHOTO の印）が実際に出る状態を、
+ * デモのまま確認できるようにしておく。
+ *
+ * SVG の data URL にしてあるのは、画像ファイルを同梱せずに配信経路（同期イベント）を
+ * そのまま通せるから。実運用では端末で 248×310 まで縮めた JPEG が入る。
+ */
+function silhouette(tone: string): string {
+  const svg =
+    `<svg xmlns="http://www.w3.org/2000/svg" width="248" height="310" viewBox="0 0 248 310">` +
+    `<rect width="248" height="310" fill="${tone}"/>` +
+    `<circle cx="124" cy="116" r="52" fill="#FFFFFF" fill-opacity="0.82"/>` +
+    `<path d="M124 182c-50 0-82 30-88 74a8 8 0 0 0 8 9h160a8 8 0 0 0 8-9c-6-44-38-74-88-74z" fill="#FFFFFF" fill-opacity="0.82"/>` +
+    `</svg>`;
+  return `data:image/svg+xml,${encodeURIComponent(svg)}`;
+}
+
+function crewPhotoSeed(today: string): SyncEvent[] {
+  const t = at9(addDays(today, -58));
+  const rows: CrewPhotoPayload[] = (
+    [
+      ["crew-takamatsu", "#917351"],
+      ["crew-nakahara", "#6F5638"],
+      ["crew-terada", "#99877D"],
+      ["crew-oshiro", "#8A7462"],
+    ] as [string, string][]
+  ).map(([crewMemberId, tone]) => {
+    const dataUrl = silhouette(tone);
+    return {
+      ...mbase(`sd-photo-${crewMemberId}`, t, COMPANY_SCOPE_ID),
+      crewMemberId,
+      dataUrl,
+      width: 248,
+      height: 310,
+      bytes: dataUrl.length,
+    };
+  });
+  return rows.map((r) => makeRecordEvent("crew_photo", r, SEED_DEVICE));
+}
+
+/* ───────────── 陸上アプリのユーザーアカウント（S-15） ───────────── */
+
+/**
+ * デモ用の陸上アカウントのうち、**ストアに実体が要るもの**だけを種にする。
+ * 日常のアカウント（白石・谷口ほか）は `server/shore-staff-seed.ts` の定数で足りるが、
+ * 次の2つは「状態」を持つのでイベントとして積む必要がある。
+ *
+ * - 招待中の1件: 招待コードでの新規登録をそのまま試せるようにする
+ *   （サインイン画面の「新規登録」タブの初期値と同じコードにしてある）
+ * - 無効化された1件: S-18 の「ユーザー」の復元がその場で確かめられるようにする
+ */
+function shoreUserSeed(today: string): SyncEvent[] {
+  const rows: ShoreUserPayload[] = [
+    {
+      ...mbase("sd-su-shintani", at9(addDays(today, -5)), COMPANY_SCOPE_ID),
+      userId: "shore-shintani",
+      name: "新谷 実",
+      email: "shintani@shoun-kaiun.co.jp",
+      role: "labor_manager",
+      title: "招待中",
+      status: "invited",
+      scope: "all",
+      inviteCode: "NTR-8F42-QK19",
+      invitedBy: "shore-yamaguchi",
+      invitedAt: at9(addDays(today, -5)),
+    },
+    {
+      ...mbase("sd-su-okada", at9(addDays(today, -5)), COMPANY_SCOPE_ID),
+      userId: "shore-ex-okada",
+      name: "岡田 誠",
+      email: "okada@shoun-kaiun.co.jp",
+      role: "clerk",
+      title: "経理・事務（退職）",
+      status: "disabled",
+      scope: "all",
+      activatedAt: at9(addDays(today, -900)),
+      lastSignInAt: at9(addDays(today, -40)),
+    },
+  ];
+  return rows.map((r) => makeRecordEvent("shore_user", r, SEED_DEVICE));
 }
 
 export function makeMasterSeedEvents(today: string): SyncEvent[] {
@@ -1755,6 +1848,8 @@ export function makeMasterSeedEvents(today: string): SyncEvent[] {
     ...dispatchSeed(today),
     ...documentSeed(today),
     ...taskSeed(today),
+    ...crewPhotoSeed(today),
+    ...shoreUserSeed(today),
     ...trashSeed(today),
   ];
 }

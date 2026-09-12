@@ -1,7 +1,8 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, useTransition } from "react";
 import { CrewPhoto } from "@/ui";
+import { saveCrewPhotoAction } from "../actions";
 
 /** 保存する写真の大きさ（縦長の枠に合わせる）。これ以上大きくしても一覧では見分けが付かない */
 const MAX_W = 248;
@@ -14,21 +15,42 @@ const QUALITY = 0.8;
  *
  * **端末側で縮めてから**送る。原寸のまま持つと同期イベントが数MBになり、
  * 回線の細い船内への配信が重くなるため（要件定義書 10.1）。
- * PoC は縮小後の data URL を船員マスタに持たせる。本番はオブジェクトストレージに
- * 置き、マスタには鍵だけを持たせる（`photoDataUrl` のコメント参照）。
+ *
+ * 保存は**マスタとは別**の経路で、選んだ時点で即座に保存する。マスタの保存ボタンに
+ * ぶら下げると「写真だけ直したいのに氏名も再送する」ことになり、マスタの版が
+ * 写真の差し替えのたびに増えてしまうため（写真は `crew_photo` エンティティ）。
  */
 export function PhotoField({
+  crewMemberId,
   name,
   initial,
   defaultValue,
 }: {
+  crewMemberId: string;
   name: string;
   initial?: string;
   defaultValue?: string;
 }) {
   const [src, setSrc] = useState(defaultValue ?? "");
+  const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
   const fileRef = useRef<HTMLInputElement>(null);
+
+  /** 新規登録の画面（まだ船員IDが無い）では、保存はマスタ登録のあとになる */
+  const canSaveNow = Boolean(crewMemberId);
+
+  function save(dataUrl: string) {
+    setSrc(dataUrl);
+    setError(null);
+    setMessage(null);
+    if (!canSaveNow) return;
+    startTransition(async () => {
+      const res = await saveCrewPhotoAction(crewMemberId, dataUrl);
+      if (res.ok) setMessage(res.message);
+      else setError(res.message);
+    });
+  }
 
   async function pick(file: File) {
     setError(null);
@@ -37,8 +59,7 @@ export function PhotoField({
       return;
     }
     try {
-      const dataUrl = await shrink(file);
-      setSrc(dataUrl);
+      save(await shrink(file));
     } catch {
       setError("この画像は読み込めませんでした。別のファイルでお試しください");
     }
@@ -51,7 +72,8 @@ export function PhotoField({
         <p className="m-0 text-sm text-foreground-500">
           顔写真（任意）。共用端末の配乗ボードや作業割当で「顔で選ぶ」ために使います。
         </p>
-        <input type="hidden" name="photoDataUrl" value={src} />
+        {/* 新規登録のときだけ、マスタ登録と一緒に送る */}
+        {canSaveNow ? null : <input type="hidden" name="photoDataUrl" value={src} />}
         <input
           ref={fileRef}
           type="file"
@@ -62,20 +84,35 @@ export function PhotoField({
             if (f) void pick(f);
           }}
         />
-        <div className="flex flex-wrap gap-2">
-          <button type="button" onClick={() => fileRef.current?.click()} className="ui-btn-ghost h-9">
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            disabled={pending}
+            onClick={() => fileRef.current?.click()}
+            className="ui-btn-ghost h-9"
+          >
             写真を選ぶ
           </button>
           {src ? (
-            <button type="button" onClick={() => setSrc("")} className="ui-btn-ghost h-9 text-danger">
+            <button
+              type="button"
+              disabled={pending}
+              onClick={() => save("")}
+              className="ui-btn-ghost h-9 text-danger"
+            >
               写真を外す
             </button>
           ) : null}
+          {pending ? <span className="text-sm text-primary">保存中…</span> : null}
         </div>
+        {message ? <p className="m-0 text-sm font-semibold text-foreground-800">✓ {message}</p> : null}
         {error ? <p className="m-0 text-sm text-danger">✕ {error}</p> : null}
         <p className="m-0 text-xs leading-relaxed text-foreground-400">
           選んだ画像はこの端末で {MAX_W}×{MAX_H} まで縮めてから保存します（原寸のままだと
-          船内への配信が重くなるため）。保存すると、ほかの画面の顔写真もこの1枚に揃います。
+          船内への配信が重くなるため）。
+          {canSaveNow
+            ? "選んだ時点で保存され、ほかの画面の顔写真もこの1枚に揃います。"
+            : "登録を押すと、ほかの情報と一緒に保存されます。"}
         </p>
       </div>
     </div>

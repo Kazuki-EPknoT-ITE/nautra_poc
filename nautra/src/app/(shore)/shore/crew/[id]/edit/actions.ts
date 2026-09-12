@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createCrewMaster, retireCrewMaster, updateCrewMaster } from "@/server/crew-master-service";
+import { saveCrewPhoto } from "@/server/crew-photo-service";
 import { crewMasterOf } from "@/server/master-service";
 import { recordDeletion } from "@/server/trash-service";
 import { hasShorePermission, requireShore } from "@/server/shore-session";
@@ -57,7 +58,6 @@ export async function saveCrewMasterAction(
         address: s(formData, "address"),
         bloodType: s(formData, "bloodType"),
         phone: s(formData, "phone"),
-        photoDataUrl: s(formData, "photoDataUrl"),
         position: s(formData, "position"),
         employmentType: s(formData, "employmentType"),
         hiredOn: s(formData, "hiredOn"),
@@ -120,7 +120,6 @@ export async function createCrewMasterAction(
         address: s(formData, "address"),
         bloodType: s(formData, "bloodType"),
         phone: s(formData, "phone"),
-        photoDataUrl: s(formData, "photoDataUrl"),
         position: s(formData, "position"),
         employmentType: s(formData, "employmentType"),
         hiredOn: s(formData, "hiredOn"),
@@ -133,6 +132,10 @@ export async function createCrewMasterAction(
         insurances,
       },
     });
+
+    // 新規登録のときだけ、写真も一緒に受け取って保存する（採番のあとでないと紐づかない）
+    const photoDataUrl = s(formData, "photoDataUrl");
+    if (photoDataUrl) saveCrewPhoto({ crewMemberId, dataUrl: photoDataUrl, actor: guard.staff.id });
 
     revalidatePath("/shore/crew");
     revalidatePath("/shore/manning");
@@ -181,6 +184,35 @@ export async function retireCrewAction(
     return {
       ok: true,
       message: `${current.name} を無効化しました（30日以内なら削除・アーカイブから戻せます）`,
+    };
+  } catch (e) {
+    return { ok: false, message: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+/**
+ * S-04 顔写真の保存。
+ *
+ * マスタの保存とは**別のアクション**にする。写真は別のエンティティ（`crew_photo`）で
+ * 持っているので、同じフォームから送っても書き込み先が違う。分けておくと
+ * 「住所を直したら写真の版も増える」ことが起きない。
+ */
+export async function saveCrewPhotoAction(
+  crewMemberId: string,
+  dataUrl: string,
+): Promise<{ ok: boolean; message: string }> {
+  const guard = await requireShore("edit_crew_master");
+  if (!guard.ok) return { ok: false, message: "顔写真を登録する権限がありません" };
+  try {
+    const saved = saveCrewPhoto({ crewMemberId, dataUrl, actor: guard.staff.id });
+    revalidatePath(`/shore/crew/${crewMemberId}`);
+    revalidatePath(`/shore/crew/${crewMemberId}/edit`);
+    revalidatePath("/shore/crew");
+    revalidatePath("/shore/manning");
+    if (!saved) return { ok: true, message: "顔写真は変わっていません" };
+    return {
+      ok: true,
+      message: dataUrl.trim() ? "顔写真を登録しました" : "顔写真を外しました",
     };
   } catch (e) {
     return { ok: false, message: e instanceof Error ? e.message : String(e) };

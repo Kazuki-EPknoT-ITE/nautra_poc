@@ -34,7 +34,7 @@ export function ExportPanel({
   totalRows: number;
 }) {
   const [selected, setSelected] = useState<string[]>(columns);
-  const [bom, setBom] = useState(true);
+  const [encoding, setEncoding] = useState<"utf8-bom" | "utf8" | "sjis">("utf8-bom");
   const [delimiter, setDelimiter] = useState<"comma" | "tab">("comma");
 
   // 対象を切り替えたら列の選択をその対象の全列に戻す（前の対象の列は意味を持たない）
@@ -53,7 +53,7 @@ export function ExportPanel({
   const href =
     `/api/v1/shore/export.csv?set=${encodeURIComponent(activeId)}` +
     `&cols=${encodeURIComponent(head.join(","))}` +
-    `&delimiter=${delimiter}&bom=${bom ? "1" : "0"}`;
+    `&delimiter=${delimiter}&encoding=${encoding}`;
 
   return (
     <>
@@ -164,24 +164,33 @@ export function ExportPanel({
             <div>
               <p className="m-0 mb-[7px] text-xs text-foreground-500">文字コード</p>
               <div className="flex flex-col gap-[7px]">
-                {[
-                  { on: true, label: "UTF-8（BOM 付き）", note: "Excel でそのまま開けます" },
-                  { on: false, label: "UTF-8（BOM なし）", note: "他システムへの取り込み向け" },
-                ].map((o) => (
+                {(
+                  [
+                    ["utf8-bom", "UTF-8（BOM 付き）"],
+                    ["sjis", "Shift_JIS（CP932）"],
+                    ["utf8", "UTF-8（BOM なし）"],
+                  ] as const
+                ).map(([value, label]) => (
                   <button
-                    key={o.label}
+                    key={value}
                     type="button"
-                    aria-pressed={bom === o.on}
-                    onClick={() => setBom(o.on)}
-                    className={cn("ui-btn-ghost h-9 justify-start", bom === o.on && "ui-btn-selected")}
+                    aria-pressed={encoding === value}
+                    onClick={() => setEncoding(value)}
+                    className={cn(
+                      "ui-btn-ghost h-9 justify-start",
+                      encoding === value && "ui-btn-selected",
+                    )}
                   >
-                    {o.label}
+                    {label}
                   </button>
                 ))}
               </div>
               <p className="m-0 mt-2 text-xs leading-normal text-foreground-400">
-                Shift_JIS は変換表が必要なため PoC では扱いません（BOM 付き UTF-8 なら
-                日本語 Windows の Excel で文字化けしません）。
+                {encoding === "sjis"
+                  ? "古い Excel でも文字化けしません。Shift_JIS に無い文字（絵文字など）は ? に置き換わり、件数を監査ログに残します。"
+                  : encoding === "utf8-bom"
+                    ? "日本語 Windows の Excel でそのまま開けます。"
+                    : "他システムへの取り込み向け。Excel で開くと文字化けすることがあります。"}
               </p>
             </div>
             <div>

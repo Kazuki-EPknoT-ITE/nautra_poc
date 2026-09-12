@@ -6,9 +6,17 @@ import { listCrewMasters, listVessels, writeAuditLog } from "@/server/master-ser
 import {
   authenticateShore,
   getShoreSession,
+  listActiveShoreStaff,
   setShoreSession,
-  SHORE_STAFF_ACCOUNTS,
 } from "@/server/shore-session";
+import {
+  activateShoreUser,
+  completePasswordReset,
+  PASSWORD_RULE_TEXT,
+  recordShoreSignIn,
+  requestPasswordReset,
+  RESET_CODE_MINUTES,
+} from "@/server/shore-user-service";
 import { SignInPanel } from "./_components/sign-in-panel";
 
 export const dynamic = "force-dynamic";
@@ -19,11 +27,21 @@ export const dynamic = "force-dynamic";
  * 暗い面（`#231F20`）に1枚だけ白いカードを置き、**サインイン / 新規登録 / パスワード再設定**を
  * 同じカードの中でタブとして切り替える。ロールはアカウントに紐づくもので、利用者が
  * 選ぶものではない（担当者を選ぶ方式をやめた）。サインインは監査ログに残る（12.6）。
+ *
+ * 新規登録・再設定は**本当にアカウントを変える**。メール送信経路が無いぶんは、
+ * 招待コードを S-15 の一覧に、再設定コードをこの画面に出して手渡しできるようにしてある
+ * （「送った体」で終わらせると、招待された人がいつまでも入れない）。
  */
 export default async function ShoreLoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tab?: string; error?: string; sent?: string; email?: string }>;
+  searchParams: Promise<{
+    tab?: string;
+    error?: string;
+    message?: string;
+    code?: string;
+    email?: string;
+  }>;
 }) {
   const sp = await searchParams;
   const current = await getShoreSession();
@@ -37,6 +55,7 @@ export default async function ShoreLoginPage({
       redirect(`/shore/login?error=invalid&email=${encodeURIComponent(email)}`);
     }
     await setShoreSession(staff.id);
+    recordShoreSignIn(staff.id);
     writeAuditLog({
       action: "sign_in",
       entityKind: "shore_session",
@@ -48,37 +67,89 @@ export default async function ShoreLoginPage({
   }
 
   /**
-   * 招待コードでの登録。PoC は既存の招待済みアカウントを有効化した体で扱い、
-   * そのままサインインさせる（本番は Supabase Auth のサインアップに置き換える）。
+   * 招待コードでの新規登録。**ここで初めてパスワードが決まる**（招待した側は知らない）。
+   * ロールは招待した管理者が決めたものを動かさない。
    */
   async function registerAction(formData: FormData) {
     "use server";
-    const email = String(formData.get("email") ?? "").trim().toLowerCase();
-    const staff = SHORE_STAFF_ACCOUNTS.find((s) => s.email.toLowerCase() === email);
-    if (!staff) {
-      redirect(`/shore/login?tab=register&error=unknown_invite`);
+    const email = String(formData.get("email") ?? "");
+    const inviteCode = String(formData.get("invite") ?? "");
+    const password = String(formData.get("password") ?? "");
+    const password2 = String(formData.get("password2") ?? "");
+    const back = (message: string) =>
+      `/shore/login?tab=register&error=${encodeURIComponent(message)}&email=${encodeURIComponent(email)}`;
+
+    if (password !== password2) redirect(back("パスワードが一致しません"));
+    let staffId: string;
+    try {
+      const user = activateShoreUser({
+        email,
+        inviteCode,
+        password,
+        name: String(formData.get("name") ?? ""),
+      });
+      staffId = user.id;
+    } catch (e) {
+      redirect(back(e instanceof Error ? e.message : String(e)));
     }
-    await setShoreSession(staff.id);
-    writeAuditLog({
-      action: "sign_in",
-      entityKind: "shore_session",
-      entityId: staff.id,
-      actor: staff.id,
-      summary: `${staff.name} が招待から登録して陸上アプリにサインイン`,
-    });
+    await setShoreSession(staffId);
+    recordShoreSignIn(staffId);
     redirect("/shore");
   }
 
-  /** 再設定リンクの送信。PoC は送信した体で戻すだけ（メール送信経路は未接続） */
-  async function resetAction(formData: FormData) {
+  /**
+   * 再設定コードの発行。メール送信経路が無いので、コードを画面に返して本人へ渡す。
+   * 「送信した体」で戻すだけだと、忘れた人が永久に入れないまま終わる。
+   */
+  async function resetRequestAction(formData: FormData) {
     "use server";
     const email = String(formData.get("email") ?? "");
-    redirect(`/shore/login?sent=1&email=${encodeURIComponent(email)}`);
+    // redirect は例外で抜けるので、必ず try の外で呼ぶ（catch に拾わせない）
+    let resetCode: string;
+    try {
+      resetCode = requestPasswordReset(email).resetCode;
+    } catch (e) {
+      redirect(
+        `/shore/login?tab=reset&error=${encodeURIComponent(
+          e instanceof Error ? e.message : String(e),
+        )}&email=${encodeURIComponent(email)}`,
+      );
+    }
+    redirect(
+      `/shore/login?tab=reset&code=${encodeURIComponent(resetCode)}&email=${encodeURIComponent(email)}`,
+    );
+  }
+
+  /** 再設定コードで新しいパスワードを決め、そのままサインインする */
+  async function resetCompleteAction(formData: FormData) {
+    "use server";
+    const email = String(formData.get("email") ?? "");
+    const resetCode = String(formData.get("code") ?? "");
+    const password = String(formData.get("password") ?? "");
+    const password2 = String(formData.get("password2") ?? "");
+    const back = (message: string) =>
+      `/shore/login?tab=reset&code=${encodeURIComponent(resetCode)}&error=${encodeURIComponent(
+        message,
+      )}&email=${encodeURIComponent(email)}`;
+
+    if (password !== password2) redirect(back("パスワードが一致しません"));
+    let staffId: string;
+    try {
+      const user = completePasswordReset({ email, resetCode, password });
+      staffId = user.id;
+    } catch (e) {
+      redirect(back(e instanceof Error ? e.message : String(e)));
+    }
+    await setShoreSession(staffId);
+    recordShoreSignIn(staffId);
+    redirect("/shore");
   }
 
   const fleetCount = listVessels().length;
   const crewCount = listCrewMasters().length;
   const ruleVersion = currentLaborRuleSet().version;
+  /** 合言葉を画面に出せるのはデモ用の種だけ（自分でパスワードを決めた人のぶんは出ない） */
+  const demoAccounts = listActiveShoreStaff().filter((s) => s.demoPassword);
 
   return (
     <div className="flex min-h-dvh items-center justify-center bg-[#231F20] px-6 py-16">
@@ -108,17 +179,20 @@ export default async function ShoreLoginPage({
         <SignInPanel
           tab={sp.tab === "register" || sp.tab === "reset" ? sp.tab : "login"}
           error={sp.error ?? null}
-          sent={sp.sent === "1"}
-          email={sp.email ?? SHORE_STAFF_ACCOUNTS[0]!.email}
-          demoAccounts={SHORE_STAFF_ACCOUNTS.filter((s) => !s.invitePending).map((s) => ({
+          resetCode={sp.code ?? null}
+          resetMinutes={RESET_CODE_MINUTES}
+          passwordRule={PASSWORD_RULE_TEXT}
+          email={sp.email ?? demoAccounts[0]?.email ?? ""}
+          demoAccounts={demoAccounts.map((s) => ({
             email: s.email,
             name: s.name,
             title: s.title,
-            password: s.demoPassword,
+            password: s.demoPassword ?? "",
           }))}
           signInAction={signInAction}
           registerAction={registerAction}
-          resetAction={resetAction}
+          resetRequestAction={resetRequestAction}
+          resetCompleteAction={resetCompleteAction}
         />
       </div>
     </div>

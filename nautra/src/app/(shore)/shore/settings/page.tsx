@@ -32,7 +32,8 @@ import {
   RULE_VALUE_UNIT,
 } from "@/server/labor-rules";
 import { crewNameOf, listAuditLogs, listVessels } from "@/server/master-service";
-import { requireShore, SHORE_STAFF_ACCOUNTS, shoreStaffById } from "@/server/shore-session";
+import { listShoreStaff, requireShore, shoreStaffById } from "@/server/shore-session";
+import { trashedEntityIds } from "@/server/trash-service";
 import { getSyncStats } from "@/server/store";
 import { ShoreGuardNotice } from "../_components/guard";
 import { UserInvitePanel } from "./_components/user-invite";
@@ -88,6 +89,12 @@ export default async function ShoreSettingsPage({
   const ruleRows = buildRuleValueRows();
   const agreements = listAgreements();
   const vessels = listVessels();
+  /**
+   * ユーザー一覧。無効化して S-18 へ送ったものは出さない（消えたはずの人が
+   * 設定に残っていると、権限を持っているように読めてしまうため）。
+   */
+  const trashedUsers = trashedEntityIds("ユーザー");
+  const shoreUsers = listShoreStaff().filter((u) => !trashedUsers.has(u.id));
   const today = new Date().toISOString().slice(0, 10);
 
   const auditFilter = sp.audit && sp.audit !== "all" ? sp.audit : null;
@@ -320,17 +327,20 @@ export default async function ShoreSettingsPage({
         <>
       {/* ── ユーザ・ロール（陸上） ── */}
       <UserInvitePanel
-        users={SHORE_STAFF_ACCOUNTS.map((a) => ({
+        users={shoreUsers.map((a) => ({
           id: a.id,
           name: a.name,
           email: a.email,
+          roleKey: a.role,
           role: t.shoreRole[a.role] ?? a.role,
           title: a.title,
-          pending: Boolean(a.invitePending),
+          status: a.status,
+          scope: a.scope,
+          inviteCode: a.inviteCode,
           current: a.id === guard.staff.id,
           sensitive: canShore(a.role, "view_sensitive_health"),
         }))}
-        roles={SHORE_ROLES.map((r) => ({ value: t.shoreRole[r] ?? r, label: t.shoreRole[r] ?? r }))}
+        roles={SHORE_ROLES.map((r) => ({ value: r, label: t.shoreRole[r] ?? r }))}
         vessels={vessels.map((v) => v.name)}
       />
         </>

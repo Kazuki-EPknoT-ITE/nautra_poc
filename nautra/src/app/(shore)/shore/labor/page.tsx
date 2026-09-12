@@ -51,10 +51,22 @@ function checkValue(key: string, value: number): string {
  * - 労務管理記録簿（第16号の5書式に相当）の確認・CSV 出力・**印刷（PDF）**（3.2.2）
  * - 国交省 Excel マクロ様式（CSV）の**取込**（3.2.2）
  */
+/**
+ * この画面の主題（タブ）。**1画面1主題**にして、目的の節まで延々とめくらずに済むようにする
+ * （デザイン正本 S-15 と同じやりかた。1枚が 3000px を超えないようにする）。
+ * 対象の切替（船員・月）は主題をまたいで効くので、タブの外に置く。
+ */
+const TABS = [
+  { id: "status", label: "上限と集計・承認" },
+  { id: "chart", label: "タイムチャート" },
+  { id: "leave", label: "休日・有給" },
+  { id: "ledger", label: "記録簿・取込" },
+];
+
 export default async function ShoreLaborPage({
   searchParams,
 }: {
-  searchParams: Promise<{ crew?: string; month?: string }>;
+  searchParams: Promise<{ crew?: string; month?: string; tab?: string }>;
 }) {
   const guard = await requireShore("view_dashboard");
   if (!guard.ok) return <ShoreGuardNotice guard={guard} screen="労務管理（承認・記録簿）" />;
@@ -64,6 +76,8 @@ export default async function ShoreLaborPage({
 
   const crews = ledgerCrewOptions();
   const sp = await searchParams;
+  /** いま開いている主題。未指定なら先頭 */
+  const tab = TABS.some((x) => x.id === sp.tab) ? sp.tab! : TABS[0]!.id;
   const crewMemberId = crews.find((c) => c.id === sp.crew)?.id ?? crews[0].id;
   const month = sp.month ?? currentMonth();
   const period = buildLedger(crewMemberId, month);
@@ -198,6 +212,22 @@ export default async function ShoreLaborPage({
         **実績／上限と残りを1枚にまとめる**。数字だけだと「あとどれだけ働けるか」が
         読み取れず、棒だけだと法定の値が見えないため、両方を同じカードに置く。
       */}
+      {/* 主題の切替（サーバ側で組み立てるためリンクで切り替える。船員・月の選択は持ち回る） */}
+      <nav aria-label="労務管理の主題" className="ui-card flex flex-wrap gap-2 p-3">
+        {TABS.map((x) => (
+          <Link
+            key={x.id}
+            href={`/shore/labor?crew=${crewMemberId}&month=${month}&tab=${x.id}`}
+            aria-current={x.id === tab ? "page" : undefined}
+            className={`ui-btn-quiet ${x.id === tab ? "ui-btn-selected" : ""}`}
+          >
+            {x.label}
+          </Link>
+        ))}
+      </nav>
+
+      {tab === "status" ? (
+        <>
       <section aria-label="上限に対する実績" className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {limitCards.map((l) => (
           <div
@@ -300,7 +330,11 @@ export default async function ShoreLaborPage({
         </p>
       )}
 
-      {/* タイムチャート（0〜24時）。1日1本の帯で、いつ働いたかを日をまたいで見比べる */}
+        </>
+      ) : null}
+
+      {tab === "chart" ? (
+      /* タイムチャート（0〜24時）。1日1本の帯で、いつ働いたかを日をまたいで見比べる */
       <Section
         title={`タイムチャート — ${period.crewName}（${period.position}）`}
         actions={
@@ -384,7 +418,10 @@ export default async function ShoreLaborPage({
         </div>
       </Section>
 
-      {/* 休日・有給休暇・補償休日（3.2.4） */}
+      ) : null}
+
+      {tab === "leave" ? (
+      /* 休日・有給休暇・補償休日（3.2.4） */
       <section aria-label="休日・有給休暇・補償休日" className="ui-card flex flex-col gap-4 p-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="font-bold">休日・有給休暇・補償休日</h2>
@@ -504,6 +541,10 @@ export default async function ShoreLaborPage({
         )}
       </section>
 
+      ) : null}
+
+      {tab === "ledger" ? (
+        <>
       {/* 労務管理記録簿（第16号の5 相当） */}
       <Section
         title="労務管理記録簿（第16号の5書式に相当）"
@@ -598,6 +639,8 @@ export default async function ShoreLaborPage({
         >
           <LedgerImportForm />
         </Section>
+      ) : null}
+        </>
       ) : null}
     </div>
   );

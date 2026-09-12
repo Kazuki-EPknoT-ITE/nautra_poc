@@ -7,6 +7,7 @@ import {
   recentEmbarkations,
 } from "@/server/manning-plan-service";
 import { buildAshoreCrew, buildManningBoard, buildVesselManning } from "@/server/manning-service";
+import { crewPhotoMap } from "@/server/crew-photo-service";
 import { listVessels, todayLocal } from "@/server/master-service";
 import { requireShore } from "@/server/shore-session";
 import { StatusChip } from "@/ui";
@@ -34,6 +35,7 @@ export default async function ShoreManningPage() {
   const gantt = buildManningGantt(now, 60);
   const candidates = buildManningCandidates(buildManningBoard(now));
   const recent = recentEmbarkations();
+  const photos = crewPhotoMap();
   const maxCount = Math.max(1, ...gantt.rows.flatMap((r) => r.counts));
 
   /**
@@ -49,7 +51,7 @@ export default async function ShoreManningPage() {
     position: row.position,
     age: row.age,
     photo: row.photo,
-    photoDataUrl: row.master?.photoDataUrl,
+    photoDataUrl: photos.get(row.crewMemberId),
     level: row.eligibility.level,
     statusLabel: onBoard
       ? row.eligibility.status === "blocked"

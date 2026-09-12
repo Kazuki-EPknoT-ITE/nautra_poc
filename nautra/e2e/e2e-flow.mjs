@@ -2,6 +2,7 @@ import { chromium } from "playwright";
 import { writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { deflateSync } from "node:zlib";
 
 /**
  * E2E: 主要フローを実際に操作して検証する。
@@ -16,6 +17,39 @@ import { join } from "node:path";
 
 const BASE = "http://localhost:3100";
 const log = (...a) => console.log(...a);
+
+/** 指定した色の 1×1 PNG を組み立てる（画像ファイルを同梱せずに顔写真の登録を試すため） */
+function makePng(r, g, b) {
+  const crcTable = Array.from({ length: 256 }, (_, n) => {
+    let c = n;
+    for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+    return c >>> 0;
+  });
+  const crc32 = (buf) => {
+    let c = 0xffffffff;
+    for (const byte of buf) c = crcTable[(c ^ byte) & 0xff] ^ (c >>> 8);
+    return (c ^ 0xffffffff) >>> 0;
+  };
+  const chunk = (type, data) => {
+    const len = Buffer.alloc(4);
+    len.writeUInt32BE(data.length);
+    const body = Buffer.concat([Buffer.from(type, "ascii"), data]);
+    const crc = Buffer.alloc(4);
+    crc.writeUInt32BE(crc32(body));
+    return Buffer.concat([len, body, crc]);
+  };
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(1, 0); // width
+  ihdr.writeUInt32BE(1, 4); // height
+  ihdr[8] = 8; // bit depth
+  ihdr[9] = 2; // color type: truecolor
+  return Buffer.concat([
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    chunk("IHDR", ihdr),
+    chunk("IDAT", deflateSync(Buffer.from([0, r & 0xff, g & 0xff, b & 0xff]))),
+    chunk("IEND", Buffer.alloc(0)),
+  ]);
+}
 const results = [];
 function check(name, ok, detail = "") {
   results.push({ name, ok, detail });
@@ -177,28 +211,66 @@ check(
   karteText.match(/直近5年の乗船は[^\n]{0,40}/)?.[0] ?? "",
 );
 
-// 顔写真: 端末で縮めて船員マスタに保存され、ほかの画面にも出る
+// 顔写真: 端末で縮めて crew_photo に保存され、ほかの画面にも出る
+// （マスタとは別のエンティティなので、マスタの保存ボタンを押さなくても保存される）
 {
-  // 1×1 の PNG を作って選ばせる（外部のファイルに依存させない）
-  const png = Buffer.from(
-    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
-    "base64",
-  );
+  // 1×1 の PNG をその場で作って選ばせる（外部のファイルに依存させない）。
+  // 色を毎回変えるのは、同じ画像だと「変わっていません」で保存が省かれるため
+  // （押しただけで版が増えない作りなので、試験のほうを変える）。
   const photoPath = join(tmpdir(), "nautra-e2e-photo.png");
-  writeFileSync(photoPath, png);
+  writeFileSync(photoPath, makePng(Date.now() & 0xff, (Date.now() >> 8) & 0xff, 0x40));
 
   await s.goto(`${BASE}/shore/crew/crew-terada/edit`, { waitUntil: "networkidle" });
   await s.setInputFiles('input[type="file"]', photoPath);
-  await s.waitForTimeout(600);
-  await s.getByRole("button", { name: /保存する/ }).click();
-  await s.waitForTimeout(1500);
+  await s.waitForTimeout(1800);
   const savedText = await s.locator("main").innerText();
-  check("陸上: 顔写真を登録すると船員マスタに保存される", /顔写真/.test(savedText),
-    savedText.match(/保存しました[^\n]{0,40}/)?.[0] ?? "");
+  check(
+    "陸上: 顔写真を選ぶとその場で保存される（マスタの版は増やさない）",
+    /顔写真を登録しました/.test(savedText),
+    savedText.match(/✓[^\n]{0,40}/)?.[0] ?? "",
+  );
 
   await s.goto(`${BASE}/shore/crew`, { waitUntil: "networkidle" });
   const imgCount = await s.locator('main img[alt$="の顔写真"]').count();
   check("陸上: 登録した顔写真が一覧にも出る", imgCount > 0, `写真 ${imgCount}枚`);
+}
+
+// S-15 → サインイン: 招待したアカウントが実在し、招待コードで登録して入れる
+{
+  const email = `e2e-${Date.now().toString(36)}@shoun-kaiun.co.jp`;
+  await s.goto(`${BASE}/shore/settings?tab=users`, { waitUntil: "networkidle" });
+  await s.getByRole("button", { name: /ユーザーを招待/ }).click();
+  await s.locator('input[name="email"]').fill(email);
+  await s.locator('input[name="name"]').fill("E2E 招待太郎");
+  await s.locator('select[name="role"]').selectOption("operations");
+  await s.getByRole("button", { name: "招待を送る" }).click();
+  await s.waitForTimeout(1500);
+  const inviteText = await s.locator("main").innerText();
+  const code = inviteText.match(/NTR-[A-Z0-9]{4}-[A-Z0-9]{4}/)?.[0] ?? "";
+  check("陸上: 招待するとアカウントができ、招待コードが出る", code !== "", code);
+  check("陸上: 招待したユーザーが一覧に「招待中」で並ぶ", inviteText.includes(email));
+
+  // 別のブラウザ文脈（＝招待された本人）で登録してサインインする
+  const invited = await browser.newContext();
+  const i = await invited.newPage();
+  await i.goto(`${BASE}/shore/login?tab=register`, { waitUntil: "networkidle" });
+  await i.locator('input[name="invite"]').fill(code);
+  await i.locator('input[name="name"]').fill("E2E 招待太郎");
+  await i.locator('input[name="email"]').fill(email);
+  await i.locator('input[name="password"]').fill("NautraDemo2026");
+  await i.locator('input[name="password2"]').fill("NautraDemo2026");
+  await i.getByRole("button", { name: /登録してサインイン/ }).click();
+  await i.waitForTimeout(2000);
+  check("陸上: 招待コードで登録するとそのままサインインできる", /\/shore$/.test(new URL(i.url()).pathname) || i.url().endsWith("/shore"), i.url());
+
+  // 入り直しても同じパスワードで入れる（アカウントが残っている）
+  await i.goto(`${BASE}/shore/login`, { waitUntil: "networkidle" });
+  await i.locator('input[name="email"]').fill(email);
+  await i.locator('input[name="password"]').fill("NautraDemo2026");
+  await i.locator("form").getByRole("button", { name: "サインイン" }).click();
+  await i.waitForTimeout(2000);
+  check("陸上: 登録したアカウントは次回もサインインできる", i.url().endsWith("/shore"), i.url());
+  await invited.close();
 }
 
 // 権限: 事務担当では人事考課が開けない

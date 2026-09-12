@@ -3,6 +3,7 @@ import { carryOverFields } from "@/lib/master-fields";
 import { COMPANY_SCOPE_ID } from "@/lib/seed-masters";
 import { unretireCrewMaster } from "@/server/crew-master-service";
 import { effective, publishMaster, todayLocal, writeAuditLog } from "@/server/master-service";
+import { enableShoreUser } from "@/server/shore-user-service";
 import type { TrashEntryPayload, TrashMode } from "@/sync-protocol/masters";
 
 /**
@@ -174,6 +175,9 @@ export function restoreTrash(entryId: string, actor?: string, now = new Date()):
    */
   if (current.entityKind === "船員") {
     unretireCrewMaster(current.entityId, actor ?? SHORE_PLANNER_ID, now);
+  }
+  if (current.entityKind === "ユーザー") {
+    enableShoreUser(current.entityId, actor ?? SHORE_PLANNER_ID, now);
   }
 
   writeAuditLog({

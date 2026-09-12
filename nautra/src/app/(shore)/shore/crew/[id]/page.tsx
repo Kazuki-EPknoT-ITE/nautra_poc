@@ -11,6 +11,7 @@ import {
   insuranceRowsOf,
   logSensitiveView,
 } from "@/server/crew-master-service";
+import { crewPhotoOf } from "@/server/crew-photo-service";
 import { buildManningRow } from "@/server/manning-service";
 import {
   ageOf,
@@ -87,7 +88,7 @@ export default async function ShoreCrewKartePage({ params }: { params: Promise<{
           <CrewPhoto
             name={master.name}
             initial={master.photo}
-            src={master.photoDataUrl}
+            src={crewPhotoOf(id)}
             size="xl"
           />
           <div>

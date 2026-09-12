@@ -216,12 +216,12 @@ export function useNowTick(intervalMs = 30_000): Date {
  * 未配信・未登録なら undefined を返し、画面は頭文字の枠で描く。
  */
 export function useCrewPhotos(): Map<string, string> {
-  const rows = useRecords("crew_master");
+  const rows = useRecords("crew_photo");
   return useMemo(() => {
     const map = new Map<string, string>();
     // 同じ船員の版が複数届いていても、いちばん新しい1件だけを使う
     for (const r of latestBySupersedes(rows)) {
-      if (r.photoDataUrl) map.set(r.crewMemberId, r.photoDataUrl);
+      if (!r.removed && r.dataUrl) map.set(r.crewMemberId, r.dataUrl);
     }
     return map;
   }, [rows]);

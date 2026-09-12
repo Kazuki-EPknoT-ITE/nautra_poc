@@ -84,7 +84,12 @@ export function CrewMasterForm({
       <input type="hidden" name="crewMemberId" value={values.crewMemberId} />
 
       <Section title="基本情報">
-        <PhotoField name={values.name || "新しい船員"} initial={values.photo} defaultValue={values.photoDataUrl} />
+        <PhotoField
+          crewMemberId={values.crewMemberId}
+          name={values.name || "新しい船員"}
+          initial={values.photo}
+          defaultValue={values.photoDataUrl}
+        />
         <div className="grid gap-3 sm:grid-cols-2">
           <Input name="name" label={t.crewMasterField.name} defaultValue={values.name} isRequired />
           <Input

@@ -7,6 +7,7 @@ import { buildFleetBoard } from "@/server/fleet-service";
 import { credentialsOf, listVessels, todayLocal } from "@/server/master-service";
 import { requireShore } from "@/server/shore-session";
 import { listTasksForVessel, TASK_STATE_LABEL } from "@/server/task-service";
+import { crewPhotoMap } from "@/server/crew-photo-service";
 import { buildVesselOverview } from "@/server/vessel-overview-service";
 import { CrewPhoto, DataTable, Section, StatusChip } from "@/ui";
 import { ShoreGuardNotice } from "../../_components/guard";
@@ -39,6 +40,7 @@ export default async function VesselDetailPage({ params }: { params: Promise<{ i
     DEFAULT_CREDENTIAL_RULE_SET,
   );
   const tasks = listTasksForVessel(id);
+  const photos = crewPhotoMap();
 
   return (
     <>
@@ -96,7 +98,7 @@ export default async function VesselDetailPage({ params }: { params: Promise<{ i
                 key={c.crewMemberId}
                 className="flex flex-wrap items-center gap-3.5 border-b border-[var(--ui-hairline)] px-[18px] py-3 last:border-b-0"
               >
-                <CrewPhoto name={c.name} initial={c.photo} src={c.master?.photoDataUrl} size="md" />
+                <CrewPhoto name={c.name} initial={c.photo} src={photos.get(c.crewMemberId)} size="md" />
                 <div className="min-w-0 flex-1">
                   <p className="m-0 text-lg font-bold text-foreground-900">{c.name}</p>
                   <p className="m-0 mt-0.5 text-xs text-foreground-500">

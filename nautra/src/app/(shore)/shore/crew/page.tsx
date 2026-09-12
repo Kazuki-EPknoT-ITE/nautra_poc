@@ -5,6 +5,7 @@ import { fmtMinutes } from "@/lib/format";
 import { buildLaborSnapshots } from "@/server/crew-service";
 import { buildManningBoard } from "@/server/manning-service";
 import { requireShore } from "@/server/shore-session";
+import { crewPhotoMap } from "@/server/crew-photo-service";
 import { CrewPhoto, StatusChip } from "@/ui";
 import { ShoreGuardNotice } from "../_components/guard";
 import { CrewSearchForm } from "./_components/crew-search-form";
@@ -41,6 +42,8 @@ export default async function ShoreCrewPage({
 
   const board = buildManningBoard();
   const labor = buildLaborSnapshots(board.map((r) => r.crewMemberId));
+  // 顔写真は船員マスタとは別に持つ（差し替えでマスタの版を増やさないため）
+  const photos = crewPhotoMap();
   const rows = board.filter((r) => {
     if (status !== "all" && r.eligibility.status !== status) return false;
     if (q && !r.name.includes(q) && !(r.master?.nameKana ?? "").includes(q)) return false;
@@ -111,7 +114,7 @@ export default async function ShoreCrewPage({
               href={`/shore/crew/${r.crewMemberId}`}
               className="ui-card flex items-start gap-3.5 p-4 transition-colors hover:bg-content2"
             >
-              <CrewPhoto name={r.name} initial={r.photo} src={r.master?.photoDataUrl} size="lg" />
+              <CrewPhoto name={r.name} initial={r.photo} src={photos.get(r.crewMemberId)} size="lg" />
               <div className="min-w-0 flex-1">
                 <p className="flex flex-wrap items-center gap-2 font-bold">
                   {r.name}

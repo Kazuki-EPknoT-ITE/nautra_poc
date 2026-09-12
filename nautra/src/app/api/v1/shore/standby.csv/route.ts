@@ -1,14 +1,15 @@
 import { buildStandbySummary, standbyCsv } from "@/server/document-service";
+import { csvEncodingOf, csvResponse, CSV_ENCODING_LABEL } from "@/server/csv-response";
 import { writeAuditLog } from "@/server/master-service";
 import { requireShore } from "@/server/shore-session";
 
 export const dynamic = "force-dynamic";
 
 /**
- * GET /api/v1/shore/standby.csv?from=&to= — 待機時間・荷役時間の実績集計（S-14 / 要件 3.6.4）。
+ * GET /api/v1/shore/standby.csv?from=&to=&encoding= — 待機時間・荷役時間の実績集計（S-14 / 要件 3.6.4）。
  *
  * 連携強化ガイドライン（第3版）が求める荷主・オペレーター間協議の基礎資料。
- * PoC は CSV（Excel で開ける）。Excel が UTF-8 と判別できるよう BOM を付ける。
+ * PoC は CSV（Excel で開ける）。文字コードは UTF-8（BOM 付き/無し）と Shift_JIS から選べる。
  * 出力は要配慮情報を含まないが、誰が持ち出したかを監査証跡に残す（12.6）。
  */
 export async function GET(req: Request): Promise<Response> {

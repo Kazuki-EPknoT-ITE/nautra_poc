@@ -30,7 +30,25 @@ export const dynamic = "force-dynamic";
  * 未修了は 2026-02-14 以降の雇入届出で受理保留のリスクになるため、警告として明示する。
  * 操練の次回期日は `rules/drill-rules.ts` の実施間隔を `domain/training/drills.ts` が判定する。
  */
-export default async function ShoreTrainingPage() {
+/**
+ * この画面の主題（タブ）。**1画面1主題**にして、目的の節まで延々とめくらずに済むようにする
+ * （デザイン正本 S-15 と同じやりかた。1枚が 3000px を超えないようにする）。
+ */
+const TABS = [
+  { id: "crew", label: "船員ごとの修了状況" },
+  { id: "drills", label: "船内操練" },
+  { id: "materials", label: "教材・手順書" },
+];
+
+export default async function ShoreTrainingPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ tab?: string }>;
+}) {
+  const sp = await searchParams;
+  /** いま開いている主題。未指定なら先頭 */
+  const tab = TABS.some((x) => x.id === sp.tab) ? sp.tab! : TABS[0]!.id;
+
   const guard = await requireShore("manage_training");
   if (!guard.ok) return <ShoreGuardNotice guard={guard} screen="訓練管理" />;
 
@@ -59,6 +77,22 @@ export default async function ShoreTrainingPage() {
         </p>
       </div>
 
+      {/* 主題の切替（サーバ側で組み立てるためリンクで切り替える） */}
+      <nav aria-label="訓練管理の主題" className="ui-card flex flex-wrap gap-2 p-3">
+        {TABS.map((x) => (
+          <Link
+            key={x.id}
+            href={`/shore/training?tab=${x.id}`}
+            aria-current={x.id === tab ? "page" : undefined}
+            className={`ui-btn-quiet ${x.id === tab ? "ui-btn-selected" : ""}`}
+          >
+            {x.label}
+          </Link>
+        ))}
+      </nav>
+
+      {tab === "crew" ? (
+        <>
       {/* ① 船員ごとの修了状況と未修了アラート */}
       <Section
         title="船員ごとの修了状況"
@@ -177,8 +211,11 @@ export default async function ShoreTrainingPage() {
 
       <ArrangeTrainingForm crew={crew} today={today} />
       <CompleteTrainingForm plans={openPlans} today={today} />
+        </>
+      ) : null}
 
-      {/* ③ 船内操練の実施記録と次回期日 */}
+      {tab === "drills" ? (
+      /* ③ 船内操練の実施記録と次回期日 */
       <section aria-label="船内操練の次回期日" className="ui-card p-4">
         <h2 className="mb-1 font-bold">船内操練の次回期日</h2>
         <p className="mb-2 text-sm text-foreground-600">
@@ -239,6 +276,10 @@ export default async function ShoreTrainingPage() {
         )}
       </section>
 
+      ) : null}
+
+      {tab === "materials" ? (
+        <>
       {/* ④ 教材・手順書の配信 */}
       <section aria-label="教材・手順書" className="ui-card p-4">
         <h2 className="mb-2 font-bold">
@@ -265,6 +306,8 @@ export default async function ShoreTrainingPage() {
       </section>
 
       <MaterialForm crew={crew} />
+        </>
+      ) : null}
 
       <p className="text-xs text-foreground-500">
         修了しているかどうかは修了証（証書）の有無から都度判定しています。修了を登録すると証書が

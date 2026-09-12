@@ -7,7 +7,7 @@ import {
   personLabel,
 } from "@/server/evaluation-service";
 import { listCrewMasters, todayLocal } from "@/server/master-service";
-import { SHORE_STAFF_ACCOUNTS, requireShore } from "@/server/shore-session";
+import { listActiveShoreStaff, requireShore } from "@/server/shore-session";
 import { EVALUATION_ITEMS } from "@/sync-protocol/masters";
 import { ShoreGuardNotice } from "../_components/guard";
 import {
@@ -62,7 +62,7 @@ export default async function ShoreEvaluationsPage() {
       id: c.crewMemberId,
       label: `${c.name}（${c.position ?? "職名未登録"}）`,
     })),
-    ...SHORE_STAFF_ACCOUNTS.map((s) => ({ id: s.id, label: `${s.name}（${s.title}）` })),
+    ...listActiveShoreStaff().map((s) => ({ id: s.id, label: `${s.name}（${s.title}）` })),
   ];
   const correctable: CorrectableEvaluation[] = rows.map((r) => ({
     id: r.record.id,

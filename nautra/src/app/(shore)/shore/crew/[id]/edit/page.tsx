@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { t } from "@/i18n/ja";
 import { fmtDateTime } from "@/lib/format";
 import { buildCrewMasterHistory, insuranceRowsOf } from "@/server/crew-master-service";
+import { crewPhotoOf } from "@/server/crew-photo-service";
 import { ageOf, crewMasterOf, todayLocal } from "@/server/master-service";
 import { hasShorePermission, requireShore, shoreStaffById } from "@/server/shore-session";
 import { personName } from "@/lib/crew";
@@ -43,7 +44,7 @@ export default async function ShoreCrewEditPage({ params }: { params: Promise<{ 
     crewMemberId: id,
     name: master.name ?? "",
     photo: master.photo,
-    photoDataUrl: master.photoDataUrl,
+    photoDataUrl: crewPhotoOf(id),
     nameKana: master.nameKana ?? "",
     birthDate: master.birthDate ?? "",
     seamanBookNo: master.seamanBookNo ?? "",

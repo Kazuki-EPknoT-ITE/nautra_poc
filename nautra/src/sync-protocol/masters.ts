@@ -65,14 +65,8 @@ export const crewMasterPayloadSchema = z
     address: z.string().optional(),
     bloodType: z.string().optional(),
     phone: z.string().optional(),
-    /** 顔写真の代わりに出す頭文字（写真が無いときの表示） */
+    /** 顔写真の代わりに出す頭文字（写真が無いときの表示）。実データは crew_photo */
     photo: z.string().optional(),
-    /**
-     * 顔写真の実データ（PoC は縮小した data URL を直接持つ）。
-     * 本番はオブジェクトストレージに置き、ここには署名付きURLの鍵だけを持たせる。
-     * 共用端末の配乗ボードや作業割当で「顔で選ぶ」ためのもので、サイズは端末側で縮める。
-     */
-    photoDataUrl: z.string().optional(),
     position: z.string().optional(),
     role: z.string().optional(),
     /** 雇入契約情報 */
@@ -786,6 +780,38 @@ export const auditLogPayloadSchema = z
   .passthrough();
 export type AuditLogPayload = z.infer<typeof auditLogPayloadSchema>;
 
+/* ═══════════════ 3.1.1 顔写真（船員マスタとは別のエンティティ） ═══════════════ */
+
+/**
+ * 船員の顔写真。
+ *
+ * **マスタとは別に持つ**。写真は本文より桁違いに重く、マスタに載せると
+ * 追記のたびに画像ぶんの版が積み上がる（住所を直しただけで画像が複製される）。
+ * 分けておけば、写真の差し替えはマスタの版を増やさず、マスタの履歴も軽いままになる。
+ *
+ * 実データを同期に載せるのは、**船内が回線の無いところで顔を出す**ため（10.1）。
+ * 共用端末のサインインは顔で選ぶのがいちばん速く、そこで画像が取れないと意味がない。
+ * 端末側で縮めてから送る（`PHOTO_MAX_BYTES` を超えるものは受け付けない）。
+ * 本番はオブジェクトストレージに置き、ここには鍵と縮小版だけを持たせる。
+ */
+export const PHOTO_MAX_BYTES = 200 * 1024;
+
+export const crewPhotoPayloadSchema = z
+  .object({
+    ...masterBase,
+    crewMemberId: z.string(),
+    /** 縮小済みの data URL（image/jpeg） */
+    dataUrl: z.string(),
+    width: z.number().optional(),
+    height: z.number().optional(),
+    /** data URL の長さ（受け入れ判定と一覧表示のため） */
+    bytes: z.number().optional(),
+    /** 取り外したときは true（削除ではなく追記で表す） */
+    removed: z.boolean().optional(),
+  })
+  .passthrough();
+export type CrewPhotoPayload = z.infer<typeof crewPhotoPayloadSchema>;
+
 /* ═══════════════ S-16 作業指示・タスク割当 ═══════════════ */
 
 export const WORK_TASK_STATES = ["todo", "doing", "done"] as const;
@@ -851,6 +877,74 @@ export const trashEntryPayloadSchema = z
   .passthrough();
 export type TrashEntryPayload = z.infer<typeof trashEntryPayloadSchema>;
 
+/* ═══════════════ 10.3 陸上アプリのユーザーアカウント ═══════════════ */
+
+/**
+ * 陸上ユーザーのロール。
+ *
+ * 値は `src/domain/authz/shore-roles.ts` の `SHORE_ROLES` と同じものを並べる。
+ * ここで import しないのは、同期スキーマ（配信される型の定義）が判定ロジックに
+ * 依存すると、古い端末が新しい判定表を持っていないと配信を読めなくなるため。
+ * ずれは `server/__tests__/shore-user-service.test.ts` が見張っている。
+ */
+export const SHORE_USER_ROLES = ["labor_manager", "operations", "clerk", "admin"] as const;
+
+/**
+ * アカウントの状態。
+ * - invited: 招待済みで、まだ本人が登録していない（サインインできない）
+ * - active: 有効
+ * - disabled: 無効化（S-18 から30日以内に戻せる）
+ */
+export const SHORE_USER_STATUSES = ["invited", "active", "disabled"] as const;
+export type ShoreUserStatus = (typeof SHORE_USER_STATUSES)[number];
+
+/**
+ * 陸上アプリのユーザーアカウント（要件定義書 10.3 / デザイン正本の S-15）。
+ *
+ * **招待は「監査ログに残すだけ」ではなく、このエンティティを1件追記する**。
+ * そうしないと招待した人が一覧に出ず、サインインもできない——「招待した」と
+ * 「使えるようになった」の間が追えなくなる。追記型なので、ロール変更・無効化・
+ * パスワード再設定はいずれも supersedesId 付きの新しい版で表す。
+ *
+ * **パスワードは平文で持たない**。scrypt の派生鍵（`passwordHash`）と
+ * ソルト（`passwordSalt`）だけを持ち、照合は `server/shore-user-service.ts` が行う。
+ * 本番は Supabase Auth が保持し、アプリ側はこの2列ごと持たない。
+ *
+ * 配信範囲: `distribution: "shore_only"`（`sync-protocol/events.ts`）。
+ * 陸上の事務アカウントは船内端末では使わないため、船内へは配らない。
+ */
+export const shoreUserPayloadSchema = z
+  .object({
+    ...masterBase,
+    /** アカウントID（サインインの主体。セッション Cookie に入る値） */
+    userId: z.string(),
+    name: z.string(),
+    /** サインインID。小文字に正規化して保持する */
+    email: z.string(),
+    role: z.enum(SHORE_USER_ROLES),
+    /** 社内の肩書き（ロールとは別。同じロールでも責任の重さが違うため表示を分ける） */
+    title: z.string().optional(),
+    status: z.enum(SHORE_USER_STATUSES),
+    /** 扱える船（"all" ならすべて）。本番は RLS の行フィルタに対応する */
+    scope: z.string().optional(),
+    /** 招待コード。本人が新規登録の画面で入れる（PoC はメールを送らず画面で渡す） */
+    inviteCode: z.string().optional(),
+    invitedBy: z.string().optional(),
+    invitedAt: z.string().optional(),
+    /** 本人が登録を終えた日時 */
+    activatedAt: z.string().optional(),
+    /** scrypt の派生鍵（16進）。平文は保持しない */
+    passwordHash: z.string().optional(),
+    passwordSalt: z.string().optional(),
+    /** パスワード再設定コードと期限（PoC はメールを送らず画面で渡す） */
+    resetCode: z.string().optional(),
+    resetCodeExpiresAt: z.string().optional(),
+    /** 最終サインイン日時（招待中／使われていないアカウントを見分けるため） */
+    lastSignInAt: z.string().optional(),
+  })
+  .passthrough();
+export type ShoreUserPayload = z.infer<typeof shoreUserPayloadSchema>;
+
 /* ═══════════════ レジストリへ渡す対応表 ═══════════════ */
 
 /**
@@ -860,6 +954,7 @@ export type TrashEntryPayload = z.infer<typeof trashEntryPayloadSchema>;
  */
 export const MASTER_PAYLOAD_SCHEMAS = {
   crew_master: crewMasterPayloadSchema,
+  crew_photo: crewPhotoPayloadSchema,
   credential: credentialPayloadSchema,
   embarkation: embarkationPayloadSchema,
   evaluation: evaluationPayloadSchema,
@@ -886,4 +981,5 @@ export const MASTER_PAYLOAD_SCHEMAS = {
   audit_log: auditLogPayloadSchema,
   work_task: workTaskPayloadSchema,
   trash_entry: trashEntryPayloadSchema,
+  shore_user: shoreUserPayloadSchema,
 } as const;
