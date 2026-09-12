@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { useRef } from "react";
 import { cn } from "@/lib/cn";
 
 /**
@@ -10,6 +11,15 @@ import { cn } from "@/lib/cn";
  * 暗い面（`#231F20`）の上に置くため、待機中は `#CCCCCC` の文字だけ。現在地は
  * **ブロンズの塗り**（`#917351`）で示す。`aria-current` を併記し、色が見えない環境でも
  * 現在地が伝わるようにする。
+ *
+ * **自動の先読みは切ってある**（`prefetch={false}`）。陸上の画面は毎回サーバで組み立てる
+ * （`force-dynamic`）ので、既定のままだとサイドバーに並ぶ 20 本すべてが画面を開くたびに
+ * 先読みされ、**20 回ぶんのサーバ描画と同時接続**が走る。押したい画面の取得がその後ろに
+ * 並ばされて、実測で最初の遷移が 3 秒かかっていた。
+ *
+ * 代わりに**狙いを定めた時点**（ポインタを載せた・キーボードで focus した）で1本だけ
+ * 先読みする。人は押す前に必ずそこを通るので、体感は自動先読みと変わらないまま、
+ * 要求の数が 20 → 1 になる。
  */
 export function NavLink({
   href,
@@ -22,14 +32,27 @@ export function NavLink({
   alsoActiveOn?: string[];
 }) {
   const pathname = usePathname();
+  const router = useRouter();
+  const warmed = useRef(false);
   // ダッシュボードは完全一致。それ以外は配下の画面（/shore/crew/[id] 等）も現在地とみなす
   const active =
     (href === "/shore" ? pathname === href : pathname.startsWith(href)) ||
     (alsoActiveOn ?? []).some((p) => pathname.startsWith(p));
 
+  /** 同じ項目を何度もなぞっても要求は1回だけにする */
+  function warm() {
+    if (warmed.current || active) return;
+    warmed.current = true;
+    router.prefetch(href);
+  }
+
   return (
     <Link
       href={href}
+      prefetch={false}
+      onMouseEnter={warm}
+      onFocus={warm}
+      onTouchStart={warm}
       aria-current={active ? "page" : undefined}
       className={cn(
         "flex w-full items-center gap-1 rounded-small px-2 py-[9px] text-left text-base transition-colors",

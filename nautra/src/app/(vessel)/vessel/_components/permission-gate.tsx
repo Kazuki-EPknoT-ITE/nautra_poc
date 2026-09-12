@@ -4,7 +4,8 @@ import type { ReactNode } from "react";
 import type { Permission } from "@/domain/authz/roles";
 import { t } from "@/i18n/ja";
 import { usePermission, useSessionCrew } from "@/lib/vessel-hooks";
-import { CardBody, SurfaceCard } from "@/ui";
+import { SurfaceCard } from "@/ui";
+import { CardBody } from "@/ui/heroui";
 
 /**
  * 権限がない場合の共通表示（基本設計書 11.2 の権限マトリクス）。

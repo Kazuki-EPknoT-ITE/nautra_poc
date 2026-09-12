@@ -13,24 +13,8 @@ import { recordApproval } from "@/lib/vessel-actions";
 import { useAllRecords, useApprovals, useNowTick, useSessionCrew } from "@/lib/vessel-hooks";
 import { DEFAULT_LABOR_RULE_SET } from "@/rules/default-rule-set";
 import { resolveApproval } from "@/sync-protocol/events";
-import {
-  Button,
-  CardBody,
-  Chip,
-  Eyebrow,
-  SurfaceCard,
-  Modal,
-  ModalBody,
-  ModalContent,
-  ModalFooter,
-  ModalHeader,
-  Select,
-  SelectItem,
-  StatusChip,
-  Textarea,
-  useDisclosure,
-  useModalProps,
-} from "@/ui";
+import { Eyebrow, SurfaceCard, StatusChip, useModalProps } from "@/ui";
+import { Button, CardBody, Chip, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, Select, SelectItem, Textarea, useDisclosure } from "@/ui/heroui";
 
 import { GroupHeader } from "../_components/group-header";
 import { PermissionGate } from "../_components/permission-gate";

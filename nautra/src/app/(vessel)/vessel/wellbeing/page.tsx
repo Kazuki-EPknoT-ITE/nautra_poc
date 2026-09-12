@@ -8,23 +8,8 @@ import { useLocale } from "@/lib/use-locale";
 import { appendRecord, newRecordBase } from "@/lib/vessel-actions";
 import { useRecords, useSessionCrew } from "@/lib/vessel-hooks";
 import { WELLBEING_FORM_TYPES } from "@/sync-protocol/records";
-import {
-  Button,
-  Card,
-  CardBody,
-  Chip,
-  SurfaceCard,
-  Modal,
-  ModalBody,
-  ModalContent,
-  ModalFooter,
-  ModalHeader,
-  Radio,
-  RadioGroup,
-  Textarea,
-  useDisclosure,
-  useModalProps,
-} from "@/ui";
+import { SurfaceCard, useModalProps } from "@/ui";
+import { Button, Card, CardBody, Chip, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, Radio, RadioGroup, Textarea, useDisclosure } from "@/ui/heroui";
 import { GroupHeader } from "../_components/group-header";
 import { RecordTile } from "../_components/record-tile";
 

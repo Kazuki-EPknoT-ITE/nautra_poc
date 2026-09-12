@@ -11,7 +11,8 @@ import { useSessionCrew, useSyncBadge } from "@/lib/vessel-hooks";
 import { signOut, signOutIfIdle, touchSession } from "@/lib/vessel-session";
 import { useLiveSync } from "@/lib/vessel-live";
 import { ensureInitialSync, isOfflineSim, syncNow } from "@/lib/vessel-sync";
-import { AppShell, ClientOnly, Spinner } from "@/ui";
+import { AppShell, AppSwitchLink, ClientOnly } from "@/ui";
+import { Spinner } from "@/ui/heroui";
 import { LocaleSwitch } from "./_components/locale-switch";
 import { VesselTabs, VESSEL_TAB_HREFS } from "./_components/vessel-tabs";
 
@@ -176,6 +177,8 @@ export default function VesselLayout({ children }: { children: ReactNode }) {
             <SessionChip />
             <SyncHeaderBadges />
           </ClientOnly>
+          {/* 陸上アプリへ（デザイン正本の goShore）。本番は別の機械なので端に置く */}
+          <AppSwitchLink to="shore" />
         </div>
       </header>
 

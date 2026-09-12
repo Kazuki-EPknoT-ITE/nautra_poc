@@ -3,7 +3,7 @@
 import { useActionState, useState } from "react";
 import { t } from "@/i18n/ja";
 import { LEAVE_KINDS, type LeaveKind } from "@/sync-protocol/records";
-import { Button, Input, Radio, RadioGroup, Select, SelectItem, Textarea } from "@/ui";
+import { Button, Input, Radio, RadioGroup, Select, SelectItem, Textarea } from "@/ui/heroui";
 import { publishLeaveAction, type LeaveFormState } from "../actions";
 
 export interface LeaveCrewOption {

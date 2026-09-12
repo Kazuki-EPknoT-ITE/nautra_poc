@@ -15,7 +15,7 @@ import {
   useSyncBadge,
 } from "@/lib/vessel-hooks";
 import type { NoticePayload } from "@/sync-protocol/records";
-import { Button, Card, CardBody, CardHeader, Chip, Divider } from "@/ui";
+import { Button, Card, CardBody, CardHeader, Chip, Divider } from "@/ui/heroui";
 
 /**
  * お知らせ欄（メニュー右側）。

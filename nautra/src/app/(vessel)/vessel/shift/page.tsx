@@ -25,7 +25,7 @@ import {
   useShiftPlans,
 } from "@/lib/vessel-hooks";
 import { STATION_SCENARIOS, type ShiftPlanPayload } from "@/sync-protocol/records";
-import { Button, Card, CardBody, CardHeader, Chip, Divider } from "@/ui";
+import { Button, Card, CardBody, CardHeader, Chip, Divider } from "@/ui/heroui";
 import { CrewWatchTable } from "../_components/crew-watch-table";
 import { GroupHeader } from "../_components/group-header";
 

@@ -8,7 +8,7 @@ import { currentLaborRuleSet } from "@/server/labor-rules";
 import { listVessels, writeAuditLog } from "@/server/master-service";
 import { clearShoreSession, getShoreSession, responsibleManager } from "@/server/shore-session";
 import { getSyncStats } from "@/server/store";
-import { AppShell } from "@/ui";
+import { AppShell, AppSwitchLink } from "@/ui";
 import { NavLink } from "./_components/nav-link";
 import { ShoreTopBar } from "./_components/top-bar";
 
@@ -152,15 +152,7 @@ export default async function ShoreLayout({ children }: { children: ReactNode })
           </nav>
 
           <div className="flex flex-col gap-2.5 border-t border-[#333333] px-5 pt-3.5">
-            <Link
-              href="/vessel"
-              className="flex w-full items-center justify-between rounded-small border border-[#666666] px-3 py-2.5 text-base text-[#DFE1E0]"
-            >
-              <span>船内アプリへ</span>
-              <span aria-hidden="true" className="text-primary">
-                →
-              </span>
-            </Link>
+            <AppSwitchLink to="vessel" tone="dark" />
             {/* 承認の最終権限者。誰に上げれば止まっている案件が進むのかを常に見せる（3.2） */}
             <p className="m-0 text-xs leading-normal text-[#666666]">
               {manager.title}
@@ -192,10 +184,17 @@ export default async function ShoreLayout({ children }: { children: ReactNode })
             {groups
               .flatMap((g) => g.links)
               .map((l) => (
-                <Link key={l.href} href={l.href} className="text-foreground-700 hover:underline">
+                <Link
+                  key={l.href}
+                  href={l.href}
+                  prefetch={false}
+                  className="text-foreground-700 hover:underline"
+                >
                   {l.label}
                 </Link>
               ))}
+            {/* サイドバーが畳まれている幅でも船内アプリへ行けるようにする */}
+            <AppSwitchLink to="vessel" className="ml-auto" />
           </nav>
 
           <main className="flex flex-1 flex-col gap-5 px-8 pb-11 pt-7">{children}</main>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { Button, Select, SelectItem } from "@/ui";
+import { Button, Select, SelectItem } from "@/ui/heroui";
 import { createOperationReportAction, type DocumentFormState } from "../actions";
 
 const INITIAL: DocumentFormState = { ok: false, message: "" };

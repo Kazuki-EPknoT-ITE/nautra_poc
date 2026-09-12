@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { t } from "@/i18n/ja";
-import { Button, Select, SelectItem } from "@/ui";
+import { Button, Select, SelectItem } from "@/ui/heroui";
 import type { VoyageSchedulePayload } from "@/sync-protocol/masters";
 import { updateScheduleStatusAction, type DispatchFormState } from "../actions";
 

@@ -16,25 +16,8 @@ import {
 import { appendRecord, assertNotFuture, newRecordBase } from "@/lib/vessel-actions";
 import { useRecords, useActiveCrew } from "@/lib/vessel-hooks";
 import { WORK_REPORT_TYPES, type WorkReportPayload, type WorkReportType } from "@/sync-protocol/records";
-import {
-  Button,
-  Card,
-  CardBody,
-  Chip,
-  Input,
-  Modal,
-  ModalBody,
-  ModalContent,
-  ModalFooter,
-  ModalHeader,
-  RadioGroup,
-  Radio,
-  Select,
-  SelectItem,
-  Textarea,
-  useDisclosure,
-  useModalProps,
-} from "@/ui";
+import { useModalProps } from "@/ui";
+import { Button, Card, CardBody, Chip, Input, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, RadioGroup, Radio, Select, SelectItem, Textarea, useDisclosure } from "@/ui/heroui";
 import { CrewPicker } from "../_components/crew-picker";
 import { GroupHeader } from "../_components/group-header";
 import { RecordTile } from "../_components/record-tile";

@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
-import { Button, Input } from "@/ui";
+import { Button, Input } from "@/ui/heroui";
 import {
   generateDocumentsAction,
   recordCheckAction,

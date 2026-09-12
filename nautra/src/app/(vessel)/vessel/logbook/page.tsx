@@ -24,25 +24,8 @@ import {
   type VoyageLogPayload,
   type VoyageLogType,
 } from "@/sync-protocol/records";
-import {
-  Button,
-  Card,
-  CardBody,
-  Chip,
-  Input,
-  Modal,
-  ModalBody,
-  ModalContent,
-  ModalFooter,
-  ModalHeader,
-  Radio,
-  RadioGroup,
-  Select,
-  SelectItem,
-  Textarea,
-  useDisclosure,
-  useModalProps,
-} from "@/ui";
+import { useModalProps } from "@/ui";
+import { Button, Card, CardBody, Chip, Input, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, Radio, RadioGroup, Select, SelectItem, Textarea, useDisclosure } from "@/ui/heroui";
 import { GroupHeader } from "../_components/group-header";
 import { RecordTile } from "../_components/record-tile";
 import { ReadOnlyNote } from "../_components/permission-gate";

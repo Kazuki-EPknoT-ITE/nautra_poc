@@ -2,18 +2,21 @@
  * 書体（デザイン正本 `design/poc_design` の実測）。
  * 本文・見出しは **Noto Sans JP**、数値・時刻・ID・符牒は **IBM Plex Mono**。
  *
- * `@fontsource/*` はフォント実体を同梱し、`unicode-range` で分割された woff2 を
- * ビルド成果物として配信する。したがって**ビルド時にも実行時にも外部へ通信しない**
+ * `@fontsource/*` はフォント実体を同梱するので、**ビルド時にも実行時にも外部へ通信しない**
  * （船内の閉じた回線でも陸上と同じ字面になる。要件定義書 10.1 オフラインファースト）。
- * 和文は使う文字の分割ぶんだけ取りにいくため、全字形を落とすことにはならない。
  *
- * 落とす太さはデザインで実際に使われている 400/500/600/700 に限る。
- * CSS の入口を1本にまとめるため、JS からではなくここで読み込む。
+ * **和文（Noto Sans JP）はここでは読み込まない。**
+ * `@fontsource` の既定は和文を `unicode-range` で 124 個に割っていて、1画面ぶんの漢字を
+ * 出すだけで 40 前後のファイルを取りにいく。HTTP/1.1 の同時接続（6本）を font が埋め、
+ * **次の画面の取得が待たされていた**（実測: 最初の遷移が 2.7〜3.2秒）。
+ * そこで割っていない版を `public/fonts/` に置き（`scripts/copy-fonts.mjs` が用意する）、
+ * `src/ui/font-loader.tsx` が**画面が動き出してから**読み込む。それまでは端末の和文書体で
+ * 表示される（`font-display: swap`）ので、読めない時間は生まれない。
+ *
+ * 欧文の等幅（IBM Plex Mono）は latin だけで軽く（4太さで 60KB 程度）、
+ * 数値・時刻・IDの桁揃えは最初から効いていてほしいので、従来どおりここで読み込む。
+ * CSS の入口を1本にまとめるため、JS からではなくここで `@import` する。
  */
-@import "@fontsource/noto-sans-jp/400.css";
-@import "@fontsource/noto-sans-jp/500.css";
-@import "@fontsource/noto-sans-jp/600.css";
-@import "@fontsource/noto-sans-jp/700.css";
 @import "@fontsource/ibm-plex-mono/400.css";
 @import "@fontsource/ibm-plex-mono/500.css";
 @import "@fontsource/ibm-plex-mono/600.css";

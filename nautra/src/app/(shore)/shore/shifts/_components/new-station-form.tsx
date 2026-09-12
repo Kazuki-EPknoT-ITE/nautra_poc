@@ -3,7 +3,7 @@
 import { useActionState, useState } from "react";
 import { t } from "@/i18n/ja";
 import { STATION_SCENARIOS, type StationScenario } from "@/sync-protocol/records";
-import { Button, Input, Select, SelectItem, Textarea } from "@/ui";
+import { Button, Input, Select, SelectItem, Textarea } from "@/ui/heroui";
 import { publishNewStationAction, type ShiftChangeFormState } from "../actions";
 import type { CrewOption } from "./new-shift-form";
 

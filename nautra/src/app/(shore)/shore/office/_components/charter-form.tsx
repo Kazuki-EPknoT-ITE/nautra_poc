@@ -2,7 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { t } from "@/i18n/ja";
-import { Button, Input, Select, SelectItem, Textarea } from "@/ui";
+import { Button, Input, Select, SelectItem, Textarea } from "@/ui/heroui";
 import { saveCharterAction, type OfficeFormState } from "../actions";
 
 export interface VesselOption {

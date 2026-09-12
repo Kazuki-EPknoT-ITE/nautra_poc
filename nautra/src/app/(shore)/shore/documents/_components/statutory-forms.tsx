@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { Button, Input, Select, SelectItem } from "@/ui";
+import { Button, Input, Select, SelectItem } from "@/ui/heroui";
 import {
   createBulkPermitAction,
   createCrewRegisterAction,

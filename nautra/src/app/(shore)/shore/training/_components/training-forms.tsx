@@ -3,7 +3,7 @@
 import { useActionState, useState } from "react";
 import { t } from "@/i18n/ja";
 import { TRAINING_KINDS, type TrainingKind } from "@/sync-protocol/records";
-import { Button, Input, Select, SelectItem, Textarea } from "@/ui";
+import { Button, Input, Select, SelectItem, Textarea } from "@/ui/heroui";
 import {
   arrangeTrainingAction,
   completeTrainingAction,

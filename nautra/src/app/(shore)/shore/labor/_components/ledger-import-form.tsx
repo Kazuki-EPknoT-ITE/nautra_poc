@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useRef, useState } from "react";
-import { Button, Textarea } from "@/ui";
+import { Button, Textarea } from "@/ui/heroui";
 import { importLedgerAction, type ImportFormState } from "../actions";
 
 const INITIAL: ImportFormState = {

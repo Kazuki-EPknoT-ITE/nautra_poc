@@ -4,7 +4,7 @@ import { useActionState, useState } from "react";
 import { BUSINESS_EVENT_LABEL, type BusinessEvent } from "@/domain/procedures/chain";
 import { PROCEDURE_GROUP_LABEL } from "@/domain/procedures/deadlines";
 import { PROCEDURE_GROUPS, type ProcedureGroup } from "@/sync-protocol/records";
-import { Button, Input, Select, SelectItem, Textarea } from "@/ui";
+import { Button, Input, Select, SelectItem, Textarea } from "@/ui/heroui";
 import { chainFromEventAction, createProcedureAction, type ProcedureFormState } from "../actions";
 
 const INITIAL: ProcedureFormState = { ok: false, message: "" };

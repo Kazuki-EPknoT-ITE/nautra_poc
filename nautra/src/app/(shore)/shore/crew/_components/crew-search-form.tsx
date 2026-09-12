@@ -1,6 +1,7 @@
 "use client";
 
-import { Button, SearchField } from "@/ui";
+import { SearchField } from "@/ui";
+import { Button } from "@/ui/heroui";
 
 /**
  * S-02 の氏名検索。

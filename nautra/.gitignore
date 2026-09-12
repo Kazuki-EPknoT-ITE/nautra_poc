@@ -9,3 +9,5 @@ next-env.d.ts
 e2e/node_modules/
 e2e/shots/
 shots/
+# 和文フォントの実体（scripts/copy-fonts.mjs が node_modules から用意する。約2MB）
+public/fonts/

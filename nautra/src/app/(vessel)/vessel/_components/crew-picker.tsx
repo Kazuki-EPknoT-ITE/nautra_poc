@@ -2,7 +2,7 @@
 
 import { cn } from "@/lib/cn";
 import { CREW_MEMBERS, type CrewMember } from "@/lib/crew";
-import { Avatar, ScrollShadow } from "@/ui";
+import { Avatar, ScrollShadow } from "@/ui/heroui";
 
 /**
  * 打刻者選択（共用端末: 顔写真リストから選択する方式の PoC 表現。基本設計書 11.3）。

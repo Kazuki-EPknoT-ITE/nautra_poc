@@ -9,23 +9,8 @@ import { appendRecord, newRecordBase } from "@/lib/vessel-actions";
 import type { VesselRecordRow } from "@/lib/vessel-db";
 import { useRecords, useSessionCrew } from "@/lib/vessel-hooks";
 import { INCIDENT_KINDS, latestBySupersedes, type IncidentKind } from "@/sync-protocol/records";
-import {
-  Button,
-  Card,
-  CardBody,
-  Checkbox,
-  Chip,
-  SurfaceCard,
-  Input,
-  Modal,
-  ModalBody,
-  ModalContent,
-  ModalFooter,
-  ModalHeader,
-  Textarea,
-  useDisclosure,
-  useModalProps,
-} from "@/ui";
+import { SurfaceCard, useModalProps } from "@/ui";
+import { Button, Card, CardBody, Checkbox, Chip, Input, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, Textarea, useDisclosure } from "@/ui/heroui";
 import { GroupHeader } from "../_components/group-header";
 import { RecordTile } from "../_components/record-tile";
 

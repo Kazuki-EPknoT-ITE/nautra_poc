@@ -15,27 +15,8 @@ import {
   type DrillRecordPayload,
   type DrillType,
 } from "@/sync-protocol/records";
-import {
-  Button,
-  Card,
-  CardBody,
-  Checkbox,
-  CheckboxGroup,
-  Chip,
-  Input,
-  Modal,
-  ModalBody,
-  ModalContent,
-  ModalFooter,
-  ModalHeader,
-  Radio,
-  RadioGroup,
-  Select,
-  SelectItem,
-  Textarea,
-  useDisclosure,
-  useModalProps,
-} from "@/ui";
+import { useModalProps } from "@/ui";
+import { Button, Card, CardBody, Checkbox, CheckboxGroup, Chip, Input, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, Radio, RadioGroup, Select, SelectItem, Textarea, useDisclosure } from "@/ui/heroui";
 import { GroupHeader } from "../_components/group-header";
 import { RecordTile } from "../_components/record-tile";
 

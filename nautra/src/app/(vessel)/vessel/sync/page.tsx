@@ -7,7 +7,7 @@ import { fmtDateTime } from "@/lib/format";
 import { useLocalConflictCount, useSyncBadge } from "@/lib/vessel-hooks";
 import { vesselDb } from "@/lib/vessel-db";
 import { setOfflineSim, syncNow, type SyncResult } from "@/lib/vessel-sync";
-import { Button, Card, CardBody, CardHeader, Chip, Divider, Switch } from "@/ui";
+import { Button, Card, CardBody, CardHeader, Chip, Divider, Switch } from "@/ui/heroui";
 import { GroupHeader } from "../_components/group-header";
 
 /**

@@ -1,6 +1,6 @@
 "use client";
 
-import { Button } from "@/ui";
+import { Button } from "@/ui/heroui";
 
 /** ブラウザの印刷ダイアログを開く（PDF 保存もここから行う） */
 export function PrintButton() {

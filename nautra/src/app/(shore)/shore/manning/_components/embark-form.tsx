@@ -3,7 +3,8 @@
 import { useActionState, useState } from "react";
 import { t } from "@/i18n/ja";
 import type { ManningCandidate } from "@/server/manning-plan-service";
-import { Button, Checkbox, Input, Radio, RadioGroup, Select, SelectItem, StatusChip } from "@/ui";
+import { StatusChip } from "@/ui";
+import { Button, Checkbox, Input, Radio, RadioGroup, Select, SelectItem } from "@/ui/heroui";
 import { registerEmbarkationAction, type ManningFormState } from "../actions";
 
 const INITIAL: ManningFormState = { ok: false, message: "" };

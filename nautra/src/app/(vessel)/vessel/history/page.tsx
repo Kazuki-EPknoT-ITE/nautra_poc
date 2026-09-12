@@ -15,7 +15,8 @@ import {
   usePermission,
   useSessionCrew,
 } from "@/lib/vessel-hooks";
-import { Section, Select, SelectItem, StatusChip } from "@/ui";
+import { Section, StatusChip } from "@/ui";
+import { Select, SelectItem } from "@/ui/heroui";
 import { GroupHeader } from "../_components/group-header";
 
 const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"];

@@ -36,18 +36,8 @@ import {
 } from "@/lib/vessel-hooks";
 import { DEFAULT_LABOR_RULE_SET } from "@/rules/default-rule-set";
 import { resolveApproval, type ApprovalPayload } from "@/sync-protocol/events";
-import {
-  Button,
-  CardBody,
-  CardHeader,
-  Chip,
-  Divider,
-  SurfaceCard,
-  Progress,
-  Select,
-  SelectItem,
-  StatusChip,
-} from "@/ui";
+import { SurfaceCard, StatusChip } from "@/ui";
+import { Button, CardBody, CardHeader, Chip, Divider, Progress, Select, SelectItem } from "@/ui/heroui";
 import { GroupHeader } from "../_components/group-header";
 
 /**

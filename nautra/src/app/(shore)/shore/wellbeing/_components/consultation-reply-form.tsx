@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { Button, Select, SelectItem, Textarea } from "@/ui";
+import { Button, Select, SelectItem, Textarea } from "@/ui/heroui";
 import { respondConsultationAction, type WellbeingFormState } from "../actions";
 
 export interface ConsultationOption {

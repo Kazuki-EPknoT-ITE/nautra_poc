@@ -2,7 +2,8 @@
 
 import { useActionState, useRef, useState } from "react";
 import { fmtDateLabel, fmtMinutes } from "@/lib/format";
-import { Button, Checkbox, CheckboxGroup, Chip, RemandDialog } from "@/ui";
+import { RemandDialog } from "@/ui";
+import { Button, Checkbox, CheckboxGroup, Chip } from "@/ui/heroui";
 import { approveDaysAction, type ApprovalFormState } from "../actions";
 
 export interface PendingDay {

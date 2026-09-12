@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import { PRODUCT_NAME, t } from "@/i18n/ja";
-import { UIProvider } from "@/ui";
+import { FontLoader, UIProvider } from "@/ui";
 import { ServiceWorkerRegistrar } from "./_components/service-worker";
 
 /**
@@ -36,6 +36,8 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     <html lang="ja">
       <body className="min-h-dvh font-sans antialiased">
         <UIProvider>{children}</UIProvider>
+        {/* 和文フォントは画面が落ち着いてから読む（最初の遷移を font の取得で待たせない） */}
+        <FontLoader />
         <ServiceWorkerRegistrar />
       </body>
     </html>

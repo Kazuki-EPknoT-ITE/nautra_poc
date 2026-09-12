@@ -23,23 +23,8 @@ import {
   type MaintenanceRecordPayload,
   type MaintenanceRecordType,
 } from "@/sync-protocol/records";
-import {
-  Button,
-  Card,
-  CardBody,
-  Chip,
-  Input,
-  Modal,
-  ModalBody,
-  ModalContent,
-  ModalFooter,
-  ModalHeader,
-  Radio,
-  RadioGroup,
-  Textarea,
-  useDisclosure,
-  useModalProps,
-} from "@/ui";
+import { useModalProps } from "@/ui";
+import { Button, Card, CardBody, Chip, Input, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, Radio, RadioGroup, Textarea, useDisclosure } from "@/ui/heroui";
 import { ChecklistResultRow, ChecklistSection } from "../_components/checklist-section";
 import { GroupHeader } from "../_components/group-header";
 import { ReadOnlyNote } from "../_components/permission-gate";

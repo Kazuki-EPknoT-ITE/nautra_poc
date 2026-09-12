@@ -2,7 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { t } from "@/i18n/ja";
-import { Button, Checkbox, Input, Select, SelectItem, Textarea } from "@/ui";
+import { Button, Checkbox, Input, Select, SelectItem, Textarea } from "@/ui/heroui";
 import { saveEvaluationAction, type EvaluationFormState } from "../actions";
 
 export interface PersonOption {

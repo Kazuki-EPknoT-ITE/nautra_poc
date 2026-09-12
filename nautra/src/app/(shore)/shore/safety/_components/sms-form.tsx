@@ -4,7 +4,7 @@ import { useActionState, useState } from "react";
 import { t } from "@/i18n/ja";
 import { RISK_SCALE } from "@/lib/safety-plain";
 import type { SmsDocKind } from "@/sync-protocol/masters";
-import { Button, Input, Select, SelectItem, Textarea } from "@/ui";
+import { Button, Input, Select, SelectItem, Textarea } from "@/ui/heroui";
 import { publishSmsDocumentAction, type SafetyFormState } from "../actions";
 
 const INITIAL: SafetyFormState = { ok: false, message: "" };

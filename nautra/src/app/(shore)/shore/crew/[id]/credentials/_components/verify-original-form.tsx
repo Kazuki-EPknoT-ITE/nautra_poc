@@ -3,7 +3,7 @@
 import { useActionState } from "react";
 import { t } from "@/i18n/ja";
 import { CREDENTIAL_VERIFY_METHODS } from "@/sync-protocol/records";
-import { Button, Select, SelectItem } from "@/ui";
+import { Button, Select, SelectItem } from "@/ui/heroui";
 import { verifyCredentialAction, type CredentialFormState } from "../actions";
 
 const INITIAL: CredentialFormState = { ok: false, message: "" };

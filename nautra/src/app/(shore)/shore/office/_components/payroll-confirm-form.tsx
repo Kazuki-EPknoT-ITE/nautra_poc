@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { Button, Select, SelectItem } from "@/ui";
+import { Button, Select, SelectItem } from "@/ui/heroui";
 import { confirmPayrollAction, type OfficeFormState } from "../actions";
 
 export interface DraftPayrollOption {
