@@ -11,7 +11,8 @@ import {
 import { CrewPhoto, DataTable, Section, StatusChip } from "@/ui";
 import type { WorkTaskState } from "@/sync-protocol/masters";
 import { ShoreGuardNotice } from "../_components/guard";
-import { advanceTaskAction, assignTaskAction, deleteTaskAction } from "./actions";
+import { advanceTaskAction, assignTaskAction } from "./actions";
+import { DeleteTaskButton } from "./_components/delete-task";
 
 export const dynamic = "force-dynamic";
 
@@ -162,15 +163,12 @@ export default async function ShoreTasksPage() {
                       ) : (
                         <span className="flex-1" />
                       )}
-                      <form action={deleteTaskAction} className="flex-none">
-                        <input type="hidden" name="taskId" value={r.task.id} />
-                        <button
-                          type="submit"
-                          className="ui-btn-ghost h-[34px] w-[62px] text-xs font-normal text-danger"
-                        >
-                          削除
-                        </button>
-                      </form>
+                      <DeleteTaskButton
+                        taskId={r.task.id}
+                        title={r.task.title}
+                        cycle={r.task.cycle ?? "臨時"}
+                        started={r.task.state !== "todo"}
+                      />
                     </div>
                   </div>
                 ))}

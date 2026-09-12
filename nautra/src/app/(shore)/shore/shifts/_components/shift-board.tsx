@@ -6,7 +6,7 @@ import { useState, useTransition, type DragEvent } from "react";
 import type { CheckLevel } from "@/domain/labor-law/types";
 import { cn } from "@/lib/cn";
 import { fmtDateLabel } from "@/lib/format";
-import { CrewPhoto, FlashToast, SearchField, StatusChip } from "@/ui";
+import { CrewPhoto, DeleteDialog, FlashToast, SearchField, StatusChip } from "@/ui";
 import { assignWatchAction, clearWatchAction } from "../actions";
 
 export interface BoardSlot {
@@ -93,6 +93,10 @@ export function ShiftBoard({
       });
     };
   }
+
+  /** 外す対象。問いかけで確認してから配信する */
+  const [removing, setRemoving] = useState<{ planId: string; label: string } | null>(null);
+  const [removeMode, setRemoveMode] = useState("archive");
 
   function clear(planId: string, label: string) {
     startTransition(async () => {
@@ -226,7 +230,10 @@ export function ShiftBoard({
                         type="button"
                         aria-label={`${fmtDateLabel(d)} ${slot.label} の割り当てを外す`}
                         onClick={() =>
-                          clear(cell.planId!, `${vesselName} ${d} ${slot.label} ${cell.crewName ?? ""}`)
+                          setRemoving({
+                            planId: cell.planId!,
+                            label: `${vesselName} ${d} ${slot.label} ${cell.crewName ?? ""}`,
+                          })
                         }
                         className="absolute right-1 top-1 h-[18px] w-[18px] rounded-[2px] border border-[var(--ui-hairline-strong)] bg-content1 text-xs leading-none text-foreground-500"
                       >
@@ -266,6 +273,30 @@ export function ShiftBoard({
           ))
         )}
       </section>
+
+      <DeleteDialog
+        open={removing !== null}
+        kind="当直シフト"
+        name={removing?.label ?? ""}
+        modes={[
+          { value: "archive", label: "配信を取り消す（推奨）" },
+          { value: "delete", label: "削除する" },
+        ]}
+        mode={removeMode}
+        onModeChange={setRemoveMode}
+        effects={[
+          "この枡の当直が外れ、船内の当直表からも消えます",
+          "配信済みの計画は履歴として残り、誰がいつ外したかを追えます（12.6）",
+          "船員の労務判定は外したあとの割り当てで計算し直されます",
+        ]}
+        runLabel={removeMode === "delete" ? "削除を実行する" : "この内容で取り消す"}
+        onCancel={() => setRemoving(null)}
+        onRun={() => {
+          const target = removing;
+          setRemoving(null);
+          if (target) clear(target.planId, target.label);
+        }}
+      />
 
       <FlashToast message={flash} onDone={() => setFlash(null)} />
     </>

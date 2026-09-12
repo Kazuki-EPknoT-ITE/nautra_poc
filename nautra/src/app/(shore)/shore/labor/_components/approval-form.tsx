@@ -1,8 +1,8 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useRef, useState } from "react";
 import { fmtDateLabel, fmtMinutes } from "@/lib/format";
-import { Button, Checkbox, CheckboxGroup, Chip, Textarea } from "@/ui";
+import { Button, Checkbox, CheckboxGroup, Chip, RemandDialog } from "@/ui";
 import { approveDaysAction, type ApprovalFormState } from "../actions";
 
 export interface PendingDay {
@@ -37,6 +37,10 @@ export function ApprovalForm({
   const [state, formAction, pending] = useActionState(approveDaysAction, INITIAL);
   const [selected, setSelected] = useState<string[]>(days.map((d) => d.date));
   const [decision, setDecision] = useState<"approved" | "remanded">("approved");
+  /** 差戻しは理由を選んでから送る（デザイン正本 S-06 の問いかけ） */
+  const [remandOpen, setRemandOpen] = useState(false);
+  const [reason, setReason] = useState("");
+  const remandSubmitRef = useRef<HTMLButtonElement>(null);
 
   if (days.length === 0) {
     return (
@@ -97,11 +101,8 @@ export function ApprovalForm({
         </Button>
       </div>
 
-      <Textarea
-        name="reason"
-        label="差戻しの理由（差戻すときは必須。船内の本人に表示されます）"
-        minRows={2}
-      />
+      {/* 理由は差戻しの問いかけで選ぶ。ここは送信のための控え */}
+      <input type="hidden" name="reason" value={reason} />
 
       <div className="flex flex-wrap items-center gap-3">
         <Button
@@ -114,15 +115,18 @@ export function ApprovalForm({
           選択した{selected.length}日を承認する
         </Button>
         <Button
-          type="submit"
           variant="bordered"
           color="danger"
-          isLoading={pending && decision === "remanded"}
           isDisabled={selected.length === 0}
-          onPress={() => setDecision("remanded")}
+          onPress={() => {
+            setDecision("remanded");
+            setRemandOpen(true);
+          }}
         >
           差戻す
         </Button>
+        {/* 差戻しの送信ボタン。問いかけで理由を選んでから押される（画面には出さない） */}
+        <button ref={remandSubmitRef} type="submit" className="hidden" aria-hidden="true" />
         {state.message ? (
           <p className={state.ok ? "text-sm font-semibold" : "text-sm text-danger"}>
             {state.ok ? "✓ " : "✕ "}
@@ -130,6 +134,24 @@ export function ApprovalForm({
           </p>
         ) : null}
       </div>
+
+      <RemandDialog
+        open={remandOpen}
+        crewName={crewName}
+        targetLabel={`選択した ${selected.length}日`}
+        reason={reason}
+        onReasonChange={setReason}
+        onCancel={() => {
+          setRemandOpen(false);
+          setDecision("approved");
+        }}
+        onSubmit={() => {
+          setRemandOpen(false);
+          // 理由を hidden に載せてからフォームを送る
+          setTimeout(() => remandSubmitRef.current?.click(), 0);
+        }}
+        submitting={pending && decision === "remanded"}
+      />
     </form>
   );
 }

@@ -141,3 +141,29 @@ describe("S-18 削除・アーカイブ（一次記録は消えない）", () =>
     expect(log?.summary).toContain("監査ログ確認用");
   });
 });
+
+describe("船員の無効化と復元（12.3 追記型・S-18 から戻せる）", () => {
+  it("無効化すると一覧から外れ、復元すると戻る", async () => {
+    const crewSvc = await import("@/server/crew-master-service");
+    const target = ms.listCrewMasters()[0]!;
+
+    crewSvc.retireCrewMaster({ crewMemberId: target.crewMemberId, actor: ACTOR });
+    const entry = trash.recordDeletion({
+      entityKind: "船員",
+      entityId: target.crewMemberId,
+      entityLabel: target.name,
+      mode: "archive",
+      action: "退職として無効化",
+      actor: ACTOR,
+    });
+
+    // 一覧から外れる（記録そのものは残る）
+    expect(ms.listCrewMasters().some((c) => c.crewMemberId === target.crewMemberId)).toBe(false);
+    expect(ms.listCrewMasters(true).some((c) => c.crewMemberId === target.crewMemberId)).toBe(true);
+
+    // 復元すると、trash_entry だけでなく**実体の状態も**戻る（入口は1つ）
+    trash.restoreTrash(entry.id, ACTOR);
+    expect(ms.listCrewMasters().some((c) => c.crewMemberId === target.crewMemberId)).toBe(true);
+    expect(ms.crewMasterOf(target.crewMemberId)?.retiredOn).toBeUndefined();
+  });
+});

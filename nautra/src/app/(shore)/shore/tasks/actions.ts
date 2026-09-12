@@ -34,20 +34,25 @@ export async function advanceTaskAction(formData: FormData) {
 
 /**
  * 作業の取り消し。実体は消さず「削除した」跡を残す（S-18 から30日以内は復元できる）。
- * 取り消し済みの作業は `state` を完了にしたうえで一覧から外す。
+ *
+ * `mode` は扱いの区別で、記録の残りかたは変わらない（どちらも追記）。
+ * 利用者の意図——「いったん一覧から外す」のか「消す」のか——を跡に残すために持つ。
  */
-export async function deleteTaskAction(formData: FormData) {
+export async function deleteTaskAction(
+  taskId: string,
+  mode: "archive" | "delete",
+): Promise<{ ok: boolean; message: string }> {
   const guard = await requireShore("manage_manning");
-  if (!guard.ok) return;
-  const taskId = String(formData.get("taskId") ?? "");
+  if (!guard.ok) return { ok: false, message: "作業を取り消す権限がありません" };
   const task = effective("work_task").find((t) => t.id === taskId);
-  if (!task) return;
+  if (!task) return { ok: false, message: "この作業は見つかりませんでした" };
+
   recordDeletion({
     entityKind: "作業タスク",
     entityId: task.id,
     entityLabel: `${task.title}（${task.cycle ?? "臨時"}）`,
-    mode: "delete",
-    action: "タスクを削除",
+    mode,
+    action: mode === "delete" ? "タスクを削除" : "タスクを一覧から外した",
     effect:
       task.state === "todo"
         ? "完了報告のない未着手タスクでした"
@@ -56,4 +61,8 @@ export async function deleteTaskAction(formData: FormData) {
   });
   revalidatePath("/shore/tasks");
   revalidatePath("/shore/trash");
+  return {
+    ok: true,
+    message: `${task.title} を${mode === "delete" ? "削除" : "一覧から外"}しました（30日以内なら削除・アーカイブから戻せます）`,
+  };
 }

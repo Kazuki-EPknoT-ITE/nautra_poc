@@ -438,3 +438,64 @@ export function logSensitiveView(input: {
     now: input.now,
   });
 }
+
+/**
+ * 船員を無効化する（退職・登録抹消。12.3 追記型）。
+ *
+ * 削除ではなく `retiredOn` を入れた**新しい版**を配信する。過去の打刻・日次レコード・
+ * 届出はそのまま残り、一覧・配乗の候補から外れるだけになる。
+ */
+export function retireCrewMaster(input: {
+  crewMemberId: string;
+  actor: string;
+  retiredOn?: string;
+  now?: Date;
+}): CrewMasterPayload {
+  const current = crewMasterOf(input.crewMemberId);
+  if (!current) throw new Error("この船員のマスタが見つかりません。画面を開き直してください");
+  if (current.retiredOn) throw new Error("この船員はすでに無効化されています");
+
+  const now = input.now ?? new Date();
+  const retiredOn = input.retiredOn ?? todayLocal(now);
+  const published = publishMaster(
+    "crew_master",
+    { ...carryOverFields(current as unknown as Record<string, unknown>), retiredOn },
+    { supersedesId: current.id, vesselId: COMPANY_SCOPE_ID, actor: input.actor, now },
+  );
+
+  writeAuditLog({
+    action: "update",
+    entityKind: "crew_master",
+    entityId: input.crewMemberId,
+    before: "在籍",
+    after: `無効化（${retiredOn}）`,
+    actor: input.actor,
+    summary: `${current.name} を退職・無効化した`,
+    now,
+  });
+  return published;
+}
+
+/** 無効化を取り消す（S-18 からの復元）。これも追記で表す */
+export function unretireCrewMaster(crewMemberId: string, actor: string, now = new Date()): void {
+  const current = crewMasterOf(crewMemberId);
+  if (!current || !current.retiredOn) return;
+  const fields = carryOverFields(current as unknown as Record<string, unknown>);
+  delete fields.retiredOn;
+  publishMaster("crew_master", fields, {
+    supersedesId: current.id,
+    vesselId: COMPANY_SCOPE_ID,
+    actor,
+    now,
+  });
+  writeAuditLog({
+    action: "update",
+    entityKind: "crew_master",
+    entityId: crewMemberId,
+    before: `無効化（${current.retiredOn}）`,
+    after: "在籍",
+    actor,
+    summary: `${current.name} の無効化を取り消した`,
+    now,
+  });
+}

@@ -2,7 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { createCrewMaster, updateCrewMaster } from "@/server/crew-master-service";
+import { createCrewMaster, retireCrewMaster, updateCrewMaster } from "@/server/crew-master-service";
+import { crewMasterOf } from "@/server/master-service";
+import { recordDeletion } from "@/server/trash-service";
 import { hasShorePermission, requireShore } from "@/server/shore-session";
 import type { InsuranceEntry, InsuranceKind } from "@/sync-protocol/records";
 import { INSURANCE_KINDS } from "@/sync-protocol/records";
@@ -141,4 +143,46 @@ export async function createCrewMasterAction(
 
   // redirect は内部で例外を投げるため try の外で呼ぶ（catch に飲まれないようにする）
   redirect(`/shore/crew/${created}/credentials`);
+}
+
+/**
+ * S-04 船員の無効化（退職・登録抹消）。
+ *
+ * マスタは追記型なので「消す」操作は無い。`retiredOn` を入れた新しい版を配信し、
+ * あわせて S-18 の一覧に跡を残す（30日以内は戻せる）。打刻・日次レコードは
+ * 改変できないため必ず残り、消えるのは配乗・当直・未完了タスクからの紐付けだけ。
+ */
+export async function retireCrewAction(
+  crewMemberId: string,
+  mode: "archive" | "delete",
+): Promise<{ ok: boolean; message: string }> {
+  const guard = await requireShore("edit_crew_master");
+  if (!guard.ok) return { ok: false, message: "船員マスタを更新する権限がありません" };
+
+  const current = crewMasterOf(crewMemberId);
+  if (!current) return { ok: false, message: "この船員のマスタが見つかりません" };
+  if (current.retiredOn) return { ok: false, message: `${current.name} はすでに無効化されています` };
+
+  try {
+    retireCrewMaster({ crewMemberId, actor: guard.staff.id });
+    recordDeletion({
+      entityKind: "船員",
+      entityId: crewMemberId,
+      entityLabel: `${current.name}（${current.position ?? "—"}）`,
+      mode,
+      action: mode === "delete" ? "登録を削除" : "退職として無効化",
+      effect: "打刻・労務記録は保存期間5年のため残ります",
+      actor: guard.staff.id,
+    });
+    revalidatePath("/shore/crew");
+    revalidatePath(`/shore/crew/${crewMemberId}`);
+    revalidatePath("/shore/manning");
+    revalidatePath("/shore/trash");
+    return {
+      ok: true,
+      message: `${current.name} を無効化しました（30日以内なら削除・アーカイブから戻せます）`,
+    };
+  } catch (e) {
+    return { ok: false, message: e instanceof Error ? e.message : String(e) };
+  }
 }

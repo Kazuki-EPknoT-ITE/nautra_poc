@@ -8,6 +8,7 @@ import { hasShorePermission, requireShore, shoreStaffById } from "@/server/shore
 import { personName } from "@/lib/crew";
 import { ShoreGuardNotice } from "../../../_components/guard";
 import { CrewMasterForm, type CrewMasterFormValues } from "./_components/crew-master-form";
+import { RetireCrewButton } from "./_components/retire-crew";
 
 export const dynamic = "force-dynamic";
 
@@ -89,6 +90,14 @@ export default async function ShoreCrewEditPage({ params }: { params: Promise<{ 
           >
             資格・証書を登録／確認
           </Link>
+          {/* 退職・下船は「消す」ではなく無効化で扱う（デザインの削除の決まり） */}
+          {master.retiredOn ? (
+            <span className="ui-btn-ghost h-9 cursor-default opacity-60">
+              無効化済み（{master.retiredOn}）
+            </span>
+          ) : (
+            <RetireCrewButton crewMemberId={id} name={master.name} />
+          )}
         </div>
       </div>
 

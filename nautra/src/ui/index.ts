@@ -56,6 +56,7 @@ export { Section, Eyebrow } from "./section";
 export { DataTable } from "./data-table";
 export { StepBar, type Step } from "./step-bar";
 export { ConfirmDialog, DeleteDialog, FlashToast } from "./dialogs";
+export { RemandDialog, REMAND_REASONS } from "./remand-dialog";
 export { StatusChip } from "./status-chip";
 export { CrewPhoto } from "./crew-photo";
 export { SearchField } from "./search-field";

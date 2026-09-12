@@ -1,5 +1,7 @@
+import { SHORE_PLANNER_ID } from "@/lib/crew";
 import { carryOverFields } from "@/lib/master-fields";
 import { COMPANY_SCOPE_ID } from "@/lib/seed-masters";
+import { unretireCrewMaster } from "@/server/crew-master-service";
 import { effective, publishMaster, todayLocal, writeAuditLog } from "@/server/master-service";
 import type { TrashEntryPayload, TrashMode } from "@/sync-protocol/masters";
 
@@ -164,6 +166,16 @@ export function restoreTrash(entryId: string, actor?: string, now = new Date()):
     },
     { vesselId: COMPANY_SCOPE_ID, supersedesId: current.id, actor, now },
   );
+  /**
+   * 実体の側にも状態を持つ種別は、ここで元へ戻す。
+   * **復元の入口を1つにする**ため（種別ごとに別のボタンを置くと、戻したつもりで
+   * 片方だけ戻っている状態が生まれる）。作業・当直シフトは trash_entry だけで
+   * 見え方が決まるので、ここでは何もしなくてよい。
+   */
+  if (current.entityKind === "船員") {
+    unretireCrewMaster(current.entityId, actor ?? SHORE_PLANNER_ID, now);
+  }
+
   writeAuditLog({
     action: "update",
     entityKind: current.entityKind,
