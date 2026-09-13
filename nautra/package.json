@@ -4,13 +4,15 @@
   "private": true,
   "scripts": {
     "dev": "next dev -p 3100",
+    "predev": "node scripts/copy-fonts.mjs && node scripts/free-port.mjs 3100",
     "build": "next build",
+    "prebuild": "node scripts/copy-fonts.mjs",
     "start": "next start -p 3100",
+    "prestart": "node scripts/free-port.mjs 3100",
+    "stop": "node scripts/free-port.mjs 3100",
+    "preview": "npm run build && npm run start",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit",
-    "preview": "next build && next start -p 3100",
-    "predev": "node scripts/copy-fonts.mjs",
-    "prebuild": "node scripts/copy-fonts.mjs"
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@fontsource/ibm-plex-mono": "^5.3.0",

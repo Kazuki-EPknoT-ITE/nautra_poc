@@ -15,6 +15,8 @@
 
 - `npm run dev` — 開発サーバ（http://localhost:3100）。オンデマンドコンパイルのため遅い
 - `npm run preview` — 本番ビルドで起動。**デモ・体感確認はこちら**
+- `npm run stop` — 3100 を掴んでいるサーバを止める（`scripts/free-port.mjs`）。
+  `dev` / `start` は起動前に自動でこれを行うので、`EADDRINUSE` で落ちることはない
 - `npm run test` — Vitest（ドメイン・同期のテーブル駆動テスト）
 - `npm run typecheck` — tsc --noEmit
 - `npm run build` — 本番ビルド
