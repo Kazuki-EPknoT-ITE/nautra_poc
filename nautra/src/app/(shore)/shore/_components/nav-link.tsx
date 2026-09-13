@@ -12,15 +12,19 @@ import { cn } from "@/lib/cn";
  * **ブロンズの塗り**（`#917351`）で示す。`aria-current` を併記し、色が見えない環境でも
  * 現在地が伝わるようにする。
  *
- * **自動の先読みは切ってある**（`prefetch={false}`）。陸上の画面は毎回サーバで組み立てる
+ * **本番では自動の先読みを切る**（`prefetch={false}`）。陸上の画面は毎回サーバで組み立てる
  * （`force-dynamic`）ので、既定のままだとサイドバーに並ぶ 20 本すべてが画面を開くたびに
  * 先読みされ、**20 回ぶんのサーバ描画と同時接続**が走る。押したい画面の取得がその後ろに
  * 並ばされて、実測で最初の遷移が 3 秒かかっていた。
- *
  * 代わりに**狙いを定めた時点**（ポインタを載せた・キーボードで focus した）で1本だけ
- * 先読みする。人は押す前に必ずそこを通るので、体感は自動先読みと変わらないまま、
- * 要求の数が 20 → 1 になる。
+ * 先読みする。人は押す前に必ずそこを通るので、体感は変わらないまま要求が 20 → 1 になる。
+ *
+ * **開発サーバでは逆に自動の先読みを残す。** `next dev` は画面ごとにその場でコンパイルする
+ * ため、先読みがそのまま**コンパイルの前倒し**になる（押してから 2〜10 秒待つのを隠せる）。
+ * 開発サーバは自分ひとりしか使わないので、20 本ぶんの描画が走っても困らない。
+ * 本番ビルドでは事前にコンパイル済みなので、この前倒しには意味がなく害だけが残る。
  */
+const EAGER_PREFETCH = process.env.NODE_ENV === "development";
 export function NavLink({
   href,
   label,
@@ -41,7 +45,7 @@ export function NavLink({
 
   /** 同じ項目を何度もなぞっても要求は1回だけにする */
   function warm() {
-    if (warmed.current || active) return;
+    if (EAGER_PREFETCH || warmed.current || active) return;
     warmed.current = true;
     router.prefetch(href);
   }
@@ -49,7 +53,7 @@ export function NavLink({
   return (
     <Link
       href={href}
-      prefetch={false}
+      prefetch={EAGER_PREFETCH ? undefined : false}
       onMouseEnter={warm}
       onFocus={warm}
       onTouchStart={warm}

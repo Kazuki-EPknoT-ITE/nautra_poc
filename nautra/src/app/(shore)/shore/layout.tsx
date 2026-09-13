@@ -187,7 +187,7 @@ export default async function ShoreLayout({ children }: { children: ReactNode })
                 <Link
                   key={l.href}
                   href={l.href}
-                  prefetch={false}
+                  prefetch={process.env.NODE_ENV === "development" ? undefined : false}
                   className="text-foreground-700 hover:underline"
                 >
                   {l.label}
