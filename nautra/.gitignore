@@ -1,5 +1,7 @@
 node_modules/
 .next/
+# 開発サーバの出力先（next.config.mjs で本番と分けている）
+.next-dev/
 out/
 .data/
 *.tsbuildinfo
