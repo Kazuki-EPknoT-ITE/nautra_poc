@@ -17,6 +17,7 @@ export const t = {
     standby: "スタンバイ（待機）",
     maintenance: "保守整備",
     other: "その他作業",
+    rest: "休息",
   } as Record<string, string>,
 
   action: {

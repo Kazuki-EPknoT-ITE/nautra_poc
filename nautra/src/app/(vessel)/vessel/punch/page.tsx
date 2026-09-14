@@ -6,7 +6,7 @@ import { ymdLocal } from "@/domain/labor-law/evaluate";
 import { buildIntervals } from "@/domain/labor-law/intervals";
 import {
   EXCEPTIONAL_WORK_KINDS,
-  WORK_CATEGORIES,
+  PUNCH_CATEGORIES,
   type ExceptionalWorkKind,
   type WorkCategory,
 } from "@/domain/labor-law/types";
@@ -85,12 +85,6 @@ export default function PunchPage() {
   const openCategories = useMemo(
     () => new Set(openIntervals.map((iv) => iv.workCategory)),
     [openIntervals],
-  );
-
-  const assignedCategories = useMemo(() => assigned.map((a) => a.category), [assigned]);
-  const otherCategories = useMemo(
-    () => WORK_CATEGORIES.filter((c) => !assignedCategories.includes(c)),
-    [assignedCategories],
   );
 
   /** 本日の打刻（デザインの `todayRecords`）。新しい順に数件だけ出す */
@@ -174,59 +168,39 @@ export default function PunchPage() {
         </p>
       ) : null}
 
-      {/* 作業のタイル。押すと確認の問いかけが開く（2段階の1段目） */}
+      {/* 作業のタイル（デザイン正本の `punchButtons`）。押すと確認の問いかけが開く（2段階の1段目）。
+          **6種別を常に同じ大きさで出す**。割り当て外を折りたたむと、臨時の作業ほど
+          押すまでの手数が増える——揺れる船上で手数が増えるのは打刻漏れの原因になる。
+          割り当てられている種別は札で示し、どれが今日の当直かは分かるようにする。 */}
       <section aria-label="作業を打刻する" className="flex flex-col gap-2">
         <p className="m-0 text-base text-foreground-500">
           {assigned.length > 0
-            ? "本日あなたに割り当てられた当直（04 シフト）の作業です。押すと確認の画面が出ます。複数の作業を同時に進行できます。"
-            : "本日の割り当てはありません。必要な作業を選んで打刻してください。"}
+            ? "押すと確認の画面が出ます。複数の作業を同時に進行できます。「当直」の札は本日あなたに割り当てられた当直（04 シフト）です。"
+            : "本日の割り当てはありません。必要な作業を選んで打刻してください。押すと確認の画面が出ます。"}
         </p>
 
-        {assigned.length > 0 ? (
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {assigned.map((a) => (
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {PUNCH_CATEGORIES.map((category) => {
+            const source = assigned.find((a) => a.category === category);
+            return (
               <WorkTile
-                key={a.category}
-                category={a.category}
-                assignment={a.sources
-                  .map((s) => `${tr("shiftType", s.shiftType)} ${s.from}–${s.to}`)
+                key={category}
+                category={category}
+                assignment={source?.sources
+                  .map((x) => `${tr("shiftType", x.shiftType)} ${x.from}–${x.to}`)
                   .join(" / ")}
-                active={openCategories.has(a.category)}
+                active={openCategories.has(category)}
                 onSelect={() =>
                   setPending({
-                    category: a.category,
-                    action: openCategories.has(a.category) ? "end" : "start",
+                    category,
+                    action: openCategories.has(category) ? "end" : "start",
                   })
                 }
                 tr={tr}
               />
-            ))}
-          </div>
-        ) : null}
-
-        {otherCategories.length > 0 ? (
-          <details className="ui-card p-4">
-            <summary className="cursor-pointer text-lg font-semibold">
-              割り当て外の作業を打刻する（{otherCategories.length}件）
-            </summary>
-            <p className="mb-2.5 mt-2 text-base text-foreground-500">
-              臨時の作業はここから打刻できます。割り当てとの差異は 04 シフトの「計画と実績」で確認できます。
-            </p>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {otherCategories.map((c) => (
-                <WorkTile
-                  key={c}
-                  category={c}
-                  active={openCategories.has(c)}
-                  onSelect={() =>
-                    setPending({ category: c, action: openCategories.has(c) ? "end" : "start" })
-                  }
-                  tr={tr}
-                />
-              ))}
-            </div>
-          </details>
-        ) : null}
+            );
+          })}
+        </div>
       </section>
 
       {/* 本日の打刻（デザインの `todayRecords`）。押した記録がその場で並ぶ */}
@@ -372,6 +346,19 @@ export default function PunchPage() {
  * 作業タイル（2段階の1段目）。
  * 作業中は塗り＋「作業中」表示に変わり、終了すると元の見た目に戻る（色だけに依存しない）。
  */
+/**
+ * 作業種別ごとの注記（デザイン正本の `PUNCH_CATS.note`）。
+ * **労働時間に入るかどうか**をタイルの上で言い切る。押したあとに気付くのでは遅い。
+ */
+const CATEGORY_NOTE: Record<string, string> = {
+  navigation_watch: "労働時間に算入",
+  cargo: "労働時間に算入",
+  standby: "総員配置・待機も算入",
+  maintenance: "労働時間に算入",
+  other: "労働時間に算入",
+  rest: "労働時間から除外",
+};
+
 function WorkTile({
   category,
   assignment,
@@ -380,6 +367,7 @@ function WorkTile({
   tr,
 }: {
   category: WorkCategory;
+  /** 本日割り当てられた当直（割り当て外なら undefined） */
   assignment?: string;
   active: boolean;
   onSelect: () => void;
@@ -392,24 +380,29 @@ function WorkTile({
       aria-pressed={active}
       onClick={onSelect}
       className={cn(
-        "ui-card flex min-h-24 flex-col items-start justify-center gap-1 p-4 text-left",
+        "ui-card flex min-h-24 flex-col items-center justify-center gap-1 p-3.5 text-center",
         active
           ? // globals.css の材質クラスは utilities より後に定義されるため、
             // 塗りつぶしは important 付きで指定しないと .ui-card の背景に負けて
             // 「白地に白文字」になる（作業中のタイルが読めなくなる）
             "border-primary !bg-primary !text-primary-foreground"
-          : "hover:bg-content2",
+          : "border-[var(--ui-hairline-strong)] hover:bg-content2",
       )}
     >
       <span className="text-2xl font-bold leading-tight">{tr("workCategory", category)}</span>
+      <span className={cn("text-base", active ? "opacity-90" : "text-foreground-500")}>
+        {active ? "押すと終了します" : (CATEGORY_NOTE[category] ?? "")}
+      </span>
       {assignment ? (
-        <span className={cn("text-sm", active ? "opacity-90" : "text-foreground-500")}>
-          {assignment}
+        <span
+          className={cn(
+            "mt-0.5 rounded-small px-1.5 py-0.5 text-xs",
+            active ? "bg-white/20" : "bg-content2 text-foreground-500",
+          )}
+        >
+          当直 {assignment}
         </span>
       ) : null}
-      <span className={cn("text-base font-semibold", active ? "opacity-90" : "text-foreground-500")}>
-        {active ? "● 作業中（押すと終了）" : "押して開始"}
-      </span>
     </button>
   );
 }

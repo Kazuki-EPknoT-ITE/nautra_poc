@@ -47,6 +47,39 @@ function check(summary: ReturnType<typeof evaluateDaily>, key: string) {
   return c;
 }
 
+describe("休息の打刻（デザイン正本の休息タイル。3.2）", () => {
+  it("休息を打刻しても労働時間は増えない", () => {
+    const base = [
+      rec("c1", "navigation_watch", "start", DAY, "08:00"),
+      rec("c1", "navigation_watch", "end", DAY, "12:00"),
+    ];
+    const withRest = [
+      ...base,
+      rec("c1", "rest", "start", DAY, "12:00"),
+      rec("c1", "rest", "end", DAY, "18:00"),
+    ];
+    const a = evaluateDaily({ crewMemberId: "c1", date: DAY, records: base, now: NOW, ruleSet: rules });
+    const b = evaluateDaily({ crewMemberId: "c1", date: DAY, records: withRest, now: NOW, ruleSet: rules });
+    expect(a.workedMinutes).toBe(240);
+    // 休息は労働ではない。打刻しても合計も判定も動かない
+    expect(b.workedMinutes).toBe(240);
+    expect(b.level).toBe(a.level);
+  });
+
+  it("休息は作業種別ごとの内訳にも出さない", () => {
+    const records = [
+      rec("c1", "rest", "start", DAY, "00:00"),
+      rec("c1", "rest", "end", DAY, "06:00"),
+      rec("c1", "cargo", "start", DAY, "06:00"),
+      rec("c1", "cargo", "end", DAY, "09:00"),
+    ];
+    const s = evaluateDaily({ crewMemberId: "c1", date: DAY, records, now: NOW, ruleSet: rules });
+    expect(s.workedByCategory.rest).toBeUndefined();
+    expect(s.workedByCategory.cargo).toBe(180);
+    expect(s.workedMinutes).toBe(180);
+  });
+});
+
 describe("労働時間上限（1日14時間・要件定義書 3.2.5 ①）", () => {
   it("1日の労働時間が14時間を超えると警告（赤）", () => {
     const records = [

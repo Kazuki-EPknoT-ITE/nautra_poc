@@ -45,6 +45,8 @@ const workCategorySchema = z.enum([
   "standby",
   "maintenance",
   "other",
+  // 休息は労働時間に数えないが、打刻としては積む（domain/labor-law/types.ts の countsAsWork）
+  "rest",
 ]);
 
 export const timeRecordPayloadSchema = z

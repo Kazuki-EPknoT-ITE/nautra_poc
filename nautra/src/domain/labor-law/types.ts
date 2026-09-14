@@ -4,14 +4,22 @@
  * LaborRuleSet として引数で受け取る（ガードレール⑪ / 基本設計書 5.3(6)）。
  */
 
-/** 作業種別（国交省ガイドライン準拠。要件定義書 3.2） */
+/**
+ * 作業種別（国交省ガイドライン準拠。要件定義書 3.2 / デザイン正本 `PUNCH_CATS`）。
+ *
+ * `rest`（休息）だけは**労働時間に数えない**。打刻できる種別に含めてあるのは、
+ * 「休んだ」ことを本人が明示できるようにするため（船員法は休息時間の記録を求める）。
+ * 休息時間そのものは従来どおり**労働していない時間**から導く（二重に数えない）。
+ */
 export type WorkCategory =
   | "navigation_watch"
   | "cargo"
   | "standby"
   | "maintenance"
-  | "other";
+  | "other"
+  | "rest";
 
+/** 労働時間として数える種別（判定・集計はこれだけを見る） */
 export const WORK_CATEGORIES: WorkCategory[] = [
   "navigation_watch",
   "cargo",
@@ -19,6 +27,14 @@ export const WORK_CATEGORIES: WorkCategory[] = [
   "maintenance",
   "other",
 ];
+
+/** 打刻できる種別（休息を含む。画面のタイルはこの並び） */
+export const PUNCH_CATEGORIES: WorkCategory[] = [...WORK_CATEGORIES, "rest"];
+
+/** 労働時間に数える種別か（判定の分岐はこの関数だけを通す） */
+export function countsAsWork(category: WorkCategory): boolean {
+  return category !== "rest";
+}
 
 export type PunchAction = "start" | "end";
 
