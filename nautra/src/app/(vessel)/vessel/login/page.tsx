@@ -1,17 +1,11 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
-import { isBiometricAvailable, registerBiometric } from "@/lib/biometric-auth";
+import { useEffect, useState } from "react";
 import { cn } from "@/lib/cn";
 import { CREW_MEMBERS, type CrewMember } from "@/lib/crew";
 import { useSessionCrew } from "@/lib/vessel-hooks";
-import {
-  getBiometricCredentialId,
-  saveBiometricCredentialId,
-  signIn,
-  signInWithBiometric,
-} from "@/lib/vessel-session";
+import { signIn } from "@/lib/vessel-session";
 import { CrewPickerGrid, LoginCard, PinDots } from "./_components/login-body";
 
 const PIN_LENGTH = 4;
@@ -21,12 +15,13 @@ const KEYS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "clear", "0", "back"]
 /**
  * 船内サインイン（基本設計書 11.3 / デザイン正本 `design/poc_design` の `showSignIn`）。
  *
- * 共用端末での本人特定は「船員を顔写真リストから選択 + PIN」方式とし、個人のクラウド
- * セッションに依存させない。セッションは端末内にのみ保持するため、通信断でも成立する。
- * サインインしたロールに応じて、以降の画面の表示・操作可能範囲が変わる（11.2）。
+ * 共用端末での本人特定は「船員を顔写真リストから選択 + PIN」。セッションは端末内にのみ
+ * 保持するため、通信断でも成立する。サインインしたロールに応じて、以降の画面の
+ * 表示・操作可能範囲が変わる（11.2）。
  *
- * 版組はデザインの実測どおり: 760px の中央寄せ、左に選択・右に 356px の PIN 欄。
- * 手順に番号を振り、顔認証を登録している人は「1→2 顔認証→3 PIN」と数字が繰り上がる。
+ * 版組はデザインの実測どおり: 760px の中央寄せ、左に「1. ユーザーを選択」・
+ * 右に 356px の「2. PIN（4桁）を入力」。画面の説明文は置かない（手順の番号と
+ * PIN 欄の案内だけで足りる）。
  */
 export default function VesselLoginPage() {
   const router = useRouter();
@@ -37,79 +32,11 @@ export default function VesselLoginPage() {
   const [pin, setPin] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  /** 端末が顔・指紋に対応しているか（未判定は null） */
-  const [bioAvailable, setBioAvailable] = useState<boolean | null>(null);
-  /** 選んだ船員がこの端末に生体を登録済みか */
-  const [bioRegistered, setBioRegistered] = useState(false);
-  const [bioNotice, setBioNotice] = useState<string | null>(null);
 
-  // サインイン済みならメニューへ
+  // サインイン済みならホームへ
   useEffect(() => {
     if (session) router.replace("/vessel");
   }, [session, router]);
-
-  // 端末の対応状況は一度だけ調べる（対応していなければ生体の導線を出さない）
-  useEffect(() => {
-    let alive = true;
-    void isBiometricAvailable().then((ok) => {
-      if (alive) setBioAvailable(ok);
-    });
-    return () => {
-      alive = false;
-    };
-  }, []);
-
-  // 選んだ船員の登録状況を読む（登録済みなら「顔認証でサインイン」を出す）
-  useEffect(() => {
-    let alive = true;
-    if (!selected) {
-      setBioRegistered(false);
-      return;
-    }
-    void getBiometricCredentialId(selected.id).then((id) => {
-      if (alive) setBioRegistered(Boolean(id));
-    });
-    return () => {
-      alive = false;
-    };
-  }, [selected]);
-
-  /** 顔・指紋でサインインする（端末が本人確認し、生体情報は端末から出ない） */
-  const submitBiometric = useCallback(async () => {
-    if (!selected) return;
-    setBusy(true);
-    setError(null);
-    try {
-      const result = await signInWithBiometric(selected.id);
-      if (result.ok) router.replace("/vessel");
-      else setError(result.error ?? "確認できませんでした");
-    } finally {
-      setBusy(false);
-    }
-  }, [selected, router]);
-
-  /** この端末に顔・指紋を登録する（登録後も PIN は使えるままにする） */
-  async function register() {
-    if (!selected) return;
-    setBusy(true);
-    setError(null);
-    setBioNotice(null);
-    try {
-      const result = await registerBiometric({
-        crewMemberId: selected.id,
-        crewName: selected.name,
-      });
-      if (result.ok && result.credentialId) {
-        await saveBiometricCredentialId(selected.id, result.credentialId);
-        setBioRegistered(true);
-        setBioNotice("この端末に登録しました。次からは顔認証でサインインできます。");
-      } else {
-        setError(result.error ?? "登録できませんでした");
-      }
-    } finally {
-      setBusy(false);
-    }
-  }
 
   async function submit(nextPin: string) {
     if (!selected) return;
@@ -141,9 +68,6 @@ export default function VesselLoginPage() {
 
   /** デザインの `pinDemoHint`（区切りは全角スラッシュ） */
   const demoPins = CREW_MEMBERS.map((c) => `${c.name.split(" ")[0]} ${c.demoPin}`).join(" ／ ");
-  /** 顔認証を登録している人は手順が1つ増えるので、PIN は 3 番目になる */
-  const showBio = Boolean(bioAvailable && selected);
-  const pinStepLabel = `${showBio && bioRegistered ? "3" : "2"}. PIN（4桁）を入力`;
 
   return (
     <div className="mx-auto flex max-w-[760px] flex-col gap-3.5">
@@ -162,54 +86,19 @@ export default function VesselLoginPage() {
       ) : null}
 
       <div className="grid items-start gap-3.5 lg:grid-cols-[minmax(0,1fr)_356px]">
-        <div className="flex flex-col gap-3.5">
-          <LoginCard title="1. ユーザーを選択">
-            <CrewPickerGrid
-              selectedId={selected?.id ?? null}
-              onSelect={(c) => {
-                setSelected(c);
-                setPin("");
-                setError(null);
-              }}
-            />
-          </LoginCard>
-
-          {/* 顔認証（3.2.1 の認証方式の選択制）。対応端末で船員を選んだときだけ出す。
-              登録済みなら1タップでサインインでき、未登録ならここから登録できる */}
-          {showBio && selected ? (
-            <LoginCard title={bioRegistered ? "2. 顔認証でサインイン" : "顔認証を使う（任意）"}>
-              <div className="flex flex-col items-start gap-3">
-                {/* 幅は内容ぶんだけにする（デザイン正本の `bioBtnStyle`）。
-                    カード幅いっぱいに伸ばすと、右の PIN と同じ重さの操作に見えてしまう */}
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() => (bioRegistered ? void submitBiometric() : void register())}
-                  className={cn(
-                    "min-h-14 rounded-small border px-6 text-xl font-bold transition-colors disabled:opacity-45",
-                    bioRegistered
-                      ? "border-primary bg-primary text-primary-foreground"
-                      : "border-[#333333] bg-content1 text-foreground-800 hover:bg-content2",
-                  )}
-                >
-                  {bioRegistered ? `${selected.name} として顔認証で入る` : "この端末に顔を登録する"}
-                </button>
-                <p className="m-0 text-base text-foreground-500">
-                  {bioRegistered
-                    ? "うまくいかないときは、PIN でサインインできます。"
-                    : "登録すると、次から PIN を打たずに入れます。登録後も PIN は使えます。"}
-                </p>
-                {bioNotice ? <p className="m-0 text-base font-semibold">✓ {bioNotice}</p> : null}
-                <p className="m-0 text-sm text-foreground-500">
-                  顔・指紋の情報はこの端末の中だけで照合され、アプリにも陸上にも送られません。
-                </p>
-              </div>
-            </LoginCard>
-          ) : null}
-        </div>
+        <LoginCard title="1. ユーザーを選択">
+          <CrewPickerGrid
+            selectedId={selected?.id ?? null}
+            onSelect={(c) => {
+              setSelected(c);
+              setPin("");
+              setError(null);
+            }}
+          />
+        </LoginCard>
 
         <div className="ui-card flex flex-col items-center px-[18px] pb-[18px] pt-4">
-          <h2 className="m-0 self-start text-xl font-bold text-foreground-900">{pinStepLabel}</h2>
+          <h2 className="m-0 self-start text-xl font-bold text-foreground-900">2. PIN（4桁）を入力</h2>
 
           <div className="mt-3">
             <PinDots
