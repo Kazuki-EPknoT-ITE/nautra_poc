@@ -235,6 +235,18 @@ check(
   await s.goto(`${BASE}/shore/crew`, { waitUntil: "networkidle" });
   const imgCount = await s.locator('main img[alt$="の顔写真"]').count();
   check("陸上: 登録した顔写真が一覧にも出る", imgCount > 0, `写真 ${imgCount}枚`);
+
+  // 試験で入れた画像はデモの紙面に残さない（船内サインインの顔写真欄に灰色の板が出てしまう）。
+  // 「写真を外す」まで通すことで、取り外しの経路もここで確かめられる。
+  await s.goto(`${BASE}/shore/crew/crew-terada/edit`, { waitUntil: "networkidle" });
+  await s.getByRole("button", { name: "写真を外す" }).click();
+  await s.waitForTimeout(1500);
+  const removedText = await s.locator("main").innerText();
+  check(
+    "陸上: 顔写真を外せる（試験で入れた画像を片付ける）",
+    /顔写真を外しました|顔写真は変わっていません/.test(removedText),
+    removedText.match(/✓[^\n]{0,40}/)?.[0] ?? "",
+  );
 }
 
 // S-15 → サインイン: 招待したアカウントが実在し、招待コードで登録して入れる

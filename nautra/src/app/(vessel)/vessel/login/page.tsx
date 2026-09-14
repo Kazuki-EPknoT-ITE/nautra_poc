@@ -179,12 +179,14 @@ export default function VesselLoginPage() {
           {showBio && selected ? (
             <LoginCard title={bioRegistered ? "2. 顔認証でサインイン" : "顔認証を使う（任意）"}>
               <div className="flex flex-col items-start gap-3">
+                {/* 幅は内容ぶんだけにする（デザイン正本の `bioBtnStyle`）。
+                    カード幅いっぱいに伸ばすと、右の PIN と同じ重さの操作に見えてしまう */}
                 <button
                   type="button"
                   disabled={busy}
                   onClick={() => (bioRegistered ? void submitBiometric() : void register())}
                   className={cn(
-                    "min-h-14 w-full rounded-small border px-6 text-xl font-bold transition-colors disabled:opacity-45",
+                    "min-h-14 rounded-small border px-6 text-xl font-bold transition-colors disabled:opacity-45",
                     bioRegistered
                       ? "border-primary bg-primary text-primary-foreground"
                       : "border-[#333333] bg-content1 text-foreground-800 hover:bg-content2",
@@ -218,6 +220,8 @@ export default function VesselLoginPage() {
             />
           </div>
 
+          {/* 案内は1行ぶんの高さを常に確保する（出たり消えたりで枡が動かないように）。
+              打ち始めたら消す——数字を追うのに文章は邪魔になる（デザイン正本の `pinMessage`） */}
           <p
             className={cn(
               "m-0 mt-3 min-h-[22px] text-center text-lg",
@@ -229,7 +233,9 @@ export default function VesselLoginPage() {
               ? `✕ ${error}`
               : !selected
                 ? "先に自分を選んでください。"
-                : "4桁目を入力すると自動で照合します。"}
+                : pin.length === 0
+                  ? `${selected.name} として、4桁のPINを入力してください`
+                  : ""}
           </p>
 
           {/* 数字はブロンズの塗り＋等幅、消す系は白地。押す対象の主従を塗りで分ける */}
