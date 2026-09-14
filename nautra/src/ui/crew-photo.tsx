@@ -10,6 +10,20 @@ import { cn } from "@/lib/cn";
  * 「壊れている」と読まれ、写真を入れる操作にもたどり着けないため。
  */
 const SIZES = {
+  /**
+   * 船内サインインの選択肢（デザイン正本の `showSignIn`）。
+   * ここだけ**角を立てて濃いヘアライン**にする。押して選ぶ対象なので、
+   * 丸い枠だと「写真の表示」に見えてボタンだと分かりにくいため。
+   */
+  login: {
+    w: 48,
+    h: 58,
+    radius: 0,
+    initial: "text-[18px]",
+    mark: "text-[8px]",
+    border: "border-[var(--ui-hairline-strong)]",
+    gap: "gap-0.5",
+  },
   /** 作業タスクのカード */
   xs: { w: 44, h: 54, radius: 12, initial: "text-lg", mark: "text-[8px]" },
   /** 配乗ボード・シフトボードのカード */
@@ -37,11 +51,21 @@ export function CrewPhoto({
   size?: keyof typeof SIZES;
   className?: string;
 }) {
-  const s = SIZES[size];
+  const s: {
+    w: number;
+    h: number;
+    radius: number;
+    initial: string;
+    mark: string;
+    border?: string;
+    gap?: string;
+  } = SIZES[size];
   return (
     <span
       className={cn(
-        "flex flex-none flex-col items-center justify-center gap-0.5 overflow-hidden border border-[var(--ui-hairline)] bg-[#DFE1E0]",
+        "flex flex-none flex-col items-center justify-center overflow-hidden border bg-[#DFE1E0]",
+        s.gap ?? "gap-0.5",
+        s.border ?? "border-[var(--ui-hairline)]",
         className,
       )}
       style={{ width: s.w, height: s.h, borderRadius: s.radius }}

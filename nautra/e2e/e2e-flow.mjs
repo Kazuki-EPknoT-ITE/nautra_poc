@@ -218,7 +218,9 @@ check(
   // 色を毎回変えるのは、同じ画像だと「変わっていません」で保存が省かれるため
   // （押しただけで版が増えない作りなので、試験のほうを変える）。
   const photoPath = join(tmpdir(), "nautra-e2e-photo.png");
-  writeFileSync(photoPath, makePng(Date.now() & 0xff, (Date.now() >> 8) & 0xff, 0x40));
+  // 無彩色にする。原色を入れるとデモの紙面に試験の跡が派手に残るため（明度だけ毎回変える）
+  const tone = 0x50 + (Date.now() % 0x60);
+  writeFileSync(photoPath, makePng(tone, tone, tone));
 
   await s.goto(`${BASE}/shore/crew/crew-terada/edit`, { waitUntil: "networkidle" });
   await s.setInputFiles('input[type="file"]', photoPath);

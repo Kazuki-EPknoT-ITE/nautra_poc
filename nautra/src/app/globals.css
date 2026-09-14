@@ -65,6 +65,8 @@
   --accent-deep: #6f5638;
   --accent-soft: #99877d;
   --accent-bg: #efe9e1;
+  /* 選んでいる最中の下地（船内サインインの船員カード）。注意の下地より一段淡い */
+  --accent-bg-soft: #f6f1eb;
   --alert: #9b2a1e;
   --alert-bg: #f2e2df;
 
@@ -111,6 +113,10 @@ html {
 
 .vessel .text-base {
   font-size: 15px;
+}
+
+.vessel .text-3xl {
+  font-size: 24px;
 }
 
 /* --------------------------------------------------------------------------

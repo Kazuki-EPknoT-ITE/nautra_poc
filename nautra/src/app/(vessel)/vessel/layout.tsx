@@ -166,8 +166,9 @@ export default function VesselLayout({ children }: { children: ReactNode }) {
       <header className="ui-bar flex flex-none flex-wrap items-center justify-between gap-4 px-5 py-3">
         <div className="flex min-w-0 items-center gap-3">
           <Link href="/vessel" className="flex min-w-0 items-baseline gap-3">
-            <span className="text-2xl font-bold text-foreground-900">{PRODUCT_NAME}</span>
-            <span className="truncate text-lg text-foreground-700">{DEMO_VESSEL.name}</span>
+            {/* デザイン実測: 製品名 19px / 船名 15px */}
+            <span className="text-[19px] font-bold leading-tight text-foreground-900">{PRODUCT_NAME}</span>
+            <span className="truncate text-base text-foreground-700">{DEMO_VESSEL.name}</span>
           </Link>
         </div>
         <div className="flex items-center gap-2.5">

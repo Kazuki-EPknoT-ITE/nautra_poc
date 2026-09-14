@@ -15,13 +15,18 @@ import {
 import { CrewPickerGrid, LoginCard, PinDots } from "./_components/login-body";
 
 const PIN_LENGTH = 4;
+/** デザインの `pinKeys`（数字 → クリア → 0 → 消す の 3×4） */
 const KEYS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "clear", "0", "back"] as const;
 
 /**
- * 船内サインイン（基本設計書 11.3）。
+ * 船内サインイン（基本設計書 11.3 / デザイン正本 `design/poc_design` の `showSignIn`）。
+ *
  * 共用端末での本人特定は「船員を顔写真リストから選択 + PIN」方式とし、個人のクラウド
  * セッションに依存させない。セッションは端末内にのみ保持するため、通信断でも成立する。
  * サインインしたロールに応じて、以降の画面の表示・操作可能範囲が変わる（11.2）。
+ *
+ * 版組はデザインの実測どおり: 760px の中央寄せ、左に選択・右に 356px の PIN 欄。
+ * 手順に番号を振り、顔認証を登録している人は「1→2 顔認証→3 PIN」と数字が繰り上がる。
  */
 export default function VesselLoginPage() {
   const router = useRouter();
@@ -54,7 +59,7 @@ export default function VesselLoginPage() {
     };
   }, []);
 
-  // 選んだ船員の登録状況を読む（登録済みなら「顔・指紋でサインイン」を出す）
+  // 選んだ船員の登録状況を読む（登録済みなら「顔認証でサインイン」を出す）
   useEffect(() => {
     let alive = true;
     if (!selected) {
@@ -97,7 +102,7 @@ export default function VesselLoginPage() {
       if (result.ok && result.credentialId) {
         await saveBiometricCredentialId(selected.id, result.credentialId);
         setBioRegistered(true);
-        setBioNotice("この端末に登録しました。次からは顔・指紋でサインインできます。");
+        setBioNotice("この端末に登録しました。次からは顔認証でサインインできます。");
       } else {
         setError(result.error ?? "登録できませんでした");
       }
@@ -134,15 +139,19 @@ export default function VesselLoginPage() {
     });
   }
 
-  const demoPins = CREW_MEMBERS.map((c) => `${c.name.split(" ")[0]} ${c.demoPin}`).join(" / ");
+  /** デザインの `pinDemoHint`（区切りは全角スラッシュ） */
+  const demoPins = CREW_MEMBERS.map((c) => `${c.name.split(" ")[0]} ${c.demoPin}`).join(" ／ ");
+  /** 顔認証を登録している人は手順が1つ増えるので、PIN は 3 番目になる */
+  const showBio = Boolean(bioAvailable && selected);
+  const pinStepLabel = `${showBio && bioRegistered ? "3" : "2"}. PIN（4桁）を入力`;
 
   return (
-    <div className="mx-auto flex max-w-[900px] flex-col gap-3.5">
+    <div className="mx-auto flex max-w-[760px] flex-col gap-3.5">
       <h1 className="m-0 text-3xl font-bold text-foreground-900">サインイン</h1>
 
       {/* 放置で自動サインアウトしたときは、故障と間違われないよう理由を出す */}
       {idle ? (
-        <p className="m-0 rounded-small bg-warning-100 px-4 py-3 text-lg leading-relaxed text-foreground-700">
+        <p className="m-0 rounded-small bg-[color:var(--accent-bg)] px-[15px] py-[13px] text-base leading-[1.7] text-foreground-700">
           <span aria-hidden="true">⏱ </span>
           しばらく操作がなかったため、サインアウトしました。
           <span className="text-foreground-500">
@@ -165,40 +174,29 @@ export default function VesselLoginPage() {
             />
           </LoginCard>
 
-          {/* 生体認証（3.2.1 の認証方式の選択制）。対応端末でのみ出す。
-              登録済みなら1タップでサインインでき、未登録なら PIN のあとで登録できる */}
-          {bioAvailable && selected ? (
-            <LoginCard title={bioRegistered ? "顔・指紋でサインイン" : "顔・指紋を使う（任意）"}>
+          {/* 顔認証（3.2.1 の認証方式の選択制）。対応端末で船員を選んだときだけ出す。
+              登録済みなら1タップでサインインでき、未登録ならここから登録できる */}
+          {showBio && selected ? (
+            <LoginCard title={bioRegistered ? "2. 顔認証でサインイン" : "顔認証を使う（任意）"}>
               <div className="flex flex-col items-start gap-3">
-                {bioRegistered ? (
-                  <>
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={() => void submitBiometric()}
-                      className="ui-btn-primary min-h-14 w-full text-xl"
-                    >
-                      {selected.name} として顔・指紋で入る
-                    </button>
-                    <p className="m-0 text-base text-foreground-500">
-                      うまくいかないときは、右の PIN でサインインできます。
-                    </p>
-                  </>
-                ) : (
-                  <>
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={() => void register()}
-                      className="ui-btn-ghost min-h-14 w-full text-lg"
-                    >
-                      この端末に顔・指紋を登録する
-                    </button>
-                    <p className="m-0 text-base text-foreground-500">
-                      登録すると、次から PIN を打たずに入れます。登録後も PIN は使えます。
-                    </p>
-                  </>
-                )}
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => (bioRegistered ? void submitBiometric() : void register())}
+                  className={cn(
+                    "min-h-14 w-full rounded-small border px-6 text-xl font-bold transition-colors disabled:opacity-45",
+                    bioRegistered
+                      ? "border-primary bg-primary text-primary-foreground"
+                      : "border-[#333333] bg-content1 text-foreground-800 hover:bg-content2",
+                  )}
+                >
+                  {bioRegistered ? `${selected.name} として顔認証で入る` : "この端末に顔を登録する"}
+                </button>
+                <p className="m-0 text-base text-foreground-500">
+                  {bioRegistered
+                    ? "うまくいかないときは、PIN でサインインできます。"
+                    : "登録すると、次から PIN を打たずに入れます。登録後も PIN は使えます。"}
+                </p>
                 {bioNotice ? <p className="m-0 text-base font-semibold">✓ {bioNotice}</p> : null}
                 <p className="m-0 text-sm text-foreground-500">
                   顔・指紋の情報はこの端末の中だけで照合され、アプリにも陸上にも送られません。
@@ -208,13 +206,22 @@ export default function VesselLoginPage() {
           ) : null}
         </div>
 
-        <LoginCard title={selected ? `2. ${selected.name} さんの PIN（4桁）` : "2. PIN（4桁）を入力"}>
-          <PinDots filled={pin.length} length={PIN_LENGTH} />
+        <div className="ui-card flex flex-col items-center px-[18px] pb-[18px] pt-4">
+          <h2 className="m-0 self-start text-xl font-bold text-foreground-900">{pinStepLabel}</h2>
+
+          <div className="mt-3">
+            <PinDots
+              filled={pin.length}
+              length={PIN_LENGTH}
+              error={Boolean(error)}
+              active={Boolean(selected)}
+            />
+          </div>
 
           <p
             className={cn(
-              "m-0 mt-3 text-center text-base",
-              error ? "font-semibold text-danger" : "text-foreground-500",
+              "m-0 mt-3 min-h-[22px] text-center text-lg",
+              error ? "font-bold text-danger" : "text-foreground-500",
             )}
             aria-live="polite"
           >
@@ -225,38 +232,35 @@ export default function VesselLoginPage() {
                 : "4桁目を入力すると自動で照合します。"}
           </p>
 
+          {/* 数字はブロンズの塗り＋等幅、消す系は白地。押す対象の主従を塗りで分ける */}
           <div className="mt-2.5 grid w-full grid-cols-3 gap-2">
-            {KEYS.map((k) => (
-              <button
-                key={k}
-                type="button"
-                disabled={!selected || busy}
-                aria-label={k === "clear" ? "クリア" : k === "back" ? "1文字消す" : k}
-                onClick={() => press(k)}
-                className={cn(
-                  "min-h-[60px] rounded-small border text-2xl font-bold transition-colors disabled:opacity-45",
-                  k === "clear" || k === "back"
-                    ? "border-[var(--ui-hairline-strong)] bg-content1 text-lg text-foreground-700"
-                    : "border-[var(--ui-hairline-strong)] bg-content1 text-foreground-900 hover:bg-content2",
-                )}
-              >
-                {k === "clear" ? "クリア" : k === "back" ? "← 消す" : k}
-              </button>
-            ))}
+            {KEYS.map((k) => {
+              const isNum = k !== "clear" && k !== "back";
+              return (
+                <button
+                  key={k}
+                  type="button"
+                  disabled={!selected || busy}
+                  aria-label={k === "clear" ? "クリア" : k === "back" ? "1文字消す" : k}
+                  onClick={() => press(k)}
+                  className={cn(
+                    "min-h-[60px] rounded-small border transition-colors disabled:opacity-50",
+                    isNum
+                      ? "border-primary bg-primary font-mono text-[24px] font-semibold text-primary-foreground hover:bg-primary-600"
+                      : "border-[var(--ui-hairline-strong)] bg-content1 text-base font-medium text-foreground-800 hover:bg-content2",
+                  )}
+                >
+                  {k === "clear" ? "クリア" : k === "back" ? "← 消す" : k}
+                </button>
+              );
+            })}
           </div>
 
-          <p className="m-0 mt-3 text-center font-mono text-sm leading-relaxed text-foreground-500">
+          <p className="m-0 mt-3 text-center font-mono text-xs leading-relaxed text-foreground-500">
             デモ用 PIN: {demoPins}
           </p>
-        </LoginCard>
+        </div>
       </div>
-
-      <p className="text-pretty text-sm text-foreground-500">
-        共用端末での本人特定は「顔写真リストから選択 + PIN」方式です（基本設計書 11.3）。
-        PIN は船員ごとに違い、4桁目の入力で自動照合します。端末が対応していれば、顔・指紋での
-        本人確認も選べます（要件定義書 3.2.1 の認証方式は運用に応じて選べる方針。IC カードは本番で追加）。
-        セッションは端末内にのみ保持され、通信断でもサインイン・記録ができます。
-      </p>
     </div>
   );
 }

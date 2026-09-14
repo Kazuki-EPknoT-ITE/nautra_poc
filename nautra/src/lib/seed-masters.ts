@@ -1767,10 +1767,12 @@ function crewPhotoSeed(today: string): SyncEvent[] {
   const t = at9(addDays(today, -58));
   const rows: CrewPhotoPayload[] = (
     [
+      // 乗船中の4人のうち2人だけに付ける。残り2人は「頭文字と PHOTO の印」が出る状態を
+      // サインイン画面でそのまま確認できるようにする（デザイン正本の `showSignIn`）
       ["crew-takamatsu", "#917351"],
       ["crew-nakahara", "#6F5638"],
-      ["crew-terada", "#99877D"],
-      ["crew-oshiro", "#8A7462"],
+      ["crew-taira", "#99877D"],
+      ["crew-morishita", "#8A7462"],
     ] as [string, string][]
   ).map(([crewMemberId, tone]) => {
     const dataUrl = silhouette(tone);
