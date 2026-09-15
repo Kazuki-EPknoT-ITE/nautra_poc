@@ -1,11 +1,12 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { cn } from "@/lib/cn";
 import { CREW_MEMBERS, type CrewMember } from "@/lib/crew";
 import { useSessionCrew } from "@/lib/vessel-hooks";
 import { signIn } from "@/lib/vessel-session";
+import { FlashToast } from "@/ui";
 import { CrewPickerGrid, LoginCard, PinDots } from "./_components/login-body";
 
 const PIN_LENGTH = 4;
@@ -22,6 +23,11 @@ const KEYS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "clear", "0", "back"]
  * 版組はデザインの実測どおり: 760px の中央寄せ、左に「1. ユーザーを選択」・
  * 右に 356px の「2. PIN（4桁）を入力」。画面の説明文は置かない（手順の番号と
  * PIN 欄の案内だけで足りる）。
+ *
+ * 船員を選ぶと左に「顔認証を使う（任意）」の欄が出る（デザイン正本の `bioVisible`）。
+ * **本番は iPad のカメラによる顔認証だけでサインインできるようにする予定**で、いまは
+ * デザイン上の欄だけを置いている。押しても PIN を飛ばしてサインインはさせない
+ * （照合の仕組みが無いまま通すと、誰でも他人として入れてしまうため）。指紋は扱わない。
  */
 export default function VesselLoginPage() {
   const router = useRouter();
@@ -32,6 +38,8 @@ export default function VesselLoginPage() {
   const [pin, setPin] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [flash, setFlash] = useState<string | null>(null);
+  const clearFlash = useCallback(() => setFlash(null), []);
 
   // サインイン済みならホームへ
   useEffect(() => {
@@ -86,16 +94,34 @@ export default function VesselLoginPage() {
       ) : null}
 
       <div className="grid items-start gap-3.5 lg:grid-cols-[minmax(0,1fr)_356px]">
-        <LoginCard title="1. ユーザーを選択">
-          <CrewPickerGrid
-            selectedId={selected?.id ?? null}
-            onSelect={(c) => {
-              setSelected(c);
-              setPin("");
-              setError(null);
-            }}
-          />
-        </LoginCard>
+        <div className="flex flex-col gap-3.5">
+          <LoginCard title="1. ユーザーを選択">
+            <CrewPickerGrid
+              selectedId={selected?.id ?? null}
+              onSelect={(c) => {
+                setSelected(c);
+                setPin("");
+                setError(null);
+              }}
+            />
+          </LoginCard>
+
+          {/* 顔認証（デザイン正本の bioVisible / bioBtnStyle）。本番は iPad のカメラで照合する予定で、
+              いまは欄だけ。幅は内容ぶん（カード幅いっぱいにすると PIN と同じ重さの操作に見える） */}
+          {selected ? (
+            <LoginCard title="顔認証を使う（任意）">
+              <button
+                type="button"
+                onClick={() =>
+                  setFlash("顔認証は本番で iPad のカメラに対応します。いまは PIN でサインインしてください。")
+                }
+                className="min-h-14 rounded-small border border-[#333333] bg-content1 px-6 text-xl font-bold text-foreground-800 transition-colors hover:bg-content2"
+              >
+                この端末に顔を登録する
+              </button>
+            </LoginCard>
+          ) : null}
+        </div>
 
         <div className="ui-card flex flex-col items-center px-[18px] pb-[18px] pt-4">
           <h2 className="m-0 self-start text-xl font-bold text-foreground-900">2. PIN（4桁）を入力</h2>
@@ -156,6 +182,8 @@ export default function VesselLoginPage() {
           </p>
         </div>
       </div>
+
+      <FlashToast message={flash} onDone={clearFlash} />
     </div>
   );
 }
