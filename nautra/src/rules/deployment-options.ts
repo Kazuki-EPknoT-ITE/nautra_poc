@@ -13,7 +13,11 @@
  * どれを選んでも **打刻者が記録に残る**ことは共通で、そこは方式で変えない。
  */
 
-export type PunchAuthMethodId = "display_only" | "pin" | "ic_card" | "biometric";
+/**
+ * 生体認証（指紋・顔）は**選択肢に入れない**（利用者の判断で外した）。
+ * 要件定義書は「生体」も選べる方式に挙げているが、この製品では扱わない。
+ */
+export type PunchAuthMethodId = "display_only" | "pin" | "ic_card";
 
 export interface PunchAuthMethod {
   id: PunchAuthMethodId;
@@ -56,17 +60,6 @@ export const PUNCH_AUTH_METHODS: PunchAuthMethod[] = [
     needsHardware: true,
     availableInPoc: false,
     note: "カードリーダー（NFC）が要る。本番では WebNFC / 専用リーダーのアダプタとして実装する。",
-  },
-  {
-    id: "biometric",
-    label: "生体認証（指紋・顔）",
-    suitedFor: "取り違えを確実に防ぎたい運用",
-    strength: "high",
-    needsHardware: true,
-    availableInPoc: false,
-    note:
-      "端末の生体認証（WebAuthn / プラットフォーム認証器）を使う。生体情報は端末内に留まり、" +
-      "サーバへは送らない（個人情報保護法上の要配慮情報を持たない設計）。",
   },
 ];
 

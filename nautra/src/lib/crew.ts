@@ -29,7 +29,7 @@ export interface CrewMember {
   /**
    * 船内共用端末のサインイン用 PIN（基本設計書 11.3「顔写真リストから選択+任意で PIN」）。
    * **船員ごとに異なる**値を持たせ、4桁目の入力で自動照合する（デザイン正本）。
-   * PoC のデモ値。本番は Supabase Auth / IC カード / WebAuthn 等を運用選択制で用いる。
+   * PoC のデモ値。本番は Supabase Auth / IC カード等を運用選択制で用いる。
    */
   demoPin: string;
 }
