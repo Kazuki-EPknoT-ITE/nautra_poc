@@ -13,6 +13,14 @@ const nextConfig = {
    * 設定してから設定ファイルを読むので、この分岐でそれぞれの出力先になる。
    */
   distDir: process.env.NODE_ENV === "development" ? ".next-dev" : ".next",
+  /**
+   * ビルドごとに変わる識別子。Service Worker の登録先 `/sw.js?v=<これ>` に付け、
+   * ビルドし直したら古いキャッシュが確実に捨てられるようにする（public/sw.js）。
+   * クライアントの JS にはビルド時の値が埋め込まれる。
+   */
+  env: {
+    NEXT_PUBLIC_BUILD_ID: process.env.NEXT_PUBLIC_BUILD_ID ?? `${Date.now().toString(36)}`,
+  },
   reactStrictMode: true,
   experimental: {
     /**
