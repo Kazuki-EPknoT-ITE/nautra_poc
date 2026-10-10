@@ -12,6 +12,7 @@
 const SCREEN_META: [pattern: string, title: string][] = [
   ["/shore/crew/:id/credentials", "資格・証書"],
   ["/shore/crew/:id/edit", "船員の登録・編集"],
+  ["/shore/crew/:id/print", "カルテの印刷・PDF"],
   ["/shore/crew/new", "船員の登録"],
   ["/shore/crew/:id", "船員カルテ"],
   ["/shore/crew", "船員"],
@@ -62,7 +63,7 @@ export function screenMeta(pathname: string): { title: string } {
  */
 export function parentOf(pathname: string): { href: string; label: string } | null {
   const trimmed = pathname.replace(/\/$/, "");
-  const m = trimmed.match(/^\/shore\/crew\/([^/]+)\/(edit|credentials)$/);
+  const m = trimmed.match(/^\/shore\/crew\/([^/]+)\/(edit|credentials|print)$/);
   if (m) return { href: `/shore/crew/${m[1]}`, label: "船員カルテ" };
   if (/^\/shore\/crew\/[^/]+$/.test(trimmed) && !trimmed.endsWith("/new"))
     return { href: "/shore/crew", label: "船員" };

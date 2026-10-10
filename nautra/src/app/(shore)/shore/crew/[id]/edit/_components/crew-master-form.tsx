@@ -50,9 +50,9 @@ const INITIAL: CrewMasterFormState = { ok: false, message: "", changed: [] };
 /** 保険の確認方法（insuranceEntrySchema の enum。原本確認は証書側の語彙なので含めない） */
 const INSURANCE_VERIFY_METHODS = ["document", "notice", "external_link"] as const;
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({ title, id, children }: { title: string; id?: string; children: React.ReactNode }) {
   return (
-    <section aria-label={title} className="ui-inset flex flex-col gap-3 p-4">
+    <section id={id} aria-label={title} className="ui-inset flex scroll-mt-24 flex-col gap-3 p-4">
       <h3 className="font-bold">{title}</h3>
       {children}
     </section>
@@ -96,7 +96,7 @@ export function CrewMasterForm({
     <form action={formAction} className="ui-card flex flex-col gap-4 p-4">
       <input type="hidden" name="crewMemberId" value={values.crewMemberId} />
 
-      <Section title="基本情報">
+      <Section title="基本情報" id="basic">
         <PhotoField
           crewMemberId={values.crewMemberId}
           name={values.name || "新しい船員"}
@@ -160,7 +160,7 @@ export function CrewMasterForm({
         {custom("basic")}
       </Section>
 
-      <Section title="緊急連絡先・家族構成">
+      <Section title="緊急連絡先・家族構成" id="emergency">
         <div className="grid gap-3 sm:grid-cols-3">
           <Input
             name="emergencyContactName"
@@ -189,7 +189,7 @@ export function CrewMasterForm({
         {custom("emergency")}
       </Section>
 
-      <Section title="健康に関する情報（要配慮個人情報）">
+      <Section title="健康に関する情報（要配慮個人情報）" id="health">
         {canEditSensitive ? (
           <>
             <Textarea
@@ -215,7 +215,7 @@ export function CrewMasterForm({
         )}
       </Section>
 
-      <Section title="保険の加入状況（写し・最終確認日つき）">
+      <Section title="保険の加入状況（写し・最終確認日つき）" id="insurance">
         <p className="text-xs text-foreground-500">
           正本は日本年金機構・協会けんぽ・ハローワークにあります。ここは写しなので、
           いつ・どうやって確認したかを必ず入れてください（要件定義書 12.2 / 12.4）。

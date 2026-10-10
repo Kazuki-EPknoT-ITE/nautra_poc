@@ -12,6 +12,8 @@ import {
   logSensitiveView,
 } from "@/server/crew-master-service";
 import { crewPhotoOf } from "@/server/crew-photo-service";
+import { listCrewFields } from "@/server/crew-field-service";
+import { isSensitiveCategory, type CrewFieldView } from "@/lib/crew-fields";
 import { buildManningRow } from "@/server/manning-service";
 import {
   ageOf,
@@ -71,6 +73,19 @@ export default async function ShoreCrewKartePage({ params }: { params: Promise<{
 
   const canSensitive = await hasShorePermission("view_sensitive_health");
   const canEdit = await hasShorePermission("edit_crew_master");
+  // 管理者が足した項目（CREWEDIT-04）。健康の枠の値は要配慮情報の権限がある人にだけ出す
+  const customFields = listCrewFields().filter((f) => canSensitive || !isSensitiveCategory(f.category));
+  const customRows = (category: CrewFieldView["category"]) =>
+    customFields
+      .filter((f) => f.category === category)
+      .map((f) => <Row key={f.fieldKey} label={f.label} value={master.customFields?.[f.fieldKey]} />);
+  /** 各枠から編集画面の同じ枠へ（CHART-02。更新の経路は S-04 の1つのまま） */
+  const editLink = (anchor: string) =>
+    canEdit ? (
+      <Link href={`/shore/crew/${id}/edit#${anchor}`} className="ui-btn-quiet">
+        ✎ 編集・項目を追加
+      </Link>
+    ) : null;
   if (canSensitive) {
     // 10.3 / 12.6: 要配慮個人情報は「参照した」ことも記録する（値はログに載せない）
     logSensitiveView({
@@ -89,7 +104,7 @@ export default async function ShoreCrewKartePage({ params }: { params: Promise<{
             name={master.name}
             initial={master.photo}
             src={crewPhotoOf(id)}
-            size="xl"
+            size="2xl"
           />
           <div>
             <h1 className="m-0 text-3xl font-bold text-foreground-900">{master.name}</h1>
@@ -110,6 +125,9 @@ export default async function ShoreCrewKartePage({ params }: { params: Promise<{
           >
             労務管理を開く
           </Link>
+          <Link href={`/shore/crew/${id}/print`} className="ui-btn-ghost h-9" prefetch={false}>
+            カルテを PDF で保存
+          </Link>
           {canEdit ? (
             <Link
               href={`/shore/crew/${id}/edit`}
@@ -125,7 +143,10 @@ export default async function ShoreCrewKartePage({ params }: { params: Promise<{
         <div className="flex flex-col gap-4">
       {/* ── 基本情報 ── */}
       <section aria-label="基本情報" className="ui-card p-4">
-        <h2 className="mb-2 font-bold">基本情報</h2>
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <h2 className="m-0 font-bold">基本情報</h2>
+          {editLink("basic")}
+        </div>
         <dl>
           <Row label={t.crewMasterField.name} value={master.name} />
           <Row label={t.crewMasterField.nameKana} value={master.nameKana} />
@@ -141,12 +162,16 @@ export default async function ShoreCrewKartePage({ params }: { params: Promise<{
           {master.retiredOn ? (
             <Row label={t.crewMasterField.retiredOn} value={master.retiredOn} />
           ) : null}
+          {customRows("basic")}
         </dl>
       </section>
 
       {/* ── 健康（要配慮個人情報を含む） ── */}
       <section aria-label="健康" className="ui-card p-4">
-        <h2 className="mb-2 font-bold">健康</h2>
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <h2 className="m-0 font-bold">健康</h2>
+          {editLink("health")}
+        </div>
         {medical.length === 0 ? (
           <p className="text-sm text-foreground-500">健康証明書が登録されていません。</p>
         ) : (
@@ -176,6 +201,7 @@ export default async function ShoreCrewKartePage({ params }: { params: Promise<{
               <dl className="mt-1">
                 <Row label={t.crewMasterField.medicalHistory} value={master.medicalHistory} />
                 <Row label={t.crewMasterField.medication} value={master.medication} />
+                {customRows("health")}
               </dl>
               <p className="mt-2 text-xs text-foreground-500">
                 この欄を開いたことは記録されます（誰が・いつ見たかを残す決まりです）。
@@ -191,7 +217,10 @@ export default async function ShoreCrewKartePage({ params }: { params: Promise<{
 
       {/* ── 緊急 ── */}
       <section aria-label="緊急連絡先・家族構成" className="ui-card p-4">
-        <h2 className="mb-2 font-bold">緊急連絡先・家族構成</h2>
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <h2 className="m-0 font-bold">緊急連絡先・家族構成</h2>
+          {editLink("emergency")}
+        </div>
         <dl>
           <Row label={t.crewMasterField.emergencyContactName} value={master.emergencyContactName} />
           <Row
@@ -203,12 +232,16 @@ export default async function ShoreCrewKartePage({ params }: { params: Promise<{
             value={master.emergencyContactPhone}
           />
           <Row label={t.crewMasterField.familyNote} value={master.familyNote} />
+          {customRows("emergency")}
         </dl>
       </section>
 
       {/* ── 保険（写し。正本は外部機関） ── */}
       <section aria-label="保険の加入状況" className="ui-card p-4">
-        <h2 className="mb-2 font-bold">保険の加入状況</h2>
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <h2 className="m-0 font-bold">保険の加入状況</h2>
+          {editLink("insurance")}
+        </div>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[36rem] text-sm">
             <thead>
@@ -235,10 +268,7 @@ export default async function ShoreCrewKartePage({ params }: { params: Promise<{
             </tbody>
           </table>
         </div>
-        <p className="mt-2 text-xs text-foreground-500">
-          加入状況の正本は日本年金機構・協会けんぽ・ハローワークにあり、ここは写しです。最終確認日から
-          日が経つと「要再確認」になります（要件定義書 12.2 / 12.4）。
-        </p>
+        {customRows("insurance").length > 0 ? <dl className="mt-2">{customRows("insurance")}</dl> : null}
       </section>
         </div>
 

@@ -68,7 +68,7 @@ export function PhotoField({
 
   return (
     <div className="flex items-start gap-4">
-      <CrewPhoto name={name} initial={initial} src={src || undefined} size="xl" />
+      <CrewPhoto name={name} initial={initial} src={src || undefined} size="2xl" />
       <div className="flex flex-col items-start gap-2">
         {/* 新規登録のときだけ、マスタ登録と一緒に送る */}
         {canSaveNow ? null : <input type="hidden" name="photoDataUrl" value={src} />}

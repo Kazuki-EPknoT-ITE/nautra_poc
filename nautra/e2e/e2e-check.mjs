@@ -23,6 +23,7 @@ const SHORE = [
   "/shore/fleet",
   "/shore/fleet/vessel-001",
   "/shore/fleet/new",
+  "/shore/crew/crew-terada/print",
   "/shore/fleet/vessel-001/edit",
   "/shore/dispatch",
   "/shore/safety",

@@ -32,8 +32,10 @@ const SIZES = {
   md: { w: 56, h: 70, radius: 12, initial: "text-2xl", mark: "text-[8px]" },
   /** 船員一覧 */
   lg: { w: 96, h: 120, radius: 12, initial: "text-4xl", mark: "text-2xs" },
-  /** 船員カルテ */
+  /** 船員カルテ（旧） */
   xl: { w: 124, h: 156, radius: 14, initial: "text-5xl", mark: "text-2xs" },
+  /** 船員カルテ・船員の登録・編集（レビュー CHART-04 / CREWEDIT-05: 写真を大きく） */
+  "2xl": { w: 192, h: 240, radius: 14, initial: "text-[64px]", mark: "text-xs" },
 } as const;
 
 export function CrewPhoto({

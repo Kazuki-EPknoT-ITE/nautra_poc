@@ -455,6 +455,29 @@ check(
   await cp2.close();
 }
 
+// 船員カルテ（レビュー CHART-02/04/05）: 各枠から編集の同じ枠へ、写真は大きく、カルテらしい様式で PDF にできる
+{
+  const kp = await shore.newPage();
+  await kp.goto(`${BASE}/shore/crew/crew-terada`, { waitUntil: "networkidle" });
+  const editLinks = kp.getByRole("link", { name: "✎ 編集・項目を追加" });
+  const hrefs = await editLinks.evaluateAll((els) => els.map((e) => e.getAttribute("href")));
+  check(
+    "陸上: カルテの各枠に「編集・項目を追加」があり、編集画面の同じ枠へ飛ぶ",
+    hrefs.length >= 4 && ["#basic", "#health", "#emergency", "#insurance"].every((a) => hrefs.some((h) => h?.endsWith(a))),
+    hrefs.join(" "),
+  );
+  const photoW = await kp.getByText("PHOTO", { exact: true }).first().evaluate((el) => el.parentElement?.getBoundingClientRect().width ?? 0);
+  check("陸上: カルテの写真が大きい（幅 190px 以上）", photoW >= 190, `${Math.round(photoW)}px`);
+  await kp.getByRole("link", { name: "カルテを PDF で保存" }).click();
+  await kp.waitForURL(/\/shore\/crew\/crew-terada\/print/);
+  const printText = await kp.locator("main").innerText();
+  check(
+    "陸上: カルテを PDF 用の様式で開ける（氏名・資格・保険・乗船履歴の表）",
+    /船員カルテ/.test(printText) && /CREW RECORD/.test(printText) && /資格・証書/.test(printText) && /乗船履歴/.test(printText) && /寺田/.test(printText),
+  );
+  await kp.close();
+}
+
 // 船の登録（レビュー VESSEL-02/03・ASSIGN-04）: 配乗計画から「＋ 船を登録」で船の画面へ入り、入力を確かめられる。
 // 実際の登録はデモの紙面に船が積み上がるため、サーバ側の試験（vessel-master.test.ts）で確かめる
 {
