@@ -69,9 +69,6 @@ export function PhotoField({
     <div className="flex items-start gap-4">
       <CrewPhoto name={name} initial={initial} src={src || undefined} size="xl" />
       <div className="flex flex-col items-start gap-2">
-        <p className="m-0 text-sm text-foreground-500">
-          顔写真（任意）。共用端末の配乗ボードや作業割当で「顔で選ぶ」ために使います。
-        </p>
         {/* 新規登録のときだけ、マスタ登録と一緒に送る */}
         {canSaveNow ? null : <input type="hidden" name="photoDataUrl" value={src} />}
         <input
@@ -107,13 +104,6 @@ export function PhotoField({
         </div>
         {message ? <p className="m-0 text-sm font-semibold text-foreground-800">✓ {message}</p> : null}
         {error ? <p className="m-0 text-sm text-danger">✕ {error}</p> : null}
-        <p className="m-0 text-xs leading-relaxed text-foreground-400">
-          選んだ画像はこの端末で {MAX_W}×{MAX_H} まで縮めてから保存します（原寸のままだと
-          船内への配信が重くなるため）。
-          {canSaveNow
-            ? "選んだ時点で保存され、ほかの画面の顔写真もこの1枚に揃います。"
-            : "登録を押すと、ほかの情報と一緒に保存されます。"}
-        </p>
       </div>
     </div>
   );

@@ -1,6 +1,5 @@
 import Link from "next/link";
-import { t } from "@/i18n/ja";
-import { fmtDateLabel, fmtDateTime, fmtHoursShort, fmtMinutes } from "@/lib/format";
+
 import { buildShoreDashboard } from "@/server/labor-service";
 import { requireShore } from "@/server/shore-session";
 import { buildVesselOverviews } from "@/server/vessel-overview-service";
@@ -111,11 +110,6 @@ export default async function ShoreDashboardPage() {
 
       <Section
         title="船ごとの状況"
-        actions={
-          <p className="m-0 text-xs text-foreground-400">
-            船のカードを押すと、その船舶の管理ページへ移動します
-          </p>
-        }
         divided={false}
         bodyClassName="pt-0"
       >
@@ -235,110 +229,6 @@ export default async function ShoreDashboardPage() {
         ) : null}
       </Section>
 
-      <Section
-        title="船員別の遵守状況（直近7日）"
-        note={`${d.rows.length}名 ／ 適用ルール版 ${d.appliedRuleVersion}`}
-        bodyClassName="p-0"
-      >
-        <DataTable
-          head={
-            <>
-              <th>船員</th>
-              {d.rows[0]?.days.map((day) => (
-                <th key={day.date} className="num">
-                  {fmtDateLabel(day.date)}
-                </th>
-              ))}
-              <th className="num">週合計 / 上限</th>
-            </>
-          }
-        >
-          {d.rows.map((row) => (
-            <tr key={row.crew.id}>
-              <td>
-                <Link href={`/shore/crew/${row.crew.id}`} className="font-semibold hover:underline">
-                  {row.crew.name}
-                </Link>
-                <p className="m-0 mt-0.5 text-xs text-foreground-400">
-                  {row.crew.position}
-                  <Link
-                    href={`/shore/labor?crew=${row.crew.id}`}
-                    className="ml-2 text-primary underline-offset-2 hover:underline"
-                  >
-                    労務管理
-                  </Link>
-                </p>
-              </td>
-              {row.days.map((day) => {
-                const approval = row.approvalByDate[day.date];
-                return (
-                  <td key={day.date} className="text-center align-middle">
-                    {day.hasRecords ? (
-                      <div className="flex flex-col items-center gap-1">
-                        <StatusChip level={day.level} size="sm" label={fmtHoursShort(day.workedMinutes)} />
-                        <span className="text-2xs tracking-normal text-foreground-400">
-                          {approval
-                            ? approval.decision === "approved"
-                              ? "✓承認済"
-                              : "✕差戻し"
-                            : "⚠承認待ち"}
-                        </span>
-                      </div>
-                    ) : (
-                      <span className="text-foreground-300">–</span>
-                    )}
-                  </td>
-                );
-              })}
-              <td className="align-middle">
-                <div className="flex flex-col items-end gap-1">
-                  <span className="font-mono tabular-nums font-semibold text-foreground-900">
-                    {fmtMinutes(row.weeklyTotalMinutes)}
-                  </span>
-                  <StatusChip level={row.weekly.level} size="sm" />
-                </div>
-              </td>
-            </tr>
-          ))}
-        </DataTable>
-      </Section>
-
-      <Section title="同期の受信状況" divided={false} bodyClassName="pt-0">
-        <div className="flex flex-wrap items-center gap-x-6 gap-y-1 text-sm">
-          <span>
-            受信イベント <span className="font-mono font-bold tabular-nums">{d.sync.eventCount}</span> 件
-          </span>
-          <span>
-            最終受信{" "}
-            <span className="font-mono font-bold tabular-nums">
-              {d.sync.lastReceivedAt ? fmtDateTime(d.sync.lastReceivedAt) : "—"}
-            </span>
-          </span>
-          <span>
-            隔離（未知種別・ポリシー違反）{" "}
-            <span className="font-mono font-bold tabular-nums">{d.sync.quarantineCount}</span> 件
-          </span>
-          <span className={d.sync.conflictCount > 0 ? "text-danger" : undefined}>
-            競合（要確認） <span className="font-mono font-bold tabular-nums">{d.sync.conflictCount}</span> 件
-          </span>
-          <span>
-            サーバ版 <span className="font-mono font-bold tabular-nums">v{d.sync.serverVersion}</span>
-          </span>
-        </div>
-        <div className="mt-3 flex flex-wrap gap-1.5 text-sm">
-          {Object.entries(t.syncKind).map(([kind, label]) => (
-            <span key={kind} className="rounded-small bg-default-100 px-2 py-1">
-              {label} <span className="font-mono font-bold tabular-nums">{d.countsByKind[kind] ?? 0}</span>
-            </span>
-          ))}
-        </div>
-      </Section>
-
-      <p className="text-xs text-foreground-400">
-        集計時刻: {fmtDateTime(d.generatedAt)}。判定は船内アプリと同一のドメイン関数
-        （packages/domain 相当）で行われ、二重実装はありません。労使協定を登録すると、その
-        適用期間から判定の基準が変わります。
-      </p>
     </>
   );
 }

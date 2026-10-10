@@ -81,15 +81,15 @@ export function GroupHeader({
   right?: ReactNode;
 }) {
   const g = FEATURE_GROUPS[group];
+  /**
+   * 画面に「01 労働時間・打刻」のような番号付きの見出しは**出さない**（レビュー 0-1）。
+   * いまどこにいるかは横タブの下線で分かるので、見出しは読み上げ用にだけ残す。
+   * 右肩に置く操作（`right`）があるときだけ、その行を描く。
+   */
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3">
-      <h1 className="m-0 flex flex-wrap items-baseline gap-2.5">
-        <span className="font-mono text-xs tracking-[0.12em] text-primary">
-          {g.no} {g.title}
-        </span>
-        {subtitle ? <span className="text-xl font-bold text-foreground-900">{subtitle}</span> : null}
-      </h1>
-      {right}
-    </div>
+    <>
+      <h1 className="sr-only">{subtitle ? `${g.title} ${subtitle}` : g.title}</h1>
+      {right ? <div className="flex flex-wrap items-center justify-end gap-3">{right}</div> : null}
+    </>
   );
 }

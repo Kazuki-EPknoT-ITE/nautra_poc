@@ -274,10 +274,6 @@ export default async function ShoreCrewKartePage({ params }: { params: Promise<{
             ))}
           </ul>
         )}
-        <p className="mt-2 text-xs text-foreground-500">
-          この判定は入力項目ではなく、免状・健康証明書・基本訓練・保険の確認状況と直近の労働時間から
-          算出しています（要件定義書 12.3）。
-        </p>
       </section>
 
       {/* ── 資格・訓練 ── */}
@@ -472,13 +468,6 @@ export default async function ShoreCrewKartePage({ params }: { params: Promise<{
         </div>
       </div>
 
-      <p className="text-xs text-foreground-500">
-        この画面は参照専用です。
-        {canEdit
-          ? "内容を直すときは「船員マスタを編集」から更新してください。"
-          : "内容を直せるのは船員マスタの担当者だけです。直したい点があれば担当者へ連絡してください。"}
-        同じ項目をいくつもの画面から書き換えられるようにはしていません（要件定義書 12.3）。
-      </p>
     </div>
   );
 }

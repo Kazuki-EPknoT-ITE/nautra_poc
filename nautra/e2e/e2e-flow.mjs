@@ -71,9 +71,21 @@ for (const d of ["3", "3", "3", "3"]) await v.getByRole("button", { name: d, exa
 await v.waitForURL(`${BASE}/vessel`, { timeout: 15000 });
 check("船内: PIN でサインインできる", v.url().endsWith("/vessel"));
 
-// メニューに 07 安全・健康 が出る
-const menuText = await v.locator("main").innerText();
-check("船内: メニューに事故報告・相談の入口がある", /事故・ヒヤリ/.test(menuText) && /相談・体調/.test(menuText));
+// 事故報告・相談の入口: 横タブ「相談」と、横タブ「安全」の中の切り替え「事故・ヒヤリ」
+// （ホームはお知らせだけにしたので、機能の入口はタブにしか置かない。レビュー NEWS-01）
+const tabsText = await v.getByRole("navigation", { name: "船内メニュー" }).innerText();
+await v.getByRole("navigation", { name: "船内メニュー" }).getByRole("link", { name: "安全" }).click();
+await v.waitForURL(/\/vessel\/safety/);
+await v.getByRole("navigation", { name: "安全の切り替え" }).getByRole("link", { name: "事故・ヒヤリ" }).click();
+await v.waitForURL(/\/vessel\/incident/);
+const safetyTabCurrent = await v
+  .getByRole("navigation", { name: "船内メニュー" })
+  .getByRole("link", { name: "安全" })
+  .getAttribute("aria-current");
+check(
+  "船内: 事故報告・相談の入口がタブにある",
+  /相談/.test(tabsText) && v.url().includes("/vessel/incident") && safetyTabCurrent === "page",
+);
 
 // 事故（ヒヤリハット）を報告
 await v.goto(`${BASE}/vessel/incident`, { waitUntil: "networkidle" });
@@ -87,6 +99,30 @@ await v.waitForTimeout(1500);
 const incidentText = await v.locator("main").innerText();
 check("船内: ヒヤリハットを標題＋状況だけで報告できる", incidentText.includes(title));
 
+// お知らせ（レビュー NEWS-01〜03）: 一覧は題名だけ。押すと詳細が開き、開いたものが既読になる
+await v.goto(`${BASE}/vessel`, { waitUntil: "networkidle" });
+await v.waitForTimeout(600);
+const homeText = await v.locator("main").innerText();
+check(
+  "船内: ホームは速報とお知らせだけ（機能メニュー・あなたへの通知を置かない）",
+  /速報/.test(homeText) && /お知らせ/.test(homeText) && !/あなたへの通知/.test(homeText),
+);
+const firstNotice = v.locator('main a[href^="/vessel/notices/"]').first();
+if ((await firstNotice.count()) > 0) {
+  const noticeTitle = (await firstNotice.innerText()).split("\n")[0].trim();
+  await firstNotice.click();
+  await v.waitForURL(/\/vessel\/notices\//);
+  await v.waitForTimeout(600);
+  const detailText = await v.locator("main").innerText();
+  check("船内: お知らせを押すと詳細が開く", detailText.includes(noticeTitle) && !/確認しました/.test(detailText));
+  await v.goto(`${BASE}/vessel`, { waitUntil: "networkidle" });
+  await v.waitForTimeout(600);
+  const readDot = await v.locator('main a[href^="/vessel/notices/"]').first().locator('[aria-label="未読"]').count();
+  check("船内: 開いたお知らせは既読になる", readDot === 0);
+} else {
+  check("船内: お知らせが1件以上ある（デモデータ）", false);
+}
+
 // 打刻: 作業タイル → 確認 → 「はい」で記録される（2段階。押し間違いを一度で確定させない）
 await v.goto(`${BASE}/vessel/punch`, { waitUntil: "networkidle" });
 await v.waitForTimeout(600);
@@ -94,8 +130,8 @@ await v.getByRole("button", { name: /航海当直/ }).first().click();
 await v.waitForTimeout(300);
 const confirmText = await v.locator("main").innerText();
 check(
-  "船内: 打刻は確認の問いかけを挟む",
-  /打刻の確認/.test(confirmText) && /書き換えできません/.test(confirmText),
+  "船内: 打刻は確認の問いかけを挟む（説明文は置かない。レビュー PUNCH-06）",
+  /打刻の確認/.test(confirmText) && !/書き換えできません/.test(confirmText),
 );
 await v.getByRole("button", { name: /^はい、/ }).click();
 await v.waitForTimeout(1200);

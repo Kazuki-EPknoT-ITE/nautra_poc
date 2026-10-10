@@ -224,8 +224,13 @@ export async function acknowledgeShiftChanges(until: Date = new Date()): Promise
 }
 
 /** 陸上からのお知らせを確認済みにする（端末状態。お知らせ自体は記録として保持） */
-export async function acknowledgeNotices(until: Date = new Date()): Promise<void> {
-  await setMeta("noticeAckAt", until.toISOString());
+/** お知らせを1件既読にする（詳細を開いたとき。端末内にだけ持つ） */
+export async function markNoticeRead(noticeId: string): Promise<void> {
+  const raw = await getMeta("noticeReadIds");
+  const ids = new Set<string>(raw ? (JSON.parse(raw) as string[]) : []);
+  if (ids.has(noticeId)) return;
+  ids.add(noticeId);
+  await setMeta("noticeReadIds", JSON.stringify([...ids]));
 }
 
 export async function getSelectedCrewId(): Promise<string | undefined> {

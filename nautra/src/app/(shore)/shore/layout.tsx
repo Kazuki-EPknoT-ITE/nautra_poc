@@ -4,10 +4,8 @@ import type { ReactNode } from "react";
 import { canShore, type ShorePermission } from "@/domain/authz/shore-roles";
 import { PRODUCT_NAME, t } from "@/i18n/ja";
 import { DEMO_COMPANY } from "@/lib/crew";
-import { currentLaborRuleSet } from "@/server/labor-rules";
 import { listVessels, writeAuditLog } from "@/server/master-service";
 import { clearShoreSession, getShoreSession, responsibleManager } from "@/server/shore-session";
-import { getSyncStats } from "@/server/store";
 import { AppShell, AppSwitchLink } from "@/ui";
 import { NavLink } from "./_components/nav-link";
 import { ShoreTopBar } from "./_components/top-bar";
@@ -34,7 +32,7 @@ const NAV_GROUPS: {
     ],
   },
   {
-    title: "人",
+    title: "人員",
     links: [
       { href: "/shore/crew", label: "船員", permission: "view_crew" },
       { href: "/shore/crew/new", label: "船員の登録・編集", permission: "edit_crew_master" },
@@ -120,8 +118,6 @@ export default async function ShoreLayout({ children }: { children: ReactNode })
     links: g.links.filter((l) => !l.permission || canShore(staff.role, l.permission)),
   })).filter((g) => g.links.length > 0);
 
-  const sync = getSyncStats();
-  const ruleVersion = currentLaborRuleSet().version;
   const fleetCount = listVessels().length;
 
   return (
@@ -171,8 +167,6 @@ export default async function ShoreLayout({ children }: { children: ReactNode })
               email: staff.email,
               sensitive: canShore(staff.role, "view_sensitive_health"),
             }}
-            sync={{ eventCount: sync.eventCount, conflictCount: sync.conflictCount }}
-            ruleVersion={ruleVersion}
             signOutAction={signOutAction}
           />
 

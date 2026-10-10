@@ -111,10 +111,12 @@ export function useNotices(): {
 } {
   const all = useRecords("notice");
   const ackAt = useLiveQuery(() => getMeta("noticeAckAt"), [], undefined);
+  const readRaw = useLiveQuery(() => getMeta("noticeReadIds"), [], undefined);
   return useMemo(() => {
     const notices = effectiveNotices(all);
-    return { notices, unread: unreadNotices(notices, ackAt), ackAt };
-  }, [all, ackAt]);
+    const readIds = new Set<string>(readRaw ? (JSON.parse(readRaw) as string[]) : []);
+    return { notices, unread: unreadNotices(notices, ackAt, readIds), ackAt };
+  }, [all, ackAt, readRaw]);
 }
 
 /** 有効なシフト計画（訂正で無効化されたものを除く）と変更通知の集計（V-08） */

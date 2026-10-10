@@ -182,7 +182,6 @@ export default function WorkPage() {
     <div className="flex flex-col gap-4">
       <GroupHeader group="05" subtitle="作業・待機" />
       {canSwitch ? <CrewPicker selected={crew} onSelect={selectCrew} /> : null}
-      <p className="text-sm text-foreground-600">記録者: {crew.name}（{crew.position}）</p>
 
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         {WORK_REPORT_TYPES.map((type) => (

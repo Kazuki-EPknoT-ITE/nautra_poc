@@ -204,7 +204,6 @@ export default function VesselHistoryPage() {
       {canAdjustCrew ? (
         <Section
           title="表示する船員"
-          note="船長のみ。他船員の打刻は参照だけで、修正は本人の再入力でしか行えません"
           divided={false}
           bodyClassName="pt-0"
         >
@@ -231,7 +230,7 @@ export default function VesselHistoryPage() {
 
       <Section
         title={`${dayLabel(date, today)} の打刻`}
-        note={isViewingOther ? `${personName(viewCrewId)} の記録（参照）` : "自分の記録のみ表示されます"}
+        note={isViewingOther ? `${personName(viewCrewId)} の記録` : undefined}
         bodyClassName="p-0"
       >
         {rows.length === 0 ? (
@@ -333,10 +332,6 @@ export default function VesselHistoryPage() {
 
       {canAfterEntry && !isViewingOther ? (
         <Section title="後から打刻を追加する" divided={false}>
-          <p className="m-0 mb-3.5 text-base leading-relaxed text-foreground-500">
-            打刻し忘れ・差戻しへの再入力はここから行います。事後入力は理由の記入が必須で、履歴には
-            「事後入力」と残ります。未来の日時は入力できません。
-          </p>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <label className="block">
               <span className="mb-[5px] block text-base text-foreground-500">日付</span>

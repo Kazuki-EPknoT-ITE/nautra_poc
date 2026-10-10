@@ -62,10 +62,6 @@ export default async function ShoreDispatchPage({
 
   return (
     <div className="flex flex-col gap-[18px]">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="m-0 text-sm text-foreground-500">位置は参考情報です（後述の注意を読んでください）</p>
-      </div>
-
       {/* 3.7.1 留意点: 無償 AIS は SLA がないため参考情報と位置づける */}
       <section aria-label="位置情報の扱い" className="ui-card p-4">
         <h2 className="mb-1 font-bold">⚠ この画面の位置は「参考情報」です</h2>

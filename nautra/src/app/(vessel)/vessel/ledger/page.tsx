@@ -14,7 +14,7 @@ import {
 import type { LaborCheck } from "@/domain/labor-law/types";
 import { cn } from "@/lib/cn";
 import { CREW_MEMBERS, type CrewMember } from "@/lib/crew";
-import { fmtDateLabel, fmtMinutes, fmtTime } from "@/lib/format";
+import { fmtDateLabel, fmtMinutes } from "@/lib/format";
 import {
   checkPlainLabelFor,
   describeApproval,
@@ -22,7 +22,6 @@ import {
   describeExceptionalMinutes,
   describePeriodTotal,
   formatCheckActual,
-  formatCheckLimit,
   LEVEL_PLAIN,
 } from "@/lib/labor-plain";
 import { useLocale } from "@/lib/use-locale";
@@ -106,7 +105,6 @@ export default function LedgerPage() {
   }, [crew.id, today, records, now, ruleSet]);
 
   const dailyMaxCheck = daily.checks.find((c) => c.key === "daily_max");
-  const restChecks = daily.checks.filter((c) => c.key.startsWith("rest_"));
   const attentionChecks = daily.checks.filter((c) => c.level !== "ok");
 
   // 直近3日の承認状況（本人向け。船長は選択中の船員の分）
@@ -187,9 +185,6 @@ export default function LedgerPage() {
                 <SelectItem key={c.id}>{`${c.name}（${c.position}）`}</SelectItem>
               ))}
             </Select>
-            <p className="text-sm text-foreground-600">
-              一般の船員には自分の記録だけが表示されます。
-            </p>
           </CardBody>
         </SurfaceCard>
       ) : null}
@@ -299,10 +294,6 @@ export default function LedgerPage() {
                 </span>
               </div>
             ))}
-            <p className="m-0 mt-1.5 text-base leading-relaxed text-foreground-500">
-              同時に進めた作業は種別ごとに数えるため、内訳の合計は「働いた時間」より長くなることが
-              あります（労働時間は重なりを1回だけ数えます）。
-            </p>
           </div>
         </section>
       ) : null}
@@ -362,51 +353,6 @@ export default function LedgerPage() {
         </CardBody>
       </SurfaceCard>
 
-      {/* 休息 */}
-      <SurfaceCard>
-        <CardHeader className="px-5 pb-2 pt-5 text-base font-bold">休んだ時間</CardHeader>
-        <CardBody className="flex flex-col gap-3 px-5 pb-5">
-          {daily.hasRecords ? (
-            <>
-              {restChecks.map((c) => (
-                <div key={c.key} className="ui-inset flex flex-col gap-1 p-3">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <span className="font-semibold">{checkPlainLabelFor(locale, c.key)}</span>
-                    <div className="flex items-center gap-2">
-                      <span className="tabular-nums">
-                        {formatCheckActual(c)}
-                        <span className="ml-1 text-sm text-foreground-600">
-                          / 基準 {formatCheckLimit(c)}
-                        </span>
-                      </span>
-                      <StatusChip level={c.level} size="sm" label={tr("level", c.level)} />
-                    </div>
-                  </div>
-                  <p className="text-pretty text-sm text-foreground-600">{describeCheck(c)}</p>
-                </div>
-              ))}
-              <details>
-                <summary className="cursor-pointer text-sm text-foreground-600">
-                  休んだ時間帯を見る（{daily.restPeriods.length}件）
-                </summary>
-                <ul className="mt-2 flex flex-col gap-1 text-sm">
-                  {daily.restPeriods.map((p, i) => (
-                    <li key={i} className="tabular-nums">
-                      {fmtTime(p.startAt)}〜{fmtTime(p.endAt)}（{fmtMinutes(p.minutes)}）
-                    </li>
-                  ))}
-                </ul>
-                <p className="mt-2 text-xs text-foreground-600">
-                  分割回数と最長休息は、日をまたぐ休みをつなげて数えます。
-                </p>
-              </details>
-            </>
-          ) : (
-            <p className="text-foreground-600">今日の打刻がまだありません。</p>
-          )}
-        </CardBody>
-      </SurfaceCard>
-
       {/* 承認状況（本人向けに何をすればよいかまで書く） */}
       <SurfaceCard>
         <CardHeader className="px-5 pb-2 pt-5 text-base font-bold">船長の承認</CardHeader>
@@ -426,10 +372,6 @@ export default function LedgerPage() {
       {/* 船長のみ: 乗組員全体の状況 */}
       {canViewAll ? <CrewOverview today={today} now={now} onPick={setPickedCrewId} /> : null}
 
-      <p className="text-xs text-foreground-600">
-        適用ルール版: {daily.appliedRuleVersion}（{ruleSet.source}）。
-        判定の基準は法令・労使協定の版管理データから読み込まれ、アプリ内に固定値を持ちません。
-      </p>
     </div>
   );
 }

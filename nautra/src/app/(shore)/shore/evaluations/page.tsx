@@ -78,28 +78,6 @@ export default async function ShoreEvaluationsPage() {
 
   return (
     <div className="flex flex-col gap-[18px]">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="m-0 text-sm text-foreground-500">
-          下船時・定期の評価を同じ項目で記録し、育成計画に使います
-        </p>
-      </div>
-
-      <section aria-label="取り扱いの注意" className="ui-card border border-warning p-4">
-        <h2 className="font-bold">⚠ この画面は閲覧できる人を限定しています</h2>
-        <ul className="mt-2 flex list-disc flex-col gap-1 pl-5 text-sm text-foreground-600">
-          <li>
-            開けるのは <span className="font-semibold">{t.shoreRole.admin}</span>{" "}
-            だけです。船長・労務管理責任者・事務担当の画面には出しません。
-          </li>
-          <li>
-            評価は本人の処遇に関わる情報です。評価ごとに「本人に開示するか」を決めて記録し、
-            開示すると決めたものだけを本人に見せます。
-          </li>
-          <li>記入・訂正はすべて記録に残ります（誰がいつ書いたかを後から確認できます）。</li>
-          <li>訂正しても元の評価は消えません。新しい版で置き換わります。</li>
-        </ul>
-      </section>
-
       {canEdit ? (
         <EvaluationForm
           items={EVALUATION_ITEMS}

@@ -70,12 +70,6 @@ export default async function ShoreFleetPage({
 
   return (
     <div className="flex flex-col gap-[18px]">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="m-0 text-sm text-foreground-500">
-          期限の判定は証書ルール {board.credentialRuleVersion} で行っています
-        </p>
-      </div>
-
       {/*
         船舶一覧（デザイン正本 S-11）。**選ぶ操作と一覧の確認を1つ**にする。
         行を押すとこの画面の対象が切り替わり、右の「管理ページ」からは S-11D（船を軸に

@@ -7,7 +7,6 @@ import { fmtDateTime } from "@/lib/format";
 import { useLocale } from "@/lib/use-locale";
 import { appendRecord, newRecordBase } from "@/lib/vessel-actions";
 import { useRecords, useSessionCrew } from "@/lib/vessel-hooks";
-import { WELLBEING_FORM_TYPES } from "@/sync-protocol/records";
 import { SurfaceCard, useModalProps } from "@/ui";
 import { Button, Card, CardBody, Chip, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, Radio, RadioGroup, Textarea, useDisclosure } from "@/ui/heroui";
 import { GroupHeader } from "../_components/group-header";
@@ -342,10 +341,6 @@ export default function WellbeingPage() {
         </ModalContent>
       </Modal>
 
-      <p className="text-xs text-foreground-600">
-        送信した内容は端末に保存され、通信が回復したときに陸上へ送られます（オフラインでも送信できます）。
-        送信できる種別: {WELLBEING_FORM_TYPES.map((f) => t.wellbeingFormType[f]).join(" / ")}。
-      </p>
     </div>
   );
 }

@@ -237,12 +237,6 @@ export default async function ShoreFilingsPage() {
 
   return (
     <div className="flex flex-col gap-[18px]">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="m-0 text-sm text-foreground-500">
-          複数の船員・船をまとめて届け出ます（基準日 {today}）
-        </p>
-      </div>
-
       <FilingWizard candidates={candidates} crew={crew} vessels={vessels} today={today} />
 
       <section aria-label="作成中の届出" className="flex flex-col gap-3">
@@ -267,10 +261,6 @@ export default async function ShoreFilingsPage() {
         )}
       </section>
 
-      <p className="text-xs text-foreground-500">
-        届出は追記だけで進みます（作成中 → 確認済 → 書類生成済 → 提出済）。前の版は履歴として残り、
-        生成した書類は作成した時点のマスタ値を保持するため、あとでマスタを直しても書き換わりません。
-      </p>
     </div>
   );
 }

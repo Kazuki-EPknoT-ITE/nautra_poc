@@ -12,7 +12,17 @@ export function effectiveNotices(all: NoticePayload[], now = new Date()): Notice
     .sort((a, b) => b.publishedAt.localeCompare(a.publishedAt));
 }
 
-/** 未読（端末が最後に確認した時刻より後に配信されたもの） */
-export function unreadNotices(notices: NoticePayload[], ackAt: string | undefined): NoticePayload[] {
-  return notices.filter((n) => !ackAt || n.publishedAt > ackAt);
+/**
+ * 未読の選別。
+ *
+ * お知らせは**1件ずつ開いて読む**（詳細を開いたものが既読。レビュー NEWS-03）。
+ * 以前の「確認しました」でまとめて既読にした時刻（`ackAt`）より前の配信も既読として扱う
+ * （端末に残っている既読状態を無駄にしない）。
+ */
+export function unreadNotices(
+  notices: NoticePayload[],
+  ackAt: string | undefined,
+  readIds: ReadonlySet<string> = new Set(),
+): NoticePayload[] {
+  return notices.filter((n) => !readIds.has(n.id) && (!ackAt || n.publishedAt > ackAt));
 }

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { PRODUCT_NAME, t } from "@/i18n/ja";
 import { cn } from "@/lib/cn";
 import { DEMO_VESSEL } from "@/lib/crew";
@@ -22,15 +22,17 @@ import { VesselTabs, VESSEL_TAB_HREFS } from "./_components/vessel-tabs";
  */
 function SyncHeaderBadges() {
   const { pendingCount, offlineSim } = useSyncBadge();
+  const browserOnline = useBrowserOnline();
+  // 擬似オフライン（デモ）だけでなく、実際に回線が切れたときもオフラインと出す
+  const offline = offlineSim || !browserOnline;
   return (
     <div className="flex shrink-0 items-center gap-2.5">
+      {/* オンラインは緑・オフラインは赤（レビュー SHIP-01）。色だけに頼らず ● / ✕ と文言も出す */}
       <span
-        className={cn(
-          "inline-flex items-center gap-1.5 rounded-small px-3 py-1.5 text-base font-semibold",
-          offlineSim ? "bg-warning-100 text-warning-700" : "bg-default-100 text-foreground-700",
-        )}
+        className="inline-flex items-center gap-1.5 rounded-small px-3 py-1.5 text-base font-semibold text-white"
+        style={{ backgroundColor: offline ? "var(--offline)" : "var(--online)" }}
       >
-        {offlineSim ? "⚡ オフライン" : "● オンライン"}
+        {offline ? "✕ オフライン" : "● オンライン"}
       </span>
       <span
         className={cn(
@@ -42,6 +44,22 @@ function SyncHeaderBadges() {
       </span>
     </div>
   );
+}
+
+/** ブラウザが把握している回線の状態（つながった・切れたの通知で更新する） */
+function useBrowserOnline(): boolean {
+  const [online, setOnline] = useState(true);
+  useEffect(() => {
+    const update = () => setOnline(navigator.onLine);
+    update();
+    window.addEventListener("online", update);
+    window.addEventListener("offline", update);
+    return () => {
+      window.removeEventListener("online", update);
+      window.removeEventListener("offline", update);
+    };
+  }, []);
+  return online;
 }
 
 /** サインイン中の船員とロール、サインアウト（共用端末のため常時表示する） */

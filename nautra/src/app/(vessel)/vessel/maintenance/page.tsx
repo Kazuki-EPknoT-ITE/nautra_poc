@@ -141,9 +141,6 @@ export default function MaintenancePage() {
           ) : null
         }
       />
-      <p className="text-sm text-foreground-600">
-        点検者: {session ? `${session.name}（${session.position}）` : "—"}
-      </p>
 
       {/* 船の点検表（出港前点検・安全パトロール）。項目は上司・陸上から配信される */}
       <ChecklistSection onDone={setDone} />

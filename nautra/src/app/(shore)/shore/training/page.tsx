@@ -71,12 +71,6 @@ export default async function ShoreTrainingPage({
 
   return (
     <div className="flex flex-col gap-[18px]">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="m-0 text-sm text-foreground-500">
-          基本訓練・実技講習・更新講習の修了状況と、船内操練の期日（基準日 {today}）
-        </p>
-      </div>
-
       {/* 主題の切替（サーバ側で組み立てるためリンクで切り替える） */}
       <nav aria-label="訓練管理の主題" className="ui-card flex flex-wrap gap-2 p-3">
         {TABS.map((x) => (

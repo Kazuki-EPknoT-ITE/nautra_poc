@@ -93,9 +93,6 @@ export function ManningBoard({ pool, vessels }: { pool: BoardCrew[]; vessels: Bo
         <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[var(--ui-hairline-strong)] px-[18px] pb-3 pt-4">
           <div className="flex flex-wrap items-baseline gap-3">
             <h2 className="m-0 text-lg font-bold text-foreground-900">配乗ボード</h2>
-            <p className="m-0 text-sm text-foreground-500">
-              船員カードを船の枠へドラッグして配置します。船から外すには「配乗待ち」へドラッグ
-            </p>
           </div>
           {pending ? <span className="text-sm text-primary">配信中…</span> : null}
         </div>

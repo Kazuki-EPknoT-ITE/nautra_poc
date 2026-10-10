@@ -107,25 +107,6 @@ export default async function ShoreWellbeingPage() {
 
   return (
     <div className="flex flex-col gap-[18px]">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="m-0 text-sm text-foreground-500">
-          船内から届いた匿名のアンケート・相談を受け付けます
-        </p>
-      </div>
-
-      <section aria-label="匿名の扱い" className="ui-card border border-warning p-4">
-        <h2 className="font-bold">⚠ 匿名で届いた内容を扱っています</h2>
-        <ul className="mt-2 flex list-disc flex-col gap-1 pl-5 text-sm text-foreground-600">
-          <li>アンケートは誰が答えたかを持ちません。この画面には集計だけを出します。</li>
-          <li>
-            回答が {wellbeingRules.wellbeingMinResponses}
-            件に満たないときは、集計から個人が推測できてしまうため集計を表示しません。
-          </li>
-          <li>相談の本文には書いた人の名前が付きません。回答も名前を伏せたまま船内へ届きます。</li>
-          <li>相談の内容から個人を推測して船内に伝えることはしないでください。</li>
-        </ul>
-      </section>
-
       <SummarySection summary={healthSurvey} />
       <SummarySection summary={stressCheck} />
 

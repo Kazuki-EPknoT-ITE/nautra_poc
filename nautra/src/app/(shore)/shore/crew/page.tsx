@@ -62,12 +62,6 @@ export default async function ShoreCrewPage({
 
   return (
     <div className="flex flex-col gap-[18px]">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="m-0 text-sm text-foreground-500">
-          配乗できるか・証書が切れていないかを、写真付きの一覧でまとめて確認できます。
-        </p>
-      </div>
-
       <section aria-label="絞り込み" className="ui-card flex flex-wrap items-center gap-4 p-4">
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-sm text-foreground-500">配乗できるか</span>
@@ -169,11 +163,6 @@ export default async function ShoreCrewPage({
         ) : null}
       </section>
 
-      <p className="text-xs text-foreground-500">
-        「配乗できるか」は入力項目ではなく、免状・健康証明書・基本訓練・保険の確認状況と直近の
-        労働時間から、開くたびに計算しています（要件定義書 12.3）。内容を直すのは船員マスタの
-        1画面だけで、この一覧やカルテからは書き換えられません。
-      </p>
     </div>
   );
 }

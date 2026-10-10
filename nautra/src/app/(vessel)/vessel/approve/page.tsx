@@ -13,7 +13,7 @@ import { recordApproval } from "@/lib/vessel-actions";
 import { useAllRecords, useApprovals, useNowTick, useSessionCrew } from "@/lib/vessel-hooks";
 import { DEFAULT_LABOR_RULE_SET } from "@/rules/default-rule-set";
 import { resolveApproval } from "@/sync-protocol/events";
-import { Eyebrow, SurfaceCard, StatusChip, useModalProps } from "@/ui";
+import { SurfaceCard, StatusChip, useModalProps } from "@/ui";
 import { Button, CardBody, Chip, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, Select, SelectItem, Textarea, useDisclosure } from "@/ui/heroui";
 
 import { GroupHeader } from "../_components/group-header";
@@ -129,9 +129,6 @@ export default function ApprovePage() {
       */}
       <div className="ui-dark flex flex-wrap items-center justify-between gap-4 px-5 py-4">
         <div className="min-w-0">
-          <Eyebrow tone="muted" className="text-[#99877D]">
-            直近3日間の日次レコード ／ 承認者 {session?.name}（{session ? t.role[session.role] : ""}）
-          </Eyebrow>
           <p className="m-0 mt-1.5 text-2xl font-bold text-white">
             <span aria-hidden="true" className="mr-2">
               {pendingRows.length > 0 ? "⚠" : "✓"}
@@ -146,10 +143,6 @@ export default function ApprovePage() {
             </p>
           ) : null}
         </div>
-        <p className="m-0 max-w-[420px] text-right text-base leading-relaxed text-[#DFE1E0]">
-          船長は承認・差戻しのみ行えます。打刻値そのものの書き換えはできません。
-          誤りがあるときは差戻すと、本人が正しい時刻で入れ直します。
-        </p>
       </div>
 
       <div className="flex flex-col gap-2">

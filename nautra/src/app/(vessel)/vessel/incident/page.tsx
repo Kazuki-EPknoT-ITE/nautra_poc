@@ -12,6 +12,7 @@ import { INCIDENT_KINDS, latestBySupersedes, type IncidentKind } from "@/sync-pr
 import { SurfaceCard, useModalProps } from "@/ui";
 import { Button, Card, CardBody, Checkbox, Chip, Input, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, Textarea, useDisclosure } from "@/ui/heroui";
 import { GroupHeader } from "../_components/group-header";
+import { SAFETY_SUB_TABS, SubTabs } from "../_components/sub-tabs";
 import { RecordTile } from "../_components/record-tile";
 
 /**
@@ -154,6 +155,7 @@ export default function IncidentPage() {
   return (
     <div className="flex flex-col gap-4">
       <GroupHeader group="07" subtitle="事故・ヒヤリ" />
+      <SubTabs label="安全の切り替え" items={SAFETY_SUB_TABS} />
 
       <SurfaceCard>
         <CardBody className="flex flex-col gap-2 p-5">

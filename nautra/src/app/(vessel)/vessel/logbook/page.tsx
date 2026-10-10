@@ -252,9 +252,6 @@ export default function LogbookPage() {
   return (
     <div className="flex flex-col gap-4">
       <GroupHeader group="03" />
-      <p className="text-sm text-foreground-600">
-        記録者: {session ? `${session.name}（${session.position}）` : "—"}
-      </p>
 
       {canWrite ? (
       <>

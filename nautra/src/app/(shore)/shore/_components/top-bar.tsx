@@ -3,25 +3,19 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { cn } from "@/lib/cn";
 import { parentOf, screenMeta } from "./screen-meta";
 
 /**
  * 陸上ヘッダ（デザイン正本 `design/poc_design`）。高さ 64px の白い帯。
  *
- * 左は「← 親画面」「画面名（17px）」「一言（12px）」。右は**いま効いている前提**を
- * 常に見せる欄で、受信件数・競合件数・適用中のルール版を置く。判定の根拠が画面を
- * またいで変わらないことを示すため、どの画面でも同じ位置に出す（要件定義書 6.5 / 12.5）。
+ * 左は「← 親画面」と「画面名」だけ。右はサインイン中の人のメニュー。
+ * 受信件数・競合件数・ルール版の札は**出さない**（レビュー LABOR-01。利用者には意味が通じない）。
  */
 export function ShoreTopBar({
   staff,
-  sync,
-  ruleVersion,
   signOutAction,
 }: {
   staff: { name: string; title: string; role: string; email: string; sensitive: boolean } | null;
-  sync: { eventCount: number; conflictCount: number };
-  ruleVersion: string;
   signOutAction: () => Promise<void>;
 }) {
   const pathname = usePathname();
@@ -62,27 +56,9 @@ export function ShoreTopBar({
           </Link>
         ) : null}
         <h1 className="m-0 whitespace-nowrap text-2xl font-bold text-foreground-900">{meta.title}</h1>
-        <p className="m-0 truncate text-sm text-foreground-500">{meta.note}</p>
       </div>
 
       <div className="flex flex-none items-center gap-2.5">
-        <span className="hidden items-center gap-1.5 rounded-small border border-[var(--ui-hairline)] px-2.5 py-[5px] text-sm tabular-nums text-foreground-700 xl:inline-flex">
-          受信 <b className="font-mono">{sync.eventCount.toLocaleString("ja-JP")}</b> 件
-        </span>
-        <span
-          className={cn(
-            "hidden items-center gap-1.5 rounded-small border px-2.5 py-[5px] text-sm tabular-nums xl:inline-flex",
-            sync.conflictCount > 0
-              ? "border-danger-200 bg-danger-100 text-danger"
-              : "border-[var(--ui-hairline)] text-foreground-700",
-          )}
-        >
-          競合 {sync.conflictCount} 件
-        </span>
-        <span className="hidden items-center gap-1.5 rounded-small border border-[var(--ui-hairline)] px-2.5 py-[5px] text-sm text-foreground-500 lg:inline-flex">
-          ルール版 <b className="font-mono text-foreground-700">{ruleVersion}</b>
-        </span>
-        <span className="hidden h-[22px] w-px bg-default-100 lg:block" />
 
         {staff ? (
           <div className="relative" ref={menuRef}>

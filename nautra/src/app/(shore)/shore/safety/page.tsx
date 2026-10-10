@@ -63,12 +63,6 @@ export default async function ShoreSafetyPage({
 
   return (
     <div className="flex flex-col gap-[18px]">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="m-0 text-sm text-foreground-500">
-          {canWrite ? "記入できます" : "この画面は見るだけです（記入は運航管理の担当者が行います）"}
-        </p>
-      </div>
-
       {/* 主題の切替（サーバ側で組み立てるためリンクで切り替える） */}
       <nav aria-label="安全・事故の主題" className="ui-card flex flex-wrap gap-2 p-3">
         {TABS.map((x) => (

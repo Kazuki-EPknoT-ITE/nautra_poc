@@ -69,6 +69,10 @@
   --accent-bg-soft: #f6f1eb;
   --alert: #9b2a1e;
   --alert-bg: #f2e2df;
+  /* 接続状態の表示だけに使う（レビュー SHIP-01: オンラインは緑・オフラインは赤）。
+     有彩色はブロンズとレンガの2系統という決まりの、利用者の指示による例外 */
+  --online: #2e7d4f;
+  --offline: #b3261e;
 
   /* 画面から `border-[var(--ui-hairline)]` の形で参照する枠線。
      カードの枠は淡い #E8E8E8、構造の枠（ヘッダ・表）は濃い #CCCCCC */

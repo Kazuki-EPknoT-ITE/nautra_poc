@@ -64,12 +64,6 @@ export default async function ShoreDocumentsPage({
 
   return (
     <div className="flex flex-col gap-[18px]">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="m-0 text-sm text-foreground-500">
-          作った書類の再出力・提出の記録と、実績データからの書類作成を行います
-        </p>
-      </div>
-
       {/*
         要約（デザインの S-14 上段）。「作った数」より **未提出が何件あるか**が
         この画面の用件なので、提出の状態を先に置く。

@@ -146,11 +146,11 @@ export default function PunchPage() {
           <p className="m-0 mt-1.5 text-4xl font-bold text-white">
             {running ? tr("workCategory", running.workCategory) : `${now.getMonth() + 1}/${now.getDate()}（${WEEKDAYS[now.getDay()]}）`}
           </p>
-          <p className="m-0 mt-1.5 text-lg text-[#DFE1E0]">
-            {running
-              ? `開始 ${fmtTimeSec(running.startAt.toISOString())}${openIntervals.length > 1 ? ` ／ ほかに${openIntervals.length - 1}件 進行中` : ""}`
-              : `${session.name}（${tr("role", session.role)}）／ 打刻できるのはサインイン中の本人のみです`}
-          </p>
+          {running ? (
+            <p className="m-0 mt-1.5 text-lg text-[#DFE1E0]">
+              {`開始 ${fmtTimeSec(running.startAt.toISOString())}${openIntervals.length > 1 ? ` ／ ほかに${openIntervals.length - 1}件 進行中` : ""}`}
+            </p>
+          ) : null}
         </div>
         <div className="flex-none text-right">
           <p className="m-0 font-mono text-6xl font-semibold leading-none tracking-[0.01em] tabular-nums text-white">
@@ -173,11 +173,6 @@ export default function PunchPage() {
           押すまでの手数が増える——揺れる船上で手数が増えるのは打刻漏れの原因になる。
           割り当てられている種別は札で示し、どれが今日の当直かは分かるようにする。 */}
       <section aria-label="作業を打刻する" className="flex flex-col gap-2">
-        <p className="m-0 text-base text-foreground-500">
-          {assigned.length > 0
-            ? "押すと確認の画面が出ます。複数の作業を同時に進行できます。「当直」の札は本日あなたに割り当てられた当直（04 シフト）です。"
-            : "本日の割り当てはありません。必要な作業を選んで打刻してください。押すと確認の画面が出ます。"}
-        </p>
 
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {PUNCH_CATEGORIES.map((category) => {
@@ -253,12 +248,6 @@ export default function PunchPage() {
               <h2 className="m-0 mt-2 text-4xl font-bold leading-snug text-foreground-900">
                 {tr("workCategory", pending.category)} を{tr("action", pending.action)}します
               </h2>
-              <p className="m-0 mt-2.5 text-xl leading-relaxed text-foreground-700">
-                {session.name}（{tr("role", session.role)}）の記録として、いまの時刻で残します。
-              </p>
-              <p className="m-0 mt-2 text-base leading-relaxed text-foreground-500">
-                記録した打刻はあとから書き換えできません。訂正が必要なときは陸上への差戻しになります。
-              </p>
             </div>
 
             {/* 3.2.5⑥ 安全臨時労働・緊急作業の別枠。既定はオフ（誤って常用させない） */}

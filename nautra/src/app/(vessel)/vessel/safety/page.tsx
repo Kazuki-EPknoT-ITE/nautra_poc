@@ -18,6 +18,7 @@ import {
 import { useModalProps } from "@/ui";
 import { Button, Card, CardBody, Checkbox, CheckboxGroup, Chip, Input, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, Radio, RadioGroup, Select, SelectItem, Textarea, useDisclosure } from "@/ui/heroui";
 import { GroupHeader } from "../_components/group-header";
+import { SAFETY_SUB_TABS, SubTabs } from "../_components/sub-tabs";
 import { RecordTile } from "../_components/record-tile";
 
 type HistoryItem =
@@ -133,9 +134,7 @@ export default function SafetyPage() {
   return (
     <div className="flex flex-col gap-4">
       <GroupHeader group="05" subtitle="操練・検知" />
-      <p className="text-sm text-foreground-600">
-        記録者: {session ? `${session.name}（${session.position}）` : "—"}
-      </p>
+      <SubTabs label="安全の切り替え" items={SAFETY_SUB_TABS} />
 
       <div className="grid grid-cols-2 gap-2">
         <RecordTile label="操練（訓練）記録" onPress={openDrill} />

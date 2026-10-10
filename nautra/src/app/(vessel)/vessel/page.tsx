@@ -1,164 +1,100 @@
 "use client";
 
 import Link from "next/link";
-import { useRoutePrefetch } from "@/lib/use-route-prefetch";
-import { useSyncBadge } from "@/lib/vessel-hooks";
-import { NoticePanel } from "./_components/notice-panel";
-import { SurfaceCard } from "@/ui";
-import { Button, CardFooter, CardHeader } from "@/ui/heroui";
-import { can, type Permission } from "@/domain/authz/roles";
-import { t } from "@/i18n/ja";
-import { useSessionCrew } from "@/lib/vessel-hooks";
+import { cn } from "@/lib/cn";
+import { fmtDateTime } from "@/lib/format";
+import { useNotices } from "@/lib/vessel-hooks";
+import type { NoticePayload } from "@/sync-protocol/records";
 
 /**
- * 船内ホーム = 機能メニュー。
- * Phase 1 実装機能マップ（要件定義書 2章 / プレゼン資料）の6領域を番号カードで提示する。
- * カードは「番号＋タイトル＋サブ画面ボタン」のみで説明文を持たない（1画面1目的。基本設計書 6.3）。
- * 打刻は「メニュー→打刻→作業種別タップ」の2タップ以内を維持。
+ * お知らせ（横タブ V-12。`/vessel`）。
+ *
+ * **速報とお知らせだけ**を並べる（レビュー NEWS-01）。機能の入口は横タブにあるので、
+ * ここに機能メニューや「あなたへの通知」は置かない。
+ * 一覧には題名と日時だけを出し、押すと詳細が開く（NEWS-03）。開いたものが既読になるので、
+ * 「確認しました」のような一括の操作は置かない（NEWS-02）。
  */
+export default function VesselNoticesPage() {
+  const { notices, unread } = useNotices();
+  const unreadIds = new Set(unread.map((n) => n.id));
+  const urgent = notices.filter((n) => n.level === "urgent");
+  const info = notices.filter((n) => n.level !== "urgent");
 
-interface FeatureLink {
-  /** ボタンの文言。カード幅で折り返さない長さ（目安9文字まで）にする */
-  label: string;
-  href: string;
-  /** この導線を表示するために必要な権限（未指定は全ロール） */
-  permission?: Permission;
-}
-
-interface Feature {
-  no: string;
-  title: string;
-  links: FeatureLink[];
-}
-
-const FEATURES: Feature[] = [
-  {
-    no: "01",
-    title: "労働時間・打刻",
-    links: [{ label: "打刻", href: "/vessel/punch" }],
-  },
-  {
-    no: "02",
-    title: "労務管理記録簿",
-    links: [
-      { label: "本日の集計", href: "/vessel/ledger" },
-      { label: "船内承認", href: "/vessel/approve", permission: "approve_labor" },
-    ],
-  },
-  {
-    no: "03",
-    title: "航海日誌",
-    links: [{ label: "航海日誌", href: "/vessel/logbook" }],
-  },
-  {
-    no: "04",
-    title: "当直・シフト管理",
-    links: [{ label: "当直・配置表", href: "/vessel/shift" }],
-  },
-  {
-    no: "05",
-    title: "船内保守・作業記録",
-    links: [
-      { label: "作業・待機", href: "/vessel/work" },
-      { label: "点検・保守", href: "/vessel/maintenance" },
-      { label: "操練・検知", href: "/vessel/safety" },
-    ],
-  },
-  {
-    no: "06",
-    title: "オフライン蓄積・同期",
-    links: [{ label: "同期状態", href: "/vessel/sync" }],
-  },
-  {
-    no: "07",
-    title: "安全・健康",
-    links: [
-      { label: "事故・ヒヤリ", href: "/vessel/incident" },
-      { label: "相談・体調", href: "/vessel/wellbeing" },
-    ],
-  },
-];
-
-function FeatureCard({ feature }: { feature: Feature }) {
   return (
-    <SurfaceCard
-     
-      aria-label={`${feature.no} ${feature.title}`}
-      className="flex h-full flex-col"
-    >
-      {/*
-        通知はカード内に置かない（タイトルと幅を奪い合って崩れるため、右のお知らせ欄に集約する）。
-        番号は見出しの上に置き、タイトルにカード幅をすべて渡す（「労務管理記録簿」等が途中で折れない）。
-      */}
-      <CardHeader className="flex flex-col items-start gap-0.5 px-5 pb-4 pt-4">
-        <span className="tabular-nums text-2xl font-bold leading-none text-foreground-500">
-          {feature.no}
-        </span>
-        <h2 className="text-pretty text-xl font-bold leading-tight">{feature.title}</h2>
-      </CardHeader>
-      {/*
-        導線はどれも同じ重み（機能への入口）なので、見た目を1種類に統一する。
-        下寄せ（mt-auto）にすると、行内でボタン数が違うカードどうしで開始位置がずれるため、
-        見出しの直下から並べて左右のカードと行を揃える。
-      */}
-      <CardFooter className="flex flex-col gap-2 px-5 pb-5 pt-0">
-        {feature.links.map((link) => (
-          <Button
-            key={link.href}
-            as={Link}
-            href={link.href}
-            color="primary"
-            radius="md"
-            className="h-12 w-full text-center text-base font-semibold"
-          >
-            {link.label}
-          </Button>
-        ))}
-      </CardFooter>
-    </SurfaceCard>
+    <div className="mx-auto flex max-w-[860px] flex-col gap-4">
+      <h1 className="sr-only">お知らせ</h1>
+      <NoticeGroup title="速報" urgent items={urgent} unreadIds={unreadIds} empty="速報はありません" />
+      <NoticeGroup title="お知らせ" items={info} unreadIds={unreadIds} empty="お知らせはありません" />
+    </div>
   );
 }
 
-export default function VesselMenuPage() {
-  const { pendingCount, offlineSim } = useSyncBadge();
-  const session = useSessionCrew();
-
-  // サインイン中のロールで使える導線だけを出す（判定は domain/authz。基本設計書 11.2）
-  const visible = FEATURES.map((f) => ({
-    ...f,
-    links: f.links.filter((l) => !l.permission || (session && can(session.role, l.permission))),
-  })).filter((f) => f.links.length > 0);
-
-  // メニューを見ている間に各画面を用意しておく（押してから待たせない）
-  useRoutePrefetch(visible.flatMap((f) => f.links.map((l) => l.href)));
-
+function NoticeGroup({
+  title,
+  urgent = false,
+  items,
+  unreadIds,
+  empty,
+}: {
+  title: string;
+  urgent?: boolean;
+  items: NoticePayload[];
+  unreadIds: Set<string>;
+  empty: string;
+}) {
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h1 className="text-balance text-2xl font-bold">
-          船内メニュー
-          {session ? (
-            <span className="ml-3 text-base font-normal text-foreground-600">
-              {session.name}（{t.role[session.role]}）
-            </span>
-          ) : null}
-        </h1>
-        <p className="text-sm text-foreground-600">
-          {offlineSim ? "⚡ オフライン運用中" : "● オンライン"}
-          {pendingCount > 0 ? `｜未同期 ${pendingCount}件` : ""}
-        </p>
-      </div>
-      {/* 左=機能カード（3列×2行）、右=お知らせ欄。狭い画面ではお知らせが下に回る */}
-      <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_19rem]">
-        {/* items-start: カードは中身の高さのままにする。行の高さに引き伸ばすと
-            ボタンが1本のカードに大きな空白ができ、押す場所が探しにくくなる */}
-        <div className="grid items-start gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {visible.map((f) => (
-            <FeatureCard key={f.no} feature={f} />
-          ))}
-        </div>
-        <NoticePanel />
-      </div>
-    </div>
+    <section aria-label={title} className="ui-card">
+      <h2 className="m-0 flex items-center gap-2 border-b border-[var(--ui-hairline-strong)] px-4 py-3 text-xl font-bold text-foreground-900">
+        {urgent ? (
+          <span aria-hidden="true" className="text-primary">
+            ‼
+          </span>
+        ) : null}
+        {title}
+        <span className="font-mono text-base font-normal tabular-nums text-foreground-500">{items.length}</span>
+      </h2>
+      {items.length === 0 ? (
+        <p className="m-0 px-4 py-5 text-lg text-foreground-500">{empty}</p>
+      ) : (
+        <ul className="m-0 list-none p-0">
+          {items.map((n) => {
+            const isUnread = unreadIds.has(n.id);
+            return (
+              <li key={n.id} className="border-b border-[var(--ui-hairline)] last:border-b-0">
+                <Link
+                  href={`/vessel/notices/${encodeURIComponent(n.id)}`}
+                  className="flex min-h-16 items-center gap-3 px-4 py-3 hover:bg-content2"
+                >
+                  {/* 未読は点で示す（文字を足さない） */}
+                  <span
+                    aria-label={isUnread ? "未読" : undefined}
+                    className={cn(
+                      "h-2.5 w-2.5 flex-none rounded-full",
+                      isUnread ? (urgent ? "bg-primary" : "bg-foreground-700") : "bg-transparent",
+                    )}
+                  />
+                  <span className="min-w-0 flex-1">
+                    <span
+                      className={cn(
+                        "block truncate text-lg text-foreground-900",
+                        isUnread ? "font-bold" : "font-normal",
+                      )}
+                    >
+                      {n.title}
+                    </span>
+                    <span className="mt-0.5 block font-mono text-sm tabular-nums text-foreground-500">
+                      {fmtDateTime(n.publishedAt)}
+                    </span>
+                  </span>
+                  <span aria-hidden="true" className="text-xl text-foreground-500">
+                    ›
+                  </span>
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </section>
   );
 }

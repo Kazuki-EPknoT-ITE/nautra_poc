@@ -16,7 +16,7 @@ import { useSessionCrew } from "@/lib/vessel-hooks";
  * デザインの10タブに、要件定義書 3.5「安全（操練・アルコール検知）」と 3.7「お知らせ」の
  * 2つを足した12本。承認は船長だけに出す（権限の無い画面はタブごと出さない。11.2）。
  */
-const TABS: { id: string; label: string; href: string; permission?: Permission }[] = [
+const TABS: { id: string; label: string; href: string; permission?: Permission; alsoActiveOn?: string[] }[] = [
   { id: "V-01", label: "打刻", href: "/vessel/punch" },
   { id: "V-02", label: "履歴", href: "/vessel/history" },
   { id: "V-03", label: "労働", href: "/vessel/ledger" },
@@ -27,7 +27,7 @@ const TABS: { id: string; label: string; href: string; permission?: Permission }
   { id: "V-08", label: "配置表", href: "/vessel/shift" },
   { id: "V-09", label: "同期", href: "/vessel/sync" },
   { id: "V-10", label: "相談", href: "/vessel/wellbeing" },
-  { id: "V-11", label: "安全", href: "/vessel/safety" },
+  { id: "V-11", label: "安全", href: "/vessel/safety", alsoActiveOn: ["/vessel/incident"] },
   { id: "V-12", label: "お知らせ", href: "/vessel" },
 ];
 
@@ -44,7 +44,11 @@ export function VesselTabs() {
   return (
     <nav aria-label="船内メニュー" className="ui-bar flex flex-none overflow-x-auto">
       {visible.map((x) => {
-        const active = x.href === "/vessel" ? pathname === "/vessel" : pathname.startsWith(x.href);
+        // お知らせの詳細（/vessel/notices/…）を開いているときも「お知らせ」を現在地にする
+        const active =
+          x.href === "/vessel"
+            ? pathname === "/vessel" || pathname.startsWith("/vessel/notices")
+            : pathname.startsWith(x.href) || (x.alsoActiveOn ?? []).some((p) => pathname.startsWith(p));
         return (
           <Link
             key={x.id}

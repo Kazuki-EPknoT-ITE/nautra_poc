@@ -371,13 +371,6 @@ export default function ShiftPage() {
         </CardBody>
       </Card>
 
-      <p className="text-xs text-foreground-600">
-        当直・配置の作成と変更は陸上アプリ（S-10）で行います。船内は参照のみです。
-        デモ:{" "}
-        <Link href="/shore/shifts" className="text-primary underline-offset-2 hover:underline">
-          陸上で当直・配置を変更する →
-        </Link>
-      </p>
     </div>
   );
 }

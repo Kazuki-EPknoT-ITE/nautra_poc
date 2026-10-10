@@ -52,10 +52,6 @@ export default async function ShoreCrewNewPage() {
   return (
     <div className="flex flex-col gap-[18px]">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="m-0 text-sm text-foreground-500">
-          登録すると、続けて資格・証書の画面へ進みます。海技免状・健康証明書・基本訓練修了証を
-          入れると、その場で配乗の可否が判定されます（3.1.2）。
-        </p>
         <Link href="/shore/crew" className="ui-btn-ghost h-9">
           ← 船員一覧へ戻る
         </Link>

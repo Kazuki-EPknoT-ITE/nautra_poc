@@ -89,25 +89,6 @@ export default async function ShoreShiftsPage({
 
   return (
     <div className="flex flex-col gap-[18px]">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="m-0 text-sm text-foreground-500">
-          計画は陸上が正本。作成・変更は船内へ同期され、当直表と配置表にすぐ反映されます。
-        </p>
-      </div>
-
-      <section aria-label="関連する画面" className="ui-card flex flex-wrap items-center gap-3 p-4">
-        <span className="text-sm text-foreground-500">関連:</span>
-        <Link href="/shore/dispatch" className="rounded-medium bg-default-100 px-3 py-1.5 text-sm">
-          運航スケジュール（配船・位置）
-        </Link>
-        <Link href="/shore/manning" className="rounded-medium bg-default-100 px-3 py-1.5 text-sm">
-          配乗計画
-        </Link>
-        <Link href="/shore/labor" className="rounded-medium bg-default-100 px-3 py-1.5 text-sm">
-          労務・記録簿
-        </Link>
-      </section>
-
       {/* 主題の切替（サーバ側で組み立てるためリンクで切り替える） */}
       <nav aria-label="シフト作成の主題" className="ui-card flex flex-wrap gap-2 p-3">
         {TABS.map((x) => (

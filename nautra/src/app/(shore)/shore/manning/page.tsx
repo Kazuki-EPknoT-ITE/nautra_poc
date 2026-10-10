@@ -74,10 +74,6 @@ export default async function ShoreManningPage() {
 
   return (
     <div className="flex flex-col gap-[18px]">
-      <p className="m-0 text-sm text-foreground-500">
-        船ごとの乗組みと、これから60日の見通し（基準日 {today}）
-      </p>
-
       <ManningBoard
         pool={ashore.map((r) => toCard(r))}
         vessels={vessels.map((v) => ({
@@ -197,9 +193,6 @@ export default async function ShoreManningPage() {
       {/* ── 60日の見通し（簡易ガント） ── */}
       <section aria-label="これから60日の見通し" className="ui-card p-4">
         <h2 className="mb-1 font-bold">これから60日の見通し</h2>
-        <p className="mb-3 text-sm text-foreground-600">
-          横棒の高さがその日に乗っている人数です。定員に足りない日は棒の下に ✕ を付けています。
-        </p>
         <div className="overflow-x-auto">
           <table className="min-w-[900px] text-sm">
             <caption className="sr-only">船ごとの日別 乗船人数（今日から60日）</caption>
@@ -366,10 +359,6 @@ export default async function ShoreManningPage() {
         )}
       </section>
 
-      <p className="text-xs text-foreground-500">
-        配乗可否・過不足・見通しはいずれも一次記録から都度算出した導出値で、どこにも保存していません。
-        判定は船員カルテ・届出の添付要件チェックと同じ関数を使っています。
-      </p>
     </div>
   );
 }

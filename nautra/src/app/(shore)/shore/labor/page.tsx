@@ -200,10 +200,6 @@ export default async function ShoreLaborPage({
               {m}
             </Link>
           ))}
-          <p className="m-0 ml-1.5 min-w-[220px] flex-1 text-xs leading-normal text-foreground-400">
-            日単位・週単位・4週単位・月単位で自動集計します（3.2.1）。判定は船内と同じ
-            ルール版 {period.appliedRuleVersion} で行い、労使協定があればその閾値が効きます。
-          </p>
         </div>
       </section>
 
