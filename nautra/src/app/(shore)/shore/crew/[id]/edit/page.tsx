@@ -4,6 +4,8 @@ import { t } from "@/i18n/ja";
 import { fmtDateTime } from "@/lib/format";
 import { buildCrewMasterHistory, insuranceRowsOf } from "@/server/crew-master-service";
 import { crewPhotoOf } from "@/server/crew-photo-service";
+import { listCrewFields } from "@/server/crew-field-service";
+import { isSensitiveCategory } from "@/lib/crew-fields";
 import { ageOf, crewMasterOf, todayLocal } from "@/server/master-service";
 import { hasShorePermission, requireShore, shoreStaffById } from "@/server/shore-session";
 import { personName } from "@/lib/crew";
@@ -38,6 +40,8 @@ export default async function ShoreCrewEditPage({ params }: { params: Promise<{ 
   const canEditSensitive = await hasShorePermission("view_sensitive_health");
   const age = ageOf(master.birthDate, todayLocal());
   const historyEntries = buildCrewMasterHistory(id);
+  const fields = listCrewFields().filter((f) => canEditSensitive || !isSensitiveCategory(f.category));
+  const sensitiveKeys = new Set(listCrewFields().filter((f) => isSensitiveCategory(f.category)).map((f) => f.fieldKey));
 
   // 要配慮項目は権限がある場合だけクライアントへ渡す（権限が無ければ値そのものを送らない）
   const values: CrewMasterFormValues = {
@@ -60,6 +64,10 @@ export default async function ShoreCrewEditPage({ params }: { params: Promise<{ 
     familyNote: master.familyNote ?? "",
     medicalHistory: canEditSensitive ? (master.medicalHistory ?? "") : undefined,
     medication: canEditSensitive ? (master.medication ?? "") : undefined,
+    // 足した項目の値。健康の枠の値は権限がある人にだけ渡す（10.3）
+    customFields: Object.fromEntries(
+      Object.entries(master.customFields ?? {}).filter(([k]) => canEditSensitive || !sensitiveKeys.has(k)),
+    ),
     insurances: insuranceRowsOf(master).map(({ kind, entry }) => ({
       kind,
       number: entry?.number ?? "",
@@ -102,7 +110,7 @@ export default async function ShoreCrewEditPage({ params }: { params: Promise<{ 
         </div>
       </div>
 
-      <CrewMasterForm values={values} age={age} canEditSensitive={canEditSensitive} />
+      <CrewMasterForm values={values} age={age} canEditSensitive={canEditSensitive} fields={fields} canManageFields />
 
       <section aria-label="この船員の変更履歴" className="ui-card p-4">
         <h2 className="mb-2 font-bold">この船員の変更履歴</h2>

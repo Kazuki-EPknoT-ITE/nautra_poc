@@ -9,6 +9,7 @@ import type {
   CrewMasterPayload,
   CrewPhotoPayload,
   VesselPhotoPayload,
+  CrewFieldDefPayload,
   DockPlanPayload,
   EmbarkationPayload,
   EvaluationPayload,
@@ -1819,6 +1820,22 @@ function vesselPhotoSeed(today: string): SyncEvent[] {
   return [makeRecordEvent("vessel_photo", row, SEED_DEVICE)];
 }
 
+/**
+ * 管理者が足した入力項目のデモ（CREWEDIT-04）。「基本情報」に1つだけ置き、
+ * 「＋ 項目を追加」で足したものがどう並ぶかを S-04 でそのまま確かめられるようにする。
+ */
+function crewFieldDefSeed(today: string): SyncEvent[] {
+  const row: CrewFieldDefPayload = {
+    ...mbase("sd-cfd-uniform", at9(addDays(today, -40)), COMPANY_SCOPE_ID),
+    fieldKey: "cf-0001-uniform-size",
+    category: "basic",
+    label: "作業服のサイズ",
+    inputType: "text",
+    placeholder: "L",
+  };
+  return [makeRecordEvent("crew_field_def", row, SEED_DEVICE)];
+}
+
 /* ───────────── 陸上アプリのユーザーアカウント（S-15） ───────────── */
 
 /**
@@ -1883,6 +1900,7 @@ export function makeMasterSeedEvents(today: string): SyncEvent[] {
     ...taskSeed(today),
     ...crewPhotoSeed(today),
     ...vesselPhotoSeed(today),
+    ...crewFieldDefSeed(today),
     ...shoreUserSeed(today),
     ...trashSeed(today),
   ];

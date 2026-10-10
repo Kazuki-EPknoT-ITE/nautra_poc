@@ -418,6 +418,43 @@ check(
   await lp.close();
 }
 
+// 船員の入力項目（レビュー CREWEDIT-04）: 管理者が枠ごとに「＋ 項目を追加」で足し、入力例・必須を決め、直し、外せる
+{
+  const cp2 = await shore.newPage();
+  await cp2.goto(`${BASE}/shore/crew/crew-terada/edit`, { waitUntil: "networkidle" });
+  const demoField = await cp2.getByLabel("作業服のサイズ").count();
+  check("陸上: 管理者が足した項目（デモ: 作業服のサイズ）が基本情報に並ぶ", demoField > 0);
+  // 前の試験が途中で止まって残した項目があれば片付ける（デモの紙面に試験の跡を残さない）
+  for (let i = 0; i < 5; i++) {
+    const leftover = cp2.getByRole("button", { name: /^「E2E項目\d+」の項目を直す$/ }).first();
+    if ((await leftover.count()) === 0) break;
+    await leftover.click();
+    const ed = cp2.getByRole("group", { name: /^「E2E項目\d+」の項目を直す$/ });
+    await ed.getByRole("button", { name: "この項目を外す" }).click();
+    await ed.getByRole("button", { name: "外す", exact: true }).click();
+    await cp2.waitForTimeout(1500);
+  }
+  const label = `E2E項目${Date.now() % 100000}`;
+  await cp2.getByRole("button", { name: "＋ 項目を追加" }).first().click();
+  const adder = cp2.getByRole("group", { name: "項目を追加" });
+  await adder.getByPlaceholder("例: 作業服のサイズ").fill(label);
+  await adder.getByPlaceholder("例: L").fill("サンプル");
+  await adder.getByRole("button", { name: "追加する" }).click();
+  await cp2.waitForTimeout(1500);
+  const added = cp2.getByRole("textbox", { name: label, exact: true });
+  check(
+    "陸上: 「＋ 項目を追加」で足した項目が入力例つきで出る",
+    (await added.count()) > 0 && (await added.getAttribute("placeholder")) === "例: サンプル",
+  );
+  await cp2.getByRole("button", { name: `「${label}」の項目を直す` }).click();
+  const editor = cp2.getByRole("group", { name: `「${label}」の項目を直す` });
+  await editor.getByRole("button", { name: "この項目を外す" }).click();
+  await editor.getByRole("button", { name: "外す", exact: true }).click();
+  await cp2.waitForTimeout(1500);
+  check("陸上: 足した項目を外せる（入力済みの値は履歴に残る）", (await cp2.getByRole("textbox", { name: label, exact: true }).count()) === 0);
+  await cp2.close();
+}
+
 // 船の登録（レビュー VESSEL-02/03・ASSIGN-04）: 配乗計画から「＋ 船を登録」で船の画面へ入り、入力を確かめられる。
 // 実際の登録はデモの紙面に船が積み上がるため、サーバ側の試験（vessel-master.test.ts）で確かめる
 {

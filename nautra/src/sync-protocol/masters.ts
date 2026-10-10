@@ -82,6 +82,8 @@ export const crewMasterPayloadSchema = z
     medication: z.string().optional(),
     /** 保険加入状況（写し。最終確認日つき） */
     insurances: z.array(insuranceEntrySchema).optional(),
+    /** 管理者が足した入力項目の値（項目キー → 値。レビュー CREWEDIT-04。定義は crew_field_def） */
+    customFields: z.record(z.string(), z.string()).optional(),
     /** 退職・登録抹消 */
     retiredOn: z.string().optional(),
   })
@@ -813,6 +815,34 @@ export const crewPhotoPayloadSchema = z
 export type CrewPhotoPayload = z.infer<typeof crewPhotoPayloadSchema>;
 
 /**
+ * 船員マスタに管理者が足す入力項目の定義（レビュー CREWEDIT-04）。
+ *
+ * 「基本情報」など画面の大枠ごとに、項目名・入力の種類・必須・入力例を持つ。値は船員マスタの
+ * `customFields` に項目キーで入る。項目の変更・削除も追記型（`supersedesId` / `removed`）で表し、
+ * 削除しても入力済みの値はマスタの履歴に残る。項目キーは作ったときに決めて変えない（値と結び付けるため）。
+ */
+export const CREW_FIELD_CATEGORIES = ["basic", "emergency", "health", "insurance"] as const;
+export type CrewFieldCategory = (typeof CREW_FIELD_CATEGORIES)[number];
+export const CREW_FIELD_INPUT_TYPES = ["text", "number", "date", "textarea"] as const;
+export type CrewFieldInputType = (typeof CREW_FIELD_INPUT_TYPES)[number];
+
+export const crewFieldDefPayloadSchema = z
+  .object({
+    ...masterBase,
+    fieldKey: z.string(),
+    category: z.enum(CREW_FIELD_CATEGORIES),
+    label: z.string().min(1),
+    inputType: z.enum(CREW_FIELD_INPUT_TYPES),
+    required: z.boolean().optional(),
+    /** 入力例（欄の中に薄く出す） */
+    placeholder: z.string().optional(),
+    /** 削除したときは true（削除ではなく追記で表す） */
+    removed: z.boolean().optional(),
+  })
+  .passthrough();
+export type CrewFieldDefPayload = z.infer<typeof crewFieldDefPayloadSchema>;
+
+/**
  * 船の写真（レビュー VESSEL-03）。顔写真と同じ理由で**船舶マスタとは別のエンティティ**に持つ
  * （写真の差し替えでマスタの版を増やさない）。端末で横長に縮めてから送る。
  */
@@ -974,6 +1004,7 @@ export type ShoreUserPayload = z.infer<typeof shoreUserPayloadSchema>;
 export const MASTER_PAYLOAD_SCHEMAS = {
   crew_master: crewMasterPayloadSchema,
   crew_photo: crewPhotoPayloadSchema,
+  crew_field_def: crewFieldDefPayloadSchema,
   credential: credentialPayloadSchema,
   embarkation: embarkationPayloadSchema,
   evaluation: evaluationPayloadSchema,

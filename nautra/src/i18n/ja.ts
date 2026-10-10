@@ -774,6 +774,7 @@ export const t = {
     agreement: "労使協定・就業規則",
     crew_photo: "顔写真",
     vessel_photo: "船の写真",
+    crew_field_def: "船員の追加項目",
     work_task: "作業指示・タスク",
     trash_entry: "削除・アーカイブ",
     shore_user: "陸上ユーザー",

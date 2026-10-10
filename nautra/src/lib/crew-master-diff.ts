@@ -76,6 +76,8 @@ const INSURANCE_COLUMNS: {
 export function diffCrewMaster(
   before: Pick<CrewMasterPayload, "insurances"> & Record<string, unknown>,
   after: Record<string, unknown>,
+  /** 管理者が足した項目（CREWEDIT-04）。sensitive の項目は値を載せない */
+  customFields: readonly { fieldKey: string; label: string; sensitive: boolean }[] = [],
 ): FieldChange[] {
   const changes: FieldChange[] = [];
 
@@ -119,6 +121,21 @@ export function diffCrewMaster(
         sensitive: false,
       });
     }
+  }
+
+  // 管理者が足した項目（値は customFields に項目キーで入っている）
+  const bc = (before.customFields ?? {}) as Record<string, unknown>;
+  const ac = (after.customFields ?? {}) as Record<string, unknown>;
+  for (const f of customFields) {
+    const bv = normalizeField(bc[f.fieldKey]);
+    const av = normalizeField(ac[f.fieldKey]);
+    if (bv === av) continue;
+    changes.push({
+      label: f.label,
+      before: f.sensitive ? SENSITIVE_PLACEHOLDER : show(bv),
+      after: f.sensitive ? SENSITIVE_PLACEHOLDER : show(av),
+      sensitive: f.sensitive,
+    });
   }
 
   return changes;

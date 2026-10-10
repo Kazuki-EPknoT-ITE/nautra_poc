@@ -7,6 +7,7 @@ import {
   SENSITIVE_CREW_FIELDS,
   type FieldChange,
 } from "@/lib/crew-master-diff";
+import { isSensitiveCategory, validateCustomFields } from "@/lib/crew-fields";
 import { ulid } from "@/lib/ids";
 import { carryOverFields } from "@/lib/master-fields";
 import { DEFAULT_CREDENTIAL_RULE_SET } from "@/rules/credential-rules";
@@ -31,6 +32,7 @@ import {
   todayLocal,
   writeAuditLog,
 } from "./master-service";
+import { listCrewFields } from "./crew-field-service";
 
 /**
  * S-04 船員マスタ編集の業務サービス（要件定義書 3.1.1 / 3.1.3 / 12.2〜12.4 / 12.6）。
@@ -148,6 +150,28 @@ export interface CrewMasterFormInput {
     lastVerifiedOn?: string;
     verifyMethod?: InsuranceEntry["verifyMethod"];
   }[];
+  /** 管理者が足した項目の値（項目キー → 値。CREWEDIT-04） */
+  customFields?: Record<string, string>;
+}
+
+/** 足した項目の値を検査し、権限で見られない項目（健康の枠）は今の値を引き継ぐ */
+function mergeCustomFields(
+  current: Record<string, string> | undefined,
+  sent: Record<string, string> | undefined,
+  canEditSensitive: boolean,
+): { values: Record<string, string> | undefined; defs: { fieldKey: string; label: string; sensitive: boolean }[] } {
+  const fields = listCrewFields();
+  const checked = validateCustomFields(fields, sent ?? {}, canEditSensitive);
+  const out: Record<string, string> = { ...(current ?? {}) };
+  for (const f of fields) {
+    if (isSensitiveCategory(f.category) && !canEditSensitive) continue; // 見られない人の保存で消さない
+    if (checked[f.fieldKey] === undefined) delete out[f.fieldKey];
+    else out[f.fieldKey] = checked[f.fieldKey]!;
+  }
+  return {
+    values: Object.keys(out).length > 0 ? out : undefined,
+    defs: fields.map((f) => ({ fieldKey: f.fieldKey, label: f.label, sensitive: isSensitiveCategory(f.category) })),
+  };
 }
 
 export interface CrewMasterUpdateResult {
@@ -217,8 +241,10 @@ export function updateCrewMaster(input: {
     medication: input.canEditSensitive ? norm(f.medication) : current.medication,
     insurances,
   };
+  const custom = mergeCustomFields(current.customFields, f.customFields, input.canEditSensitive);
+  next.customFields = custom.values;
 
-  const changes = diffCrewMaster(current, next);
+  const changes = diffCrewMaster(current, next, custom.defs);
   if (changes.length === 0) throw new Error("変更された項目がありません");
 
   const published = publishMaster("crew_master", next, {
@@ -296,6 +322,7 @@ export function createCrewMaster(input: {
       medicalHistory: input.canEditSensitive ? norm(f.medicalHistory) : undefined,
       medication: input.canEditSensitive ? norm(f.medication) : undefined,
       insurances,
+      customFields: mergeCustomFields(undefined, f.customFields, input.canEditSensitive).values,
     },
     { vesselId: COMPANY_SCOPE_ID, actor: input.actor, now: input.now },
   );

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createCrewMaster, retireCrewMaster, updateCrewMaster } from "@/server/crew-master-service";
 import { saveCrewPhoto } from "@/server/crew-photo-service";
+import { addCrewField, removeCrewField, updateCrewField, type CrewFieldInput } from "@/server/crew-field-service";
 import { crewMasterOf } from "@/server/master-service";
 import { recordDeletion } from "@/server/trash-service";
 import { hasShorePermission, requireShore } from "@/server/shore-session";
@@ -18,6 +19,15 @@ export interface CrewMasterFormState {
 }
 
 const s = (formData: FormData, key: string) => String(formData.get(key) ?? "");
+
+/** 管理者が足した項目の値（欄の name は `cf.<項目キー>`） */
+function customFieldsFrom(formData: FormData): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [key, value] of formData.entries()) {
+    if (key.startsWith("cf.") && typeof value === "string") out[key.slice(3)] = value;
+  }
+  return out;
+}
 
 /**
  * S-04 船員マスタの保存（Server Action）。
@@ -68,6 +78,7 @@ export async function saveCrewMasterAction(
         medicalHistory: canEditSensitive ? s(formData, "medicalHistory") : undefined,
         medication: canEditSensitive ? s(formData, "medication") : undefined,
         insurances,
+        customFields: customFieldsFrom(formData),
       },
     });
 
@@ -130,6 +141,7 @@ export async function createCrewMasterAction(
         medicalHistory: canEditSensitive ? s(formData, "medicalHistory") : undefined,
         medication: canEditSensitive ? s(formData, "medication") : undefined,
         insurances,
+        customFields: customFieldsFrom(formData),
       },
     });
 
@@ -214,6 +226,55 @@ export async function saveCrewPhotoAction(
       ok: true,
       message: dataUrl.trim() ? "顔写真を登録しました" : "顔写真を外しました",
     };
+  } catch (e) {
+    return { ok: false, message: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+/* ═══════════════ 項目の追加・変更・削除（レビュー CREWEDIT-04） ═══════════════ */
+
+/**
+ * 「基本情報」などの枠に入力項目を足す・直す・外す（管理者だけ）。
+ * 欄の定義だけを扱い、船員マスタの値はこれまでどおり保存ボタンの経路で書く（12.3）。
+ */
+async function fieldActor(): Promise<string> {
+  const guard = await requireShore("edit_crew_master");
+  if (!guard.ok) throw new Error("項目を変更する権限がありません（管理者のみ）");
+  return guard.staff.id;
+}
+
+function revalidateCrewForms() {
+  revalidatePath("/shore/crew", "layout");
+}
+
+export async function addCrewFieldAction(input: CrewFieldInput): Promise<{ ok: boolean; message: string }> {
+  try {
+    const f = addCrewField(input, await fieldActor());
+    revalidateCrewForms();
+    return { ok: true, message: `「${f.label}」を追加しました` };
+  } catch (e) {
+    return { ok: false, message: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+export async function updateCrewFieldAction(
+  fieldKey: string,
+  input: CrewFieldInput,
+): Promise<{ ok: boolean; message: string }> {
+  try {
+    updateCrewField(fieldKey, input, await fieldActor());
+    revalidateCrewForms();
+    return { ok: true, message: "項目を変更しました" };
+  } catch (e) {
+    return { ok: false, message: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+export async function removeCrewFieldAction(fieldKey: string): Promise<{ ok: boolean; message: string }> {
+  try {
+    removeCrewField(fieldKey, await fieldActor());
+    revalidateCrewForms();
+    return { ok: true, message: "項目を外しました（入力済みの値は履歴に残ります）" };
   } catch (e) {
     return { ok: false, message: e instanceof Error ? e.message : String(e) };
   }

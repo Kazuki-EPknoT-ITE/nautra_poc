@@ -158,6 +158,13 @@ export const SYNC_ENTITY_REGISTRY = {
   crew_master: { payload: RECORD_PAYLOAD_SCHEMAS.crew_master, policy: "shore_priority", origin: "shore" },
   // 顔写真（マスタとは別に持つ。差し替えでマスタの版を増やさない）
   crew_photo: { payload: RECORD_PAYLOAD_SCHEMAS.crew_photo, policy: "shore_priority", origin: "shore" },
+  // 船員マスタの追加項目の定義（CREWEDIT-04）。入力は陸上の S-04 だけなので船内へは配らない
+  crew_field_def: {
+    payload: RECORD_PAYLOAD_SCHEMAS.crew_field_def,
+    policy: "shore_priority",
+    origin: "shore",
+    distribution: "shore_only",
+  },
   credential: { payload: RECORD_PAYLOAD_SCHEMAS.credential, policy: "shore_priority", origin: "shore" },
   vessel_master: {
     payload: RECORD_PAYLOAD_SCHEMAS.vessel_master,

@@ -5,6 +5,8 @@ import { t } from "@/i18n/ja";
 import type { InsuranceKind } from "@/sync-protocol/records";
 import { Button, Input, Select, SelectItem, Textarea } from "@/ui/heroui";
 import { createCrewMasterAction, saveCrewMasterAction, type CrewMasterFormState } from "../actions";
+import type { CrewFieldView } from "@/lib/crew-fields";
+import { CustomFields } from "./custom-fields";
 import { PhotoField } from "./photo-field";
 
 export interface InsuranceFormValue {
@@ -39,6 +41,8 @@ export interface CrewMasterFormValues {
   medicalHistory?: string;
   medication?: string;
   insurances: InsuranceFormValue[];
+  /** 管理者が足した項目の値（項目キー → 値。CREWEDIT-04） */
+  customFields?: Record<string, string>;
 }
 
 const INITIAL: CrewMasterFormState = { ok: false, message: "", changed: [] };
@@ -68,12 +72,21 @@ export function CrewMasterForm({
   canEditSensitive,
   /** "new" のときは同じフォームで新規登録を行う（12.3: 入力の経路を増やさない） */
   mode = "edit",
+  fields = [],
+  canManageFields = false,
 }: {
   values: CrewMasterFormValues;
   age: number | null;
   canEditSensitive: boolean;
   mode?: "edit" | "new";
+  /** 管理者が足した項目の定義（CREWEDIT-04） */
+  fields?: CrewFieldView[];
+  /** 「＋ 項目を追加」を出すか（管理者だけ） */
+  canManageFields?: boolean;
 }) {
+  const custom = (category: "basic" | "emergency" | "health" | "insurance") => (
+    <CustomFields category={category} fields={fields} values={values.customFields ?? {}} canManage={canManageFields} />
+  );
   const [state, formAction, pending] = useActionState(
     mode === "new" ? createCrewMasterAction : saveCrewMasterAction,
     INITIAL,
@@ -144,6 +157,7 @@ export function CrewMasterForm({
             defaultValue={values.hiredOn}
           />
         </div>
+        {custom("basic")}
       </Section>
 
       <Section title="緊急連絡先・家族構成">
@@ -172,6 +186,7 @@ export function CrewMasterForm({
           defaultValue={values.familyNote}
           placeholder="例: 配偶者・子2人（緊急時は配偶者へ）"
         />
+        {custom("emergency")}
       </Section>
 
       <Section title="健康に関する情報（要配慮個人情報）">
@@ -191,10 +206,7 @@ export function CrewMasterForm({
               defaultValue={values.medication ?? ""}
               placeholder="例: アムロジピン 5mg 朝1回"
             />
-            <p className="text-xs text-foreground-500">
-              この欄の内容は記録の中身を残しません。変更したことと項目名だけを履歴に残します
-              （要件定義書 10.3 / 12.6）。
-            </p>
+            {custom("health")}
           </>
         ) : (
           <p className="text-sm text-foreground-600">
@@ -242,6 +254,7 @@ export function CrewMasterForm({
             </div>
           </div>
         ))}
+        {custom("insurance")}
       </Section>
 
       <div className="flex flex-wrap items-center gap-3">

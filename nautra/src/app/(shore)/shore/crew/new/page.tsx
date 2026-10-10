@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { hasShorePermission, requireShore } from "@/server/shore-session";
+import { listCrewFields } from "@/server/crew-field-service";
+import { isSensitiveCategory } from "@/lib/crew-fields";
 import { INSURANCE_KINDS } from "@/sync-protocol/records";
 import { ShoreGuardNotice } from "../../_components/guard";
 import {
@@ -57,7 +59,14 @@ export default async function ShoreCrewNewPage() {
         </Link>
       </div>
 
-      <CrewMasterForm values={values} age={null} canEditSensitive={canEditSensitive} mode="new" />
+      <CrewMasterForm
+        values={values}
+        age={null}
+        canEditSensitive={canEditSensitive}
+        mode="new"
+        fields={listCrewFields().filter((f) => canEditSensitive || !isSensitiveCategory(f.category))}
+        canManageFields
+      />
     </div>
   );
 }
