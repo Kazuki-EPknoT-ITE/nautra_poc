@@ -2,25 +2,21 @@
 
 import { useActionState, useRef, useState } from "react";
 import { fmtDateLabel, fmtMinutes } from "@/lib/format";
-import { RemandDialog } from "@/ui";
-import { Button, Checkbox, CheckboxGroup, Chip } from "@/ui/heroui";
+import { RemandDialog, StatusChip } from "@/ui";
+import { Button, Checkbox, CheckboxGroup } from "@/ui/heroui";
 import { approveDaysAction, type ApprovalFormState } from "../actions";
 
 export interface PendingDay {
   date: string;
   workedMinutes: number;
   level: "ok" | "caution" | "violation";
+  /** 注意・警告の理由（ホバーで出す。LABOR-05） */
+  hint?: string;
   /** 船長の承認が済んでいるか（労務管理責任者はその上で確認する） */
   captainApproved: boolean;
 }
 
 const INITIAL: ApprovalFormState = { ok: false, message: "" };
-
-const LEVEL: Record<string, { color: "success" | "warning" | "danger"; icon: string; label: string }> = {
-  ok: { color: "success", icon: "✓", label: "適合" },
-  caution: { color: "warning", icon: "⚠", label: "注意" },
-  violation: { color: "danger", icon: "✕", label: "警告" },
-};
 
 /**
  * 労務管理責任者の承認フォーム（S-06）。
@@ -77,9 +73,7 @@ export function ApprovalForm({
             <span className="flex flex-wrap items-center gap-2 text-sm">
               <span className="tabular-nums font-semibold">{fmtDateLabel(d.date)}</span>
               <span className="tabular-nums">{fmtMinutes(d.workedMinutes)}</span>
-              <Chip size="sm" variant="flat" color={LEVEL[d.level].color} radius="sm">
-                {LEVEL[d.level].icon} {LEVEL[d.level].label}
-              </Chip>
+              <StatusChip level={d.level} size="sm" hint={d.hint} />
               <span className="text-foreground-500">
                 {d.captainApproved ? "船長 承認済" : "船長 未承認"}
               </span>

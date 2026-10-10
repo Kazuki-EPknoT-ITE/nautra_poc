@@ -4,7 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { can, type Permission } from "@/domain/authz/roles";
 import { cn } from "@/lib/cn";
-import { useSessionCrew } from "@/lib/vessel-hooks";
+import { pendingProposals } from "@/lib/labor-proposals";
+import { useApprovals, useCrewRecords, useSessionCrew } from "@/lib/vessel-hooks";
 
 /**
  * 船内のタブ（デザイン正本 `design/poc_design` の `VESSEL_TABS`）。
@@ -37,6 +38,10 @@ export const VESSEL_TAB_HREFS = TABS.map((x) => x.href);
 export function VesselTabs() {
   const pathname = usePathname();
   const session = useSessionCrew();
+  // 陸上からの修正の依頼（LABOR-06）は履歴タブの件数で知らせる（開くまで気付かない、を防ぐ）
+  const approvals = useApprovals();
+  const myRecords = useCrewRecords(session?.id ?? "");
+  const proposalCount = session ? pendingProposals(approvals, myRecords, session.id).length : 0;
   if (!session) return null;
 
   const visible = TABS.filter((x) => !x.permission || can(session.role, x.permission));
@@ -60,6 +65,14 @@ export function VesselTabs() {
             )}
           >
             {x.label}
+            {x.id === "V-02" && proposalCount > 0 ? (
+              <span
+                aria-label={`修正の依頼 ${proposalCount}件`}
+                className="ml-1.5 rounded-full bg-primary px-1.5 font-mono text-sm leading-5 text-primary-foreground"
+              >
+                {proposalCount}
+              </span>
+            ) : null}
           </Link>
         );
       })}

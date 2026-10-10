@@ -68,6 +68,11 @@ export interface TimeRecord {
    * 記録簿には実績として残るため、除外の事実と理由が後から検証できる。
    */
   exceptionKind?: ExceptionalWorkKind;
+  /**
+   * 陸上の修正案（レビュー LABOR-06）に本人が同意して入れた打刻なら、その差戻し（approval）の ID。
+   * 打刻を入れるのは常に本人で、陸上は案を出すだけ（要件定義書 3.2.1「修正は本人への差戻しのみ」）。
+   */
+  proposalId?: string;
 }
 
 /** 上限算定から除外する労働の区分（3.2.5⑥） */

@@ -7,7 +7,9 @@ import { cn } from "@/lib/cn";
 import { CREW_MEMBERS, personName } from "@/lib/crew";
 import { fmtDateTime, fmtTimeSec } from "@/lib/format";
 import { useLocale } from "@/lib/use-locale";
+import { pendingProposals } from "@/lib/labor-proposals";
 import { recordPunch } from "@/lib/vessel-actions";
+import type { ApprovalPayload } from "@/sync-protocol/events";
 import {
   useApprovals,
   useCrewRecords,
@@ -75,7 +77,7 @@ export default function VesselHistoryPage() {
     [records],
   );
   const remandByRecordId = useMemo(() => {
-    const map = new Map<string, string>();
+    const map = new Map<string, string>(); // 打刻 ID → 差戻しの理由
     for (const a of approvals) {
       if (a.decision === "remanded" && a.targetRecordId) map.set(a.targetRecordId, a.reason ?? "差戻し");
     }
@@ -89,6 +91,42 @@ export default function VesselHistoryPage() {
         .sort((a, b) => a.occurredAt.localeCompare(b.occurredAt)),
     [records, date],
   );
+
+  /**
+   * 陸上からの修正の依頼（レビュー LABOR-06。修正案つきの差戻し）。
+   * 案のとおりに直すと、**本人名義**の再入力・事後入力として入る（陸上は打刻を書かない）。
+   */
+  const myProposals = useMemo(
+    () => (isViewingOther ? [] : pendingProposals(approvals, records, myId)),
+    [approvals, records, myId, isViewingOther],
+  );
+  const recordById = useMemo(() => new Map(records.map((r) => [r.id, r])), [records]);
+  const [applyingId, setApplyingId] = useState<string | null>(null);
+
+  async function applyProposal(a: ApprovalPayload) {
+    if (!session || !a.proposal || applyingId) return; // 二度押しで二重に入れない
+    setApplyingId(a.id);
+    setFormError(null);
+    try {
+      const pr = a.proposal;
+      await recordPunch({
+        crewMemberId: session.id,
+        workCategory: pr.workCategory,
+        action: pr.action,
+        entryType: pr.kind === "change" ? "resubmit" : "after",
+        occurredAt: new Date(pr.occurredAt),
+        supersedesId: pr.kind === "change" ? a.targetRecordId : undefined,
+        note: `陸上の修正案に同意: ${a.reason ?? ""}`,
+        proposalId: a.id,
+      });
+      setFlash("修正案のとおりに直しました（元の打刻は訂正済として残ります）");
+      setDate(ymdLocal(new Date(pr.occurredAt)));
+    } catch (e) {
+      setFormError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setApplyingId(null);
+    }
+  }
 
   /* ───────── 事後入力 ───────── */
   const [afterDate, setAfterDate] = useState(today);
@@ -226,6 +264,51 @@ export default function VesselHistoryPage() {
 
       {flash ? (
         <p className="ui-card border-primary px-4 py-3 text-lg font-semibold">✓ {flash}</p>
+      ) : null}
+
+      {myProposals.length > 0 ? (
+        <Section title="陸上からの修正の依頼" note={`${myProposals.length}件`} bodyClassName="p-0">
+          {myProposals.map((a) => {
+            const pr = a.proposal!;
+            const target = a.targetRecordId ? recordById.get(a.targetRecordId) : undefined;
+            return (
+              <div key={a.id} className="flex flex-col gap-2 border-b border-[var(--ui-hairline)] px-4 py-3 last:border-b-0">
+                <p className="m-0 flex flex-wrap items-baseline gap-2.5 text-lg">
+                  <span className="font-mono text-base text-foreground-500">{dayLabel(a.date, today)}</span>
+                  {target ? (
+                    <>
+                      <span className="font-mono tabular-nums text-foreground-500 line-through">
+                        {fmtTimeSec(target.occurredAt)} {tr("workCategory", target.workCategory)}
+                      </span>
+                      <span aria-hidden="true">→</span>
+                    </>
+                  ) : (
+                    <span className="font-bold">追加</span>
+                  )}
+                  <span className="font-mono font-bold tabular-nums text-foreground-900">
+                    {fmtTimeSec(pr.occurredAt)} {tr("workCategory", pr.workCategory)} {tr("action", pr.action)}
+                  </span>
+                </p>
+                {a.reason ? <p className="m-0 text-base text-foreground-600">{a.reason}</p> : null}
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    className="ui-btn-primary min-h-12 px-5 text-lg"
+                    disabled={applyingId !== null}
+                    onClick={() => void applyProposal(a)}
+                  >
+                    {applyingId === a.id ? "直しています…" : "この内容で直す"}
+                  </button>
+                  {target && canAfterEntry ? (
+                    <button type="button" className="ui-btn-ghost min-h-12 px-5 text-lg" onClick={() => openResubmit(target)}>
+                      自分で入れ直す
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+            );
+          })}
+        </Section>
       ) : null}
 
       <Section

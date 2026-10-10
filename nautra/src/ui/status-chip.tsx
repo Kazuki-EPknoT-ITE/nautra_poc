@@ -32,29 +32,59 @@ const ICON: Record<CheckLevel | "none", string> = {
   none: "–",
 };
 
+/**
+ * 札にマウスを載せたときに出す説明（レビュー LABOR-05 / 0-6）。
+ * 呼び出し側が理由を知っているときは `hint` で具体的な文を渡す。渡さないときも、
+ * 注意・警告の札には**何を意味するか**だけは必ず出す（説明の無い赤札を残さない）。
+ */
+const DEFAULT_HINT: Partial<Record<CheckLevel | "none", string>> = {
+  caution: "注意: 上限や期限に近づいています。早めに確認してください。",
+  violation: "警告: 基準を満たしていません。すぐに確認・対応が必要です。",
+};
+
 export function StatusChip({
   level,
   size = "md",
   label,
+  hint,
   className,
 }: {
   level: CheckLevel | "none";
   /** `sm` は表の行内など、周囲の文字に合わせて一段落とすときだけ使う */
   size?: "sm" | "md" | "lg";
   label?: string;
+  /** ホバーで出す説明。省略すると注意・警告だけ既定の説明を出す。`false` で出さない */
+  hint?: string | false;
   className?: string;
 }) {
-  return (
+  const tip = hint === false ? null : (hint ?? DEFAULT_HINT[level] ?? null);
+  const chip = (
     <span
       className={cn(
         "inline-flex items-center gap-1 whitespace-nowrap rounded-small font-semibold",
         size === "sm" ? "px-1.5 py-px text-xs" : "px-2 py-[3px] text-xs",
         LEVEL_CLASS[level],
+        tip && "cursor-help",
         className,
       )}
     >
       <span aria-hidden="true">{ICON[level]}</span>
       {label ?? t.level[level]}
+      {tip ? <span className="sr-only">（{tip}）</span> : null}
+    </span>
+  );
+  if (!tip) return chip;
+  // 吹き出しは札の下に出す（表の先頭行でも見出しに隠れないように）。札はリンクの中にも置かれるので
+  // フォーカスを持たせない（入れ子の操作要素にしない）。読み上げには札の中の sr-only の文で届ける
+  return (
+    <span data-tip="" className="group/tip relative inline-flex">
+      {chip}
+      <span
+        aria-hidden="true"
+        className="pointer-events-none absolute left-0 top-full z-40 mt-1.5 hidden w-max max-w-[320px] whitespace-normal rounded-small bg-[#231F20] px-3 py-2 text-left text-sm font-normal leading-normal text-white group-hover/tip:block"
+      >
+        {tip}
+      </span>
     </span>
   );
 }

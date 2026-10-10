@@ -124,6 +124,9 @@ export default function ApprovePage() {
   function renderRow(row: DayRow) {
     const decided = row.approval?.decision;
     const attention = row.summary.level !== "ok";
+    // 陸上（労務管理責任者）が差戻した日は、役割の優先で船長の承認が効かない（12.5）。
+    // 押しても変わらないボタンを出さず、本人の修正待ちであることを示す
+    const shoreRemanded = row.approval?.approverRole === "labor_manager" && decided === "remanded";
     return (
       <SurfaceCard
         key={`${row.crew.id}-${row.date}`}
@@ -192,10 +195,10 @@ export default function ApprovePage() {
               color="primary"
               radius="md"
               className="min-h-12 flex-1 text-base font-bold"
-              isDisabled={decided === "approved"}
+              isDisabled={decided === "approved" || shoreRemanded}
               onPress={() => void approve(row)}
             >
-              {decided === "approved" ? "承認済み" : "承認する"}
+              {decided === "approved" ? "承認済み" : shoreRemanded ? "陸上が差戻し中（本人の修正待ち）" : "承認する"}
             </Button>
             <Button
               color="danger"

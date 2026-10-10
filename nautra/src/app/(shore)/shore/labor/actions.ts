@@ -8,6 +8,7 @@ import {
   publishManagerApproval,
 } from "@/server/ledger-service";
 import { publishLeaveRecord } from "@/server/leave-service";
+import { publishCorrectionProposal, type ProposalInput } from "@/server/labor-proposal-service";
 import { requireShore } from "@/server/shore-session";
 import type { LeaveKind } from "@/sync-protocol/records";
 
@@ -45,6 +46,24 @@ export async function approveDaysAction(
           ? `${count}日分を承認しました（船内の次回同期で反映されます）`
           : `${count}日分を差戻しました（本人が打刻を直せます）`,
     };
+  } catch (e) {
+    return { ok: false, message: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+/**
+ * 修正案つきの差戻し（レビュー LABOR-06）。陸上は案と理由を送るだけで、打刻を入れるのは本人。
+ * 差戻しの権限（`approve_labor_manager`）を持つ人だけが送れる。
+ */
+export async function proposeCorrectionAction(input: ProposalInput): Promise<ApprovalFormState> {
+  const guard = await requireShore("approve_labor_manager");
+  if (!guard.ok) return { ok: false, message: "差戻しを送る権限がありません" };
+  try {
+    const n = publishCorrectionProposal(input, { id: guard.staff.id });
+    revalidatePath("/shore/labor");
+    revalidatePath("/shore/labor/adjust");
+    revalidatePath("/shore");
+    return { ok: true, message: `${n}件の修正案を送りました` };
   } catch (e) {
     return { ok: false, message: e instanceof Error ? e.message : String(e) };
   }

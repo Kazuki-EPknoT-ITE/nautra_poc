@@ -99,6 +99,8 @@ export interface PunchInput {
    * 誤って常用されないよう、画面側では理由（note）を必須にする。
    */
   exceptionKind?: ExceptionalWorkKind;
+  /** 陸上の修正案に同意して入れる打刻なら、その差戻しの ID（LABOR-06） */
+  proposalId?: string;
 }
 
 export async function recordPunch(input: PunchInput): Promise<TimeRecord> {
@@ -123,6 +125,7 @@ export async function recordPunch(input: PunchInput): Promise<TimeRecord> {
     note: input.note,
     // 別枠は区間の開始側にだけ付く（終了打刻は開始の区分に従う。WorkInterval.exceptionKind）
     exceptionKind: input.action === "start" ? input.exceptionKind : undefined,
+    proposalId: input.proposalId,
   };
   await vesselDb.transaction("rw", vesselDb.timeRecords, vesselDb.outbox, async () => {
     await vesselDb.timeRecords.add(record); // 一次記録へ追記（ローカルファースト）

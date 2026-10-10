@@ -226,7 +226,7 @@ check("船内: 同期を実行できる", true);
   const waiting0 = await count("承認待ち");
   const approved0 = await count("承認済み");
   check("船内: 承認は「承認待ち」「承認済み」の2群で並ぶ", Number.isFinite(waiting0) && Number.isFinite(approved0));
-  const approveBtn = cp.getByRole("region", { name: "承認待ち" }).getByRole("button", { name: "承認する" }).first();
+  const approveBtn = cp.getByRole("region", { name: "承認待ち" }).getByRole("button", { name: "承認する", exact: true }).first();
   if ((await approveBtn.count()) > 0) {
     await approveBtn.click();
     await cp.waitForTimeout(1200);
@@ -340,6 +340,82 @@ check(
     /顔写真を外しました|顔写真は変わっていません/.test(removedText),
     removedText.match(/✓[^\n]{0,40}/)?.[0] ?? "",
   );
+}
+
+// 労務（レビュー LABOR-03/05/06）: 期間はカレンダーで選び、警告には理由の説明があり、管理者は追記型で調整できる
+{
+  const lp = await shore.newPage();
+  await lp.goto(`${BASE}/shore/labor?crew=crew-nakahara`, { waitUntil: "networkidle" });
+  const cal = lp.getByLabel("集計期間のカレンダー");
+  check("陸上: 集計期間をカレンダーで選べる（前の月へ送れる）", (await cal.count()) > 0 && (await lp.getByRole("link", { name: "前の月" }).count()) > 0);
+  const laborHtml = await lp.locator("main").innerHTML();
+  const laborText = await lp.locator("main").innerText();
+  check("陸上: 判定のルール版を画面に出さない", !/ルール版/.test(laborText));
+  // 注意・警告の札は、マウスを載せると理由が出る（読み上げ用の文も札の中に入っている）
+  const warnChip = lp.locator("main [data-tip]").first();
+  if ((await warnChip.count()) > 0) {
+    await warnChip.hover();
+    await lp.waitForTimeout(200);
+    const tipVisible = await warnChip.locator("span.absolute").first().isVisible();
+    check("陸上: 注意・警告にマウスを載せると説明が出る", tipVisible);
+  } else {
+    check("陸上: 注意・警告の札に説明が付く（この船員は警告なし）", /基準|上限|休/.test(laborHtml));
+  }
+
+  // 修正の依頼（修正案つきの差戻し）: 中原の今日の最初の打刻を1分早める案を送り、本人が船内で反映する
+  const today = new Date();
+  const ymdToday = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+  await lp.goto(`${BASE}/shore/labor/adjust?crew=crew-nakahara&date=${ymdToday}`, { waitUntil: "networkidle" });
+  const firstAt = lp.getByLabel(/^(開始|終了)の日時$/).first();
+  if ((await firstAt.count()) > 0) {
+    const v0 = await firstAt.inputValue();
+    const d0 = new Date(v0);
+    d0.setMinutes(d0.getMinutes() - 1);
+    const pad = (n) => String(n).padStart(2, "0");
+    const moved = `${d0.getFullYear()}-${pad(d0.getMonth() + 1)}-${pad(d0.getDate())}T${pad(d0.getHours())}:${pad(d0.getMinutes())}`;
+    await firstAt.fill(moved);
+    const recordsBefore = await lp.getByLabel(/^(開始|終了)の日時$/).count();
+    const saveBtn = lp.getByRole("button", { name: "本人に修正案を送る" });
+    check("陸上: 理由が空のあいだは修正案を送れない", await saveBtn.isDisabled());
+    await lp.getByRole("button", { name: "時刻の押し間違い", exact: true }).click();
+    await saveBtn.click();
+    await lp.waitForURL(/saved=1/, { timeout: 15000 });
+    await lp.waitForTimeout(500);
+    const adjText = await lp.locator("main").innerText();
+    check(
+      "陸上: 修正案を送ると打刻は書き換えず、送った案が「本人の確認待ち」と理由つきで並ぶ",
+      /修正案を送りました/.test(adjText) &&
+        /本人の確認待ち/.test(adjText) &&
+        /理由: 時刻の押し間違い/.test(adjText) &&
+        (await lp.getByLabel(/^(開始|終了)の日時$/).count()) === recordsBefore,
+    );
+    // 船内: 本人の履歴タブに件数が出て、「この内容で直す」で本人名義の再入力になる
+    await v.goto(`${BASE}/vessel/sync`, { waitUntil: "networkidle" });
+    const syncBtn2 = v.getByRole("button", { name: /いま同期|手動同期|同期する/ }).first();
+    if (await syncBtn2.count()) await syncBtn2.click();
+    await v.waitForTimeout(2500);
+    const badge = await v.getByRole("navigation", { name: "船内メニュー" }).getByLabel(/修正の依頼 \d+件/).count();
+    check("船内: 陸上から修正の依頼が届くと、履歴タブに件数が出る", badge > 0);
+    await v.goto(`${BASE}/vessel/history`, { waitUntil: "networkidle" });
+    await v.waitForTimeout(1000);
+    const vhText = await v.locator("main").innerText();
+    check("船内: 履歴に「陸上からの修正の依頼」と理由が出る", /陸上からの修正の依頼/.test(vhText) && /時刻の押し間違い/.test(vhText));
+    await v.getByRole("button", { name: "この内容で直す" }).first().click();
+    await v.waitForTimeout(1200);
+    const vhAfter = await v.locator("main").innerText();
+    check("船内: 「この内容で直す」で本人名義の再入力になる（元の打刻は訂正済として残る）", /修正案のとおりに直しました/.test(vhAfter) && /訂正済/.test(vhAfter));
+    // 同期して陸上に戻ると「本人が反映」になる
+    await v.goto(`${BASE}/vessel/sync`, { waitUntil: "networkidle" });
+    const syncBtn3 = v.getByRole("button", { name: /いま同期|手動同期|同期する/ }).first();
+    if (await syncBtn3.count()) await syncBtn3.click();
+    await v.waitForTimeout(2500);
+    await lp.goto(`${BASE}/shore/labor/adjust?crew=crew-nakahara&date=${ymdToday}`, { waitUntil: "networkidle" });
+    const adjText2 = await lp.locator("main").innerText();
+    check("陸上: 本人が直すと、送った案が「本人が反映」になる", /本人が反映/.test(adjText2));
+  } else {
+    check("陸上: 調整の画面に今日の打刻が出る", false, "打刻が見つからない");
+  }
+  await lp.close();
 }
 
 // 書き出し（レビュー EXPORT-01〜03）: 専用画面は無く、各画面の「◯◯を書き出す」から形式と列を選んで保存する

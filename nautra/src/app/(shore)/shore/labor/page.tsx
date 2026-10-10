@@ -18,6 +18,8 @@ import { ShoreGuardNotice } from "../_components/guard";
 import { ApprovalForm, type PendingDay } from "./_components/approval-form";
 import { LeaveForm } from "./_components/leave-form";
 import { LedgerImportForm } from "./_components/ledger-import-form";
+import { LaborCalendar } from "./_components/labor-calendar";
+import { describeCheck } from "@/lib/labor-plain";
 
 export const dynamic = "force-dynamic";
 
@@ -82,12 +84,20 @@ export default async function ShoreLaborPage({
   const crewMemberId = crews.find((c) => c.id === sp.crew)?.id ?? crews[0].id;
   const month = sp.month ?? currentMonth();
   const period = buildLedger(crewMemberId, month);
-  const months = monthOptions();
+  // カレンダーで送れる範囲は直近12か月（LABOR-03）
+  const months = monthOptions(new Date(), 12);
   const today = new Date().toISOString().slice(0, 10);
 
   const leave = buildLeaveBalance(crewMemberId);
   const leaveBoard = buildLeaveBoard();
   const restDates = new Set(period.aggregates.leaveDates);
+
+  /** その日に外れた基準を、初心者にも分かる文でつなぐ（ホバーの説明。LABOR-05） */
+  const dayHint = (d: (typeof period.days)[number]) =>
+    d.summary.checks
+      .filter((c) => c.level !== "ok")
+      .map((c) => describeCheck(c))
+      .join(" ") || undefined;
 
   const pendingDays: PendingDay[] = period.days
     .filter((d) => d.summary.hasRecords && !d.approvedByManager)
@@ -95,6 +105,7 @@ export default async function ShoreLaborPage({
       date: d.date,
       workedMinutes: d.summary.workedMinutes,
       level: d.summary.level,
+      hint: dayHint(d),
       captainApproved: d.approval?.approverRole === "captain" && d.approval.decision === "approved",
     }));
 
@@ -124,6 +135,7 @@ export default async function ShoreLaborPage({
       limit: checkValue(check.key, check.limit),
       ratio: check.limit > 0 ? check.actual / check.limit : 0,
       level: check.level,
+      hint: describeCheck(check),
       note:
         check.level === "violation"
           ? "上限を超えています。休息を入れて是正してください。"
@@ -141,6 +153,7 @@ export default async function ShoreLaborPage({
           ? period.aggregates.restDay.actual / period.aggregates.restDay.limit
           : 0,
       level: period.aggregates.restDay.level,
+      hint: describeCheck(period.aggregates.restDay),
       note:
         period.aggregates.restDay.level === "ok"
           ? "週1日以上の休日が取れています（3.2.5⑤）。"
@@ -150,12 +163,6 @@ export default async function ShoreLaborPage({
 
   return (
     <div className="flex flex-col gap-[18px]">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="m-0 text-sm text-foreground-500">
-          判定は船内と同じルール版 {period.appliedRuleVersion} で行っています
-        </p>
-      </div>
-
       {/* 対象の切替（サーバ側で組み立てるためリンクで切り替える） */}
       <section aria-label="対象の切替" className="ui-card flex flex-col gap-3.5 px-[18px] py-4">
         <div className="flex flex-wrap items-center gap-3">
@@ -187,18 +194,24 @@ export default async function ShoreLaborPage({
             <ExportAction set="labor" label="労務記録を書き出す" />
           </div>
         </div>
-        <div className="flex flex-wrap items-center gap-3 border-t border-[var(--ui-hairline)] pt-3">
-          <p className="m-0 flex-none text-sm text-foreground-500">集計期間</p>
-          {months.map((m) => (
-            <Link
-              key={m}
-              href={`/shore/labor?crew=${crewMemberId}&month=${m}`}
-              aria-current={m === month ? "true" : undefined}
-              className={cn("ui-btn-quiet tabular-nums", m === month && "ui-btn-selected")}
-            >
-              {m}
-            </Link>
-          ))}
+        <div className="flex flex-wrap items-start gap-4 border-t border-[var(--ui-hairline)] pt-3">
+          <p className="m-0 flex-none pt-1.5 text-sm text-foreground-500">集計期間</p>
+          <div className="w-full max-w-[400px]">
+            <LaborCalendar
+              crewMemberId={crewMemberId}
+              month={month}
+              oldest={months[months.length - 1]!}
+              newest={months[0]!}
+              today={today}
+              days={period.days.map((d) => ({
+                date: d.date,
+                hasRecords: d.summary.hasRecords,
+                level: d.summary.level,
+                hint: dayHint(d),
+                pending: d.proposalPending,
+              }))}
+            />
+          </div>
         </div>
       </section>
 
@@ -235,7 +248,7 @@ export default async function ShoreLaborPage({
           >
             <div className="flex items-start justify-between gap-2">
               <p className="m-0 text-sm leading-normal text-foreground-500">{l.label}</p>
-              <StatusChip level={l.level} size="sm" />
+              <StatusChip level={l.level} size="sm" hint={l.level === "ok" ? undefined : l.hint} />
             </div>
             <p
               className={cn(
@@ -283,7 +296,7 @@ export default async function ShoreLaborPage({
         <div className="grid gap-3 sm:grid-cols-2">
           {periodChecks.map(({ check, range }) => (
             <div key={`${check.key}-${range}`} className="ui-inset flex items-center gap-3 p-3">
-              <StatusChip level={check.level} size="sm" />
+              <StatusChip level={check.level} size="sm" hint={check.level === "ok" ? undefined : describeCheck(check)} />
               <div className="min-w-0 flex-1">
                 <p className="font-semibold">{checkLabel(check.key)}</p>
                 <p className="text-xs text-foreground-600">
@@ -298,7 +311,11 @@ export default async function ShoreLaborPage({
           ))}
           {/* 週1日以上の休日付与（3.2.5⑤）。休暇記録の日付を含めて判定する */}
           <div className="ui-inset flex items-center gap-3 p-3">
-            <StatusChip level={period.aggregates.restDay.level} size="sm" />
+            <StatusChip
+              level={period.aggregates.restDay.level}
+              size="sm"
+              hint={period.aggregates.restDay.level === "ok" ? undefined : describeCheck(period.aggregates.restDay)}
+            />
             <div className="min-w-0 flex-1">
               <p className="font-semibold">{checkLabel("rest_day")}</p>
               <p className="text-xs text-foreground-600">
@@ -344,7 +361,7 @@ export default async function ShoreLaborPage({
         }
         bodyClassName="px-[18px] py-4"
       >
-        <div className="mb-2.5 flex pl-[78px] pr-[160px] font-mono text-xs text-foreground-400">
+        <div className="mb-2.5 flex pl-[78px] pr-[310px] font-mono text-xs text-foreground-400">
           {[0, 6, 12, 18].map((h) => (
             <span key={h} className="w-1/4 tabular-nums">
               {String(h).padStart(2, "0")}:00
@@ -355,7 +372,7 @@ export default async function ShoreLaborPage({
           {period.days
             .filter((d) => d.summary.hasRecords)
             .map((d) => (
-              <div key={d.date} className="flex items-center">
+              <div key={d.date} id={`d-${d.date}`} className="flex scroll-mt-24 items-center">
                 <span className="flex-none basis-[78px] font-mono text-xs text-foreground-700">
                   {fmtDateLabel(d.date)}
                 </span>
@@ -375,7 +392,22 @@ export default async function ShoreLaborPage({
                   {fmtMinutes(d.summary.workedMinutes)}
                 </span>
                 <span className="flex-none basis-[86px] text-right">
-                  <StatusChip level={d.summary.level} size="sm" />
+                  <StatusChip level={d.summary.level} size="sm" hint={dayHint(d)} />
+                </span>
+                <span className="flex flex-none basis-[150px] items-center justify-end gap-1.5">
+                  {d.proposalPending ? (
+                    <span className="rounded-small bg-warning-100 px-1.5 py-px text-xs font-semibold text-warning-700">
+                      本人の確認待ち
+                    </span>
+                  ) : null}
+                  {canApprove && (d.summary.level !== "ok" || d.proposalPending) ? (
+                    <Link
+                      href={`/shore/labor/adjust?crew=${crewMemberId}&date=${d.date}`}
+                      className="ui-btn-quiet"
+                    >
+                      修正を依頼
+                    </Link>
+                  ) : null}
                 </span>
               </div>
             ))}

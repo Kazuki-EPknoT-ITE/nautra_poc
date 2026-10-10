@@ -63,6 +63,8 @@ export const timeRecordPayloadSchema = z
     recordedBy: z.string(),
     deviceId: z.string(),
     note: z.string().optional(),
+    /** 陸上の修正案（差戻しに添えたもの）に本人が同意して入れた打刻なら、その差戻しの ID（LABOR-06） */
+    proposalId: z.string().optional(),
   })
   .passthrough(); // 未知フィールドは破棄せず往復保全（8.6）
 
@@ -78,6 +80,19 @@ export const approvalPayloadSchema = z
     /** 差戻し時の対象レコードID */
     targetRecordId: z.string().optional(),
     reason: z.string().optional(),
+    /**
+     * 修正案（レビュー LABOR-06）。陸上の労務管理責任者が「正しくはこう」と添える。
+     * `change` は targetRecordId の打刻を直す案、`add` は押し忘れた打刻を足す案。
+     * 打刻を入れるのは本人（船内で「この内容で直す」を押す）で、陸上は打刻を書かない。
+     */
+    proposal: z
+      .object({
+        kind: z.enum(["change", "add"]),
+        workCategory: workCategorySchema,
+        action: z.enum(["start", "end"]),
+        occurredAt: z.string(),
+      })
+      .optional(),
     approvedBy: z.string(),
     approverRole: z.enum(["captain", "labor_manager"]),
     decidedAt: z.string(),

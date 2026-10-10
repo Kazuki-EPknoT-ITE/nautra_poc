@@ -43,6 +43,7 @@ import {
   writeAuditLog,
 } from "./master-service";
 import { getApprovalEvents, getTimeRecords, pushToStore } from "./store";
+import { pendingProposalDates } from "./labor-proposal-service";
 
 /**
  * S-06 労務管理（承認・記録簿）のドメインサービス。
@@ -74,6 +75,8 @@ export interface LedgerDay {
   approval: ApprovalPayload | null;
   /** 労務管理責任者による承認が済んでいるか */
   approvedByManager: boolean;
+  /** 陸上から送った修正案（LABOR-06）が、本人の確認待ちで残っているか */
+  proposalPending: boolean;
 }
 
 /**
@@ -156,6 +159,7 @@ export function buildLedger(crewMemberId: string, month: string, now = new Date(
   const today = ymdLocal(now);
 
   const days: LedgerDay[] = [];
+  const pendingProposals = pendingProposalDates(crew.id);
   let workedMinutes = 0;
   let recordedDays = 0;
   let violationDays = 0;
@@ -179,6 +183,7 @@ export function buildLedger(crewMemberId: string, month: string, now = new Date(
       bars: buildDayBars(records, date, now),
       approval,
       approvedByManager: approval?.approverRole === "labor_manager" && approval.decision === "approved",
+      proposalPending: pendingProposals.has(date),
     });
   }
 

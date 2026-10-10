@@ -17,6 +17,7 @@ const SCREEN_META: [pattern: string, title: string][] = [
   ["/shore/crew", "船員"],
   ["/shore/fleet/:id", "船の管理ページ"],
   ["/shore/fleet", "船"],
+  ["/shore/labor/adjust", "打刻の修正依頼"],
   ["/shore/labor", "労務・記録簿"],
   ["/shore/manning", "配乗計画"],
   ["/shore/shifts", "シフト作成"],
@@ -65,6 +66,7 @@ export function parentOf(pathname: string): { href: string; label: string } | nu
     return { href: "/shore/crew", label: "船員" };
   if (trimmed === "/shore/crew/new") return { href: "/shore/crew", label: "船員" };
   if (/^\/shore\/fleet\/[^/]+$/.test(trimmed)) return { href: "/shore/fleet", label: "船" };
+  if (trimmed === "/shore/labor/adjust") return { href: "/shore/labor?tab=chart", label: "労務・記録簿" };
   if (trimmed === "/shore" || trimmed === "/shore/login") return null;
   return { href: "/shore", label: "ダッシュボード" };
 }
