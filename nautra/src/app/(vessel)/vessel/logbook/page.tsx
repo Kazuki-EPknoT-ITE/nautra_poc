@@ -28,7 +28,16 @@ import { useModalProps } from "@/ui";
 import { Button, Card, CardBody, Chip, Input, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, Radio, RadioGroup, Select, SelectItem, Textarea, useDisclosure } from "@/ui/heroui";
 import { GroupHeader } from "../_components/group-header";
 import { RecordTile } from "../_components/record-tile";
+import {
+  PastEmpty,
+  PastFilterBar,
+  RecordModeTabs,
+  ShowMoreButton,
+  usePastList,
+  type RecordMode,
+} from "../_components/record-mode";
 import { ReadOnlyNote } from "../_components/permission-gate";
+import { isFilterActive } from "@/lib/record-filter";
 
 const WEATHER = ["晴", "曇", "雨", "霧", "雪", "雷雨"];
 const WIND = ["静穏", "北 3m/s", "北東 3m/s", "東 5m/s", "南東 5m/s", "南 4m/s", "南西 5m/s", "西 8m/s", "北西 10m/s"];
@@ -106,19 +115,41 @@ export default function LogbookPage() {
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
 
+  const [mode, setMode] = useState<RecordMode>("record");
   const effective = useMemo(() => latestBySupersedes(logs), [logs]);
+  // 過去の日誌は期間とキーワードで探す（レビュー LOG-03）。種別・港・船位・海象・特記・追加項目・記録者が対象
+  const past = usePastList(
+    logs,
+    (l) => l.occurredAt,
+    (l) =>
+      [
+        t.voyageLogType[l.logType],
+        l.port,
+        l.route,
+        l.position,
+        l.weather,
+        l.wind,
+        l.seaState,
+        l.visibility,
+        l.remarks,
+        ...(l.extraValues ?? []).map((v) => `${v.label} ${v.value ?? ""}`),
+        personName(l.recordedBy),
+      ]
+        .filter(Boolean)
+        .join(" "),
+  );
   const supersededIds = useMemo(
     () => new Set(logs.map((l) => l.supersedesId).filter((x): x is string => Boolean(x))),
     [logs],
   );
   const byDate = useMemo(() => {
     const map = new Map<string, typeof logs>();
-    for (const l of logs) {
+    for (const l of past.shown) {
       const d = ymdLocal(new Date(l.occurredAt));
       map.set(d, [...(map.get(d) ?? []), l]);
     }
     return [...map.entries()].sort((a, b) => b[0].localeCompare(a[0]));
-  }, [logs]);
+  }, [past.shown]);
 
   /** 記録種別ごとの追加項目テンプレート（上司・陸上が配信。templateKey = 記録種別） */
   const templateFor = (logType: VoyageLogType): RecordTemplatePayload | undefined =>
@@ -252,8 +283,15 @@ export default function LogbookPage() {
   return (
     <div className="flex flex-col gap-4">
       <GroupHeader group="03" />
+      <RecordModeTabs mode={mode} onChange={setMode} recordLabel="日誌を記録する" pastLabel="過去の日誌" />
 
-      {canWrite ? (
+      {done ? (
+        <Chip variant="flat" radius="sm" className="h-auto whitespace-normal py-1">
+          ✓ {done}
+        </Chip>
+      ) : null}
+
+      {mode === "record" && canWrite ? (
       <>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         {VOYAGE_LOG_TYPES.map((lt) => {
@@ -279,23 +317,20 @@ export default function LogbookPage() {
         </Button>
       ) : null}
       </>
-      ) : (
+      ) : null}
+      {mode === "record" && !canWrite ? (
         <ReadOnlyNote note="航海日誌の記入は船長・航海士が行います。" />
-      )}
-
-      {done ? (
-        <Chip variant="flat" radius="sm" className="h-auto whitespace-normal py-1">
-          ✓ {done}
-        </Chip>
       ) : null}
 
-      {byDate.length === 0 ? (
-        <Card shadow="none" className="ui-card">
-          <CardBody>
-            <p className="text-foreground-600">航海日誌の記録がありません。上のボタンから記入してください。</p>
-          </CardBody>
-        </Card>
-      ) : null}
+      {mode === "past" ? (
+      <>
+      <PastFilterBar
+        value={past.filter}
+        onChange={past.setFilter}
+        count={past.matched.length}
+        placeholder="港・船位・特記事項などで探す"
+      />
+      {byDate.length === 0 ? <PastEmpty filtered={isFilterActive(past.filter)} /> : null}
 
       {byDate.map(([date, entries]) => (
         <section key={date} aria-label={`${fmtDateLabel(date)} の航海日誌`} className="flex flex-col gap-2">
@@ -375,11 +410,9 @@ export default function LogbookPage() {
           })}
         </section>
       ))}
-
-      <p className="text-xs text-foreground-600">
-        航海日誌は一次記録として追記のみ行い、削除・上書きはしません。訂正は訂正記録の追記で表現します
-        （要件定義書 12.3）。
-      </p>
+      {past.hasMore ? <ShowMoreButton onPress={past.showMore} /> : null}
+      </>
+      ) : null}
 
       <Modal {...modalProps} isOpen={modal.isOpen} onOpenChange={modal.onOpenChange} placement="center" scrollBehavior="inside">
         <ModalContent>

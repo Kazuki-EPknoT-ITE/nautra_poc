@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { addDays, evaluateDaily, ymdLocal } from "@/domain/labor-law/evaluate";
 import { effectiveRecords } from "@/domain/labor-law/intervals";
 import type { DailyLaborSummary } from "@/domain/labor-law/types";
@@ -63,6 +63,13 @@ export default function ApprovePage() {
   }, [today, records, approvals, now, ruleSet]);
 
   const pendingRows = useMemo(() => rows.filter((r) => !r.approval), [rows]);
+  /**
+   * 「承認待ち」と「承認済み」に分けて並べる（レビュー APPR-04）。承認すると、その日の札は
+   * 承認済みの群へ移る（承認イベントが追記され、useApprovals の再描画で群が変わる）。
+   * 差戻した日は本人が直して再び承認されるまで「承認待ち」に残す。
+   */
+  const waitingRows = useMemo(() => rows.filter((r) => r.approval?.decision !== "approved"), [rows]);
+  const approvedRows = useMemo(() => rows.filter((r) => r.approval?.decision === "approved"), [rows]);
   const attentionRows = useMemo(() => rows.filter((r) => r.summary.level !== "ok"), [rows]);
 
   async function approve(row: DayRow) {
@@ -114,6 +121,97 @@ export default function ApprovePage() {
       .sort((a, b) => a.occurredAt.localeCompare(b.occurredAt));
   }, [remandRow, records]);
 
+  function renderRow(row: DayRow) {
+    const decided = row.approval?.decision;
+    const attention = row.summary.level !== "ok";
+    return (
+      <SurfaceCard
+        key={`${row.crew.id}-${row.date}`}
+        className={cn(
+          "border-2",
+          attention ? "border-danger" : !decided ? "border-warning" : "border-transparent",
+        )}
+      >
+        <CardBody className="flex flex-col gap-3 p-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex flex-wrap items-baseline gap-3">
+              <span className="text-lg font-bold">{row.crew.name}</span>
+              <span className="text-sm text-foreground-600">{row.crew.position}</span>
+              <span className="font-semibold">{fmtDateLabel(row.date)}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              {decided ? (
+                <Chip
+                  variant="flat"
+                  radius="sm"
+                  color={decided === "approved" ? "success" : "danger"}
+                >
+                  {decided === "approved" ? "✓ " : "✕ "}
+                  {t.approval[decided]}（
+                  {crewById(row.approval!.approvedBy)?.name ?? row.approval!.approvedBy}）
+                </Chip>
+              ) : (
+                <Chip variant="flat" radius="sm" color="warning">
+                  ⚠ {t.approval.pending}
+                </Chip>
+              )}
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="tabular-nums text-2xl font-bold">
+              {fmtMinutes(row.summary.workedMinutes)}
+              <span className="ml-1 text-sm font-normal text-foreground-600">働いた時間</span>
+            </span>
+            <StatusChip level={row.summary.level} />
+          </div>
+
+          {/* 基準を外れた項目は理由まで書く（一目で判断できるように） */}
+          {attention ? (
+            <ul className="flex flex-col gap-1">
+              {row.summary.checks
+                .filter((c) => c.level !== "ok")
+                .map((c) => (
+                  <li key={c.key} className="text-pretty text-sm">
+                    <span aria-hidden="true" className="mr-1">
+                      {LEVEL_PLAIN[c.level].icon}
+                    </span>
+                    <span className="font-semibold">{CHECK_PLAIN_LABEL[c.key]}</span>:{" "}
+                    {describeCheck(c)}
+                  </li>
+                ))}
+            </ul>
+          ) : (
+            <p className="text-sm text-foreground-600">
+              労働時間・休息はいずれも基準を満たしています。
+            </p>
+          )}
+
+          <div className="flex flex-wrap gap-2">
+            <Button
+              color="primary"
+              radius="md"
+              className="min-h-12 flex-1 text-base font-bold"
+              isDisabled={decided === "approved"}
+              onPress={() => void approve(row)}
+            >
+              {decided === "approved" ? "承認済み" : "承認する"}
+            </Button>
+            <Button
+              color="danger"
+              variant="bordered"
+              radius="md"
+              className="min-h-12 flex-1 text-base font-semibold"
+              onPress={() => openRemand(row)}
+            >
+              差戻す（本人に直してもらう）
+            </Button>
+          </div>
+        </CardBody>
+      </SurfaceCard>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-4">
       <GroupHeader group="02" subtitle="船内承認" />
@@ -145,105 +243,24 @@ export default function ApprovePage() {
         </div>
       </div>
 
-      <div className="flex flex-col gap-2">
-        {rows.length === 0 ? (
-          <SurfaceCard>
-            <CardBody className="p-4">
-              <p className="text-foreground-600">直近3日間に承認対象の記録がありません。</p>
-            </CardBody>
-          </SurfaceCard>
-        ) : null}
-        {rows.map((row) => {
-          const decided = row.approval?.decision;
-          const attention = row.summary.level !== "ok";
-          return (
-            <SurfaceCard
-              key={`${row.crew.id}-${row.date}`}
-              className={cn(
-                "border-2",
-                attention ? "border-danger" : !decided ? "border-warning" : "border-transparent",
-              )}
-            >
-              <CardBody className="flex flex-col gap-3 p-4">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex flex-wrap items-baseline gap-3">
-                    <span className="text-lg font-bold">{row.crew.name}</span>
-                    <span className="text-sm text-foreground-600">{row.crew.position}</span>
-                    <span className="font-semibold">{fmtDateLabel(row.date)}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {decided ? (
-                      <Chip
-                        variant="flat"
-                        radius="sm"
-                        color={decided === "approved" ? "success" : "danger"}
-                      >
-                        {decided === "approved" ? "✓ " : "✕ "}
-                        {t.approval[decided]}（
-                        {crewById(row.approval!.approvedBy)?.name ?? row.approval!.approvedBy}）
-                      </Chip>
-                    ) : (
-                      <Chip variant="flat" radius="sm" color="warning">
-                        ⚠ {t.approval.pending}
-                      </Chip>
-                    )}
-                  </div>
-                </div>
+      {rows.length === 0 ? (
+        <SurfaceCard>
+          <CardBody className="p-4">
+            <p className="text-foreground-600">承認する記録はありません。</p>
+          </CardBody>
+        </SurfaceCard>
+      ) : null}
 
-                <div className="flex flex-wrap items-center gap-3">
-                  <span className="tabular-nums text-2xl font-bold">
-                    {fmtMinutes(row.summary.workedMinutes)}
-                    <span className="ml-1 text-sm font-normal text-foreground-600">働いた時間</span>
-                  </span>
-                  <StatusChip level={row.summary.level} />
-                </div>
-
-                {/* 基準を外れた項目は理由まで書く（一目で判断できるように） */}
-                {attention ? (
-                  <ul className="flex flex-col gap-1">
-                    {row.summary.checks
-                      .filter((c) => c.level !== "ok")
-                      .map((c) => (
-                        <li key={c.key} className="text-pretty text-sm">
-                          <span aria-hidden="true" className="mr-1">
-                            {LEVEL_PLAIN[c.level].icon}
-                          </span>
-                          <span className="font-semibold">{CHECK_PLAIN_LABEL[c.key]}</span>:{" "}
-                          {describeCheck(c)}
-                        </li>
-                      ))}
-                  </ul>
-                ) : (
-                  <p className="text-sm text-foreground-600">
-                    労働時間・休息はいずれも基準を満たしています。
-                  </p>
-                )}
-
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    color="primary"
-                    radius="md"
-                    className="min-h-12 flex-1 text-base font-bold"
-                    isDisabled={decided === "approved"}
-                    onPress={() => void approve(row)}
-                  >
-                    {decided === "approved" ? "承認済み" : "承認する"}
-                  </Button>
-                  <Button
-                    color="danger"
-                    variant="bordered"
-                    radius="md"
-                    className="min-h-12 flex-1 text-base font-semibold"
-                    onPress={() => openRemand(row)}
-                  >
-                    差戻す（本人に直してもらう）
-                  </Button>
-                </div>
-              </CardBody>
-            </SurfaceCard>
-          );
-        })}
-      </div>
+      {rows.length > 0 ? (
+        <>
+          <ApprovalGroup title="承認待ち" count={waitingRows.length} empty="承認待ちはありません">
+            {waitingRows.map(renderRow)}
+          </ApprovalGroup>
+          <ApprovalGroup title="承認済み" count={approvedRows.length} empty="まだありません">
+            {approvedRows.map(renderRow)}
+          </ApprovalGroup>
+        </>
+      ) : null}
 
       </PermissionGate>
 
@@ -289,5 +306,28 @@ export default function ApprovePage() {
         </ModalContent>
       </Modal>
     </div>
+  );
+}
+
+/** 承認の群（承認待ち／承認済み）。見出しに件数を添える */
+function ApprovalGroup({
+  title,
+  count,
+  empty,
+  children,
+}: {
+  title: string;
+  count: number;
+  empty: string;
+  children: ReactNode;
+}) {
+  return (
+    <section aria-label={title} className="flex flex-col gap-2">
+      <h2 className="m-0 flex items-baseline gap-2 text-xl font-bold text-foreground-900">
+        {title}
+        <span className="font-mono text-base font-normal tabular-nums text-foreground-500">{count}</span>
+      </h2>
+      {count === 0 ? <p className="ui-card m-0 px-4 py-4 text-lg text-foreground-500">{empty}</p> : children}
+    </section>
   );
 }

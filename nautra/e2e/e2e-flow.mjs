@@ -158,6 +158,31 @@ check(
   ledgerText.match(/この4週間[^\n]{0,40}/)?.[0] ?? "",
 );
 
+// 航海日誌: 「日誌を記録する」で書き、「過去の日誌」でキーワードと期間で探せる（レビュー LOG-02/03）
+await v.goto(`${BASE}/vessel/logbook`, { waitUntil: "networkidle" });
+await v.waitForTimeout(600);
+const remarkWord = `E2E特記${Date.now()}`;
+await v.getByRole("button", { name: /特記事項/ }).first().click();
+await v.getByLabel(/特記事項（海難/).fill(remarkWord);
+await v.getByRole("button", { name: /^記録する$/ }).click();
+await v.waitForTimeout(800);
+const logRecordText = await v.locator("main").innerText();
+check(
+  "船内: 日誌を記録するタブには過去の一覧を出さない",
+  /特記事項 を記録しました/.test(logRecordText) && !/訂正記録を追記/.test(logRecordText),
+);
+await v.getByRole("tab", { name: /過去の日誌/ }).click();
+await v.getByRole("searchbox", { name: "キーワード" }).fill(remarkWord);
+await v.waitForTimeout(400);
+const logPastText = await v.locator("main").innerText();
+check("船内: 過去の日誌をキーワードで探せる", logPastText.includes(remarkWord) && /\b1件/.test(logPastText));
+const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const yesterday = new Date(Date.now() - 86400000);
+await v.getByLabel("いつまで").fill(ymd(yesterday));
+await v.waitForTimeout(400);
+const logPastText2 = await v.locator("main").innerText();
+check("船内: 期間で絞ると範囲外の日誌は出ない", !logPastText2.includes(remarkWord) && /条件に合う記録はありません/.test(logPastText2));
+
 // 多言語切替
 await v.goto(`${BASE}/vessel/punch`, { waitUntil: "networkidle" });
 await v.waitForTimeout(800);
@@ -185,6 +210,38 @@ if (await syncBtn.count()) {
   await v.waitForTimeout(2500);
 }
 check("船内: 同期を実行できる", true);
+
+// 船内承認（船長）: 「承認待ち」と「承認済み」に分かれ、承認すると承認済みへ移る（レビュー APPR-04）
+{
+  const capCtx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const cp = await capCtx.newPage();
+  await cp.goto(`${BASE}/vessel/login`, { waitUntil: "networkidle" });
+  await cp.getByRole("radio", { name: /高松/ }).click();
+  for (const d of ["1", "1", "1", "1"]) await cp.getByRole("button", { name: d, exact: true }).click();
+  await cp.waitForURL(`${BASE}/vessel`, { timeout: 15000 });
+  await cp.goto(`${BASE}/vessel/approve`, { waitUntil: "networkidle" });
+  await cp.waitForTimeout(1200);
+  const count = async (name) =>
+    Number((await cp.getByRole("region", { name }).locator("h2 span").first().innerText()).trim());
+  const waiting0 = await count("承認待ち");
+  const approved0 = await count("承認済み");
+  check("船内: 承認は「承認待ち」「承認済み」の2群で並ぶ", Number.isFinite(waiting0) && Number.isFinite(approved0));
+  const approveBtn = cp.getByRole("region", { name: "承認待ち" }).getByRole("button", { name: "承認する" }).first();
+  if ((await approveBtn.count()) > 0) {
+    await approveBtn.click();
+    await cp.waitForTimeout(1200);
+    const waiting1 = await count("承認待ち");
+    const approved1 = await count("承認済み");
+    check(
+      "船内: 承認すると札が承認済みへ移る",
+      waiting1 === waiting0 - 1 && approved1 === approved0 + 1,
+      `待ち ${waiting0}→${waiting1} / 済み ${approved0}→${approved1}`,
+    );
+  } else {
+    check("船内: 承認待ちが無い（移動の確認は省略）", true, `待ち ${waiting0} / 済み ${approved0}`);
+  }
+  await capCtx.close();
+}
 
 /* ───────── 陸上アプリ ───────── */
 const shore = await browser.newContext({ viewport: { width: 1440, height: 1100 } });
