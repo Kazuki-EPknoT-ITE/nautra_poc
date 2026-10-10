@@ -1,34 +1,15 @@
-import { fmtDateTime } from "@/lib/format";
+import Link from "next/link";
+import { cn } from "@/lib/cn";
 import { crewPhotoMap } from "@/server/crew-photo-service";
-import { listCrewMasters, listVessels, todayLocal } from "@/server/master-service";
+import { buildVesselManning } from "@/server/manning-service";
+import { todayLocal } from "@/server/master-service";
 import { requireShore } from "@/server/shore-session";
-import {
-  listTasks,
-  openTaskCountByCrew,
-  TASK_STATE_LABEL,
-  type TaskRow,
-} from "@/server/task-service";
-import { CrewPhoto, DataTable, Section, StatusChip } from "@/ui";
-import type { WorkTaskState } from "@/sync-protocol/masters";
+import { listTasks, TASK_STATE_LABEL, type TaskRow } from "@/server/task-service";
 import { ExportAction } from "../_components/export-action";
 import { ShoreGuardNotice } from "../_components/guard";
-import { advanceTaskAction, assignTaskAction } from "./actions";
-import { DeleteTaskButton } from "./_components/delete-task";
+import { TaskBoard, type BoardTask } from "./_components/task-board";
 
 export const dynamic = "force-dynamic";
-
-const COLUMNS: { state: WorkTaskState; label: string }[] = [
-  { state: "todo", label: "未着手" },
-  { state: "doing", label: "着手中" },
-  { state: "done", label: "完了" },
-];
-
-/** 次に進めるボタンの文言。完了した作業には進める先が無い */
-function advanceLabel(state: WorkTaskState): string | null {
-  if (state === "todo") return "着手にする";
-  if (state === "doing") return "完了にする";
-  return null;
-}
 
 function levelOf(row: TaskRow) {
   if (row.task.state === "done") return "ok" as const;
@@ -37,200 +18,177 @@ function levelOf(row: TaskRow) {
   return "none" as const;
 }
 
+function dueLabel(row: TaskRow): string {
+  if (row.task.state === "done") return "完了";
+  if (row.overdue) return `${Math.abs(row.daysLeft ?? 0)}日 超過`;
+  if (row.daysLeft === null) return "期限なし";
+  return row.daysLeft === 0 ? "きょうまで" : `あと${row.daysLeft}日`;
+}
+
+const VIEWS = [
+  { id: "board", label: "ボード" },
+  { id: "calendar", label: "カレンダー" },
+];
+const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"];
+
+function shiftMonth(month: string, delta: number): string {
+  const [y, m] = month.split("-").map(Number);
+  const d = new Date(y!, m! - 1 + delta, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
 /**
- * S-16 作業指示・タスク割当（デザイン正本 `design/poc_design`）。
+ * S-16 作業指示・タスク（レビュー ORDER-02 / ORDER-04）。
  *
- * 打刻（一次記録）が「いつ働いたか」を残すのに対し、この画面は「**誰が何をやるか**」を
- * 決める。3列（未着手 / 着手中 / 完了）に並べ、止まっている作業が誰の手元にあるかを
- * 一目で分かるようにする。割り当ての変更・取り消しは追記で記録される（12.6）。
+ * 「ボード」は配乗と同じホワイトボードで、船ごとに船員の列へ付箋（作業）を置いて割り当て・付け替えをする。
+ * 「カレンダー」は船ごとに期限の日へ作業を並べたタスク表で、いつ何が詰まっているかを月で見る。
+ * どちらも追記型（`work_task` の supersedes）で、誰がいつ割り当て・付け替えたかが履歴に残る（12.6）。
  */
-export default async function ShoreTasksPage() {
+export default async function ShoreTasksPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ view?: string; vessel?: string; month?: string }>;
+}) {
   const guard = await requireShore("manage_manning");
   if (!guard.ok) return <ShoreGuardNotice guard={guard} screen="作業指示・タスク" />;
 
+  const sp = await searchParams;
+  const view = VIEWS.some((v) => v.id === sp.view) ? sp.view! : "board";
   const rows = listTasks();
-  const vessels = listVessels();
-  const crews = listCrewMasters();
-  const openByCrew = openTaskCountByCrew();
-  /** 顔写真は船員マスタから引く（画面ごとに持たない） */
   const photos = crewPhotoMap();
-  const photoOf = (crewMemberId?: string) =>
-    crewMemberId ? photos.get(crewMemberId) : undefined;
+  const manning = buildVesselManning();
   const today = todayLocal();
 
+  const vessels = manning.map((v) => ({
+    vesselId: v.vesselId,
+    vesselName: v.vesselName,
+    crew: v.onBoard.map((r) => ({
+      crewMemberId: r.crewMemberId,
+      name: r.name,
+      position: r.position,
+      photo: r.photo,
+      photoDataUrl: photos.get(r.crewMemberId),
+    })),
+  }));
+  const tasks: BoardTask[] = rows.map((r) => ({
+    id: r.task.id,
+    title: r.task.title,
+    vesselId: r.task.targetVesselId,
+    assigneeCrewId: r.task.assigneeCrewId ?? null,
+    assigneeName: r.assigneeName,
+    dueAt: r.task.dueAt ? r.task.dueAt.slice(0, 10) : null,
+    dueLabel: dueLabel(r),
+    state: r.task.state,
+    stateLabel: TASK_STATE_LABEL[r.task.state],
+    cycle: r.task.cycle ?? "臨時",
+    level: levelOf(r),
+  }));
+
+  // カレンダー（船ごとの月のタスク表）
+  const calVessel = vessels.find((v) => v.vesselId === sp.vessel) ?? vessels[0];
+  const month = /^\d{4}-\d{2}$/.test(sp.month ?? "") ? sp.month! : today.slice(0, 7);
+  const [y, m] = month.split("-").map(Number);
+  const lead = new Date(y!, m! - 1, 1).getDay();
+  const daysInMonth = new Date(y!, m!, 0).getDate();
+  const cells: (string | null)[] = [
+    ...Array.from({ length: lead }, () => null),
+    ...Array.from({ length: daysInMonth }, (_, i) => `${month}-${String(i + 1).padStart(2, "0")}`),
+  ];
+  const calTasks = tasks.filter((t) => t.vesselId === calVessel?.vesselId);
+  const noDue = calTasks.filter((t) => !t.dueAt && t.state !== "done");
+  const calHref = (o: { vessel?: string; month?: string }) =>
+    `/shore/tasks?view=calendar&vessel=${o.vessel ?? calVessel?.vesselId ?? ""}&month=${o.month ?? month}`;
+
   return (
-    <>
-      <Section
-        title="新しい作業を割り当てる"
-        actions={
-          <ExportAction set="task" label="作業指示・タスクを書き出す" />
-        }
-        divided={false}
-        bodyClassName="pt-0"
-      >
-        <form action={assignTaskAction} className="grid items-end gap-3 lg:grid-cols-[2fr_1.2fr_1fr_1fr_132px]">
-          <label className="block">
-            <span className="mb-1 block text-xs text-foreground-500">作業の内容</span>
-            <input
-              name="title"
-              required
-              placeholder="例）出港前点検の実施と記録"
-              className="ui-field text-base"
-            />
-          </label>
-          <label className="block">
-            <span className="mb-1 block text-xs text-foreground-500">担当船員</span>
-            <select name="assigneeCrewId" className="ui-field text-base">
-              <option value="">未割当</option>
-              {crews.map((c) => (
-                <option key={c.crewMemberId} value={c.crewMemberId}>
-                  {c.name}（{c.position ?? "—"}）
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="block">
-            <span className="mb-1 block text-xs text-foreground-500">対象船</span>
-            <select name="targetVesselId" className="ui-field text-base">
+    <div className="flex flex-col gap-[18px]">
+      <div className="flex flex-wrap items-center gap-2">
+        <nav aria-label="表示の切り替え" className="flex gap-2">
+          {VIEWS.map((v) => (
+            <Link
+              key={v.id}
+              href={`/shore/tasks?view=${v.id}`}
+              aria-current={v.id === view ? "page" : undefined}
+              className={cn("ui-btn-quiet", v.id === view && "ui-btn-selected")}
+            >
+              {v.label}
+            </Link>
+          ))}
+        </nav>
+        <span className="ml-auto" />
+        <ExportAction set="task" label="作業指示・タスクを書き出す" />
+      </div>
+
+      {view === "board" ? (
+        <TaskBoard vessels={vessels} tasks={tasks} />
+      ) : (
+        <section aria-label="船ごとのタスク表" className="ui-card flex flex-col gap-3 p-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap gap-1.5" role="group" aria-label="船">
               {vessels.map((v) => (
-                <option key={v.id} value={v.id}>
-                  {v.name}
-                </option>
+                <Link key={v.vesselId} href={calHref({ vessel: v.vesselId })} className={cn("ui-btn-quiet", v.vesselId === calVessel?.vesselId && "ui-btn-selected")}>
+                  {v.vesselName}
+                </Link>
               ))}
-            </select>
-          </label>
-          <label className="block">
-            <span className="mb-1 block text-xs text-foreground-500">期限</span>
-            <input name="dueAt" type="date" defaultValue={today} className="ui-field font-mono text-base" />
-          </label>
-          <button type="submit" className="ui-btn-primary h-[42px]">
-            割り当てる
-          </button>
-        </form>
-      </Section>
-
-      <section className="grid gap-3.5 lg:grid-cols-3">
-        {COLUMNS.map((col) => {
-          const cards = rows.filter((r) => r.task.state === col.state);
-          return (
-            <div key={col.state} className="ui-card">
-              <div className="flex items-center justify-between gap-3 border-b border-[var(--ui-hairline-strong)] px-[18px] py-3.5">
-                <h2 className="m-0 text-base font-bold text-foreground-900">{col.label}</h2>
-                <span className="font-mono text-sm text-foreground-500">{cards.length}</span>
-              </div>
-              <div className="flex flex-col gap-2.5 p-3">
-                {cards.length === 0 ? (
-                  <p className="m-0 px-1 py-3 text-sm text-foreground-500">この状態の作業はありません。</p>
-                ) : null}
-                {cards.map((r) => (
-                  <div key={r.task.id} className="rounded-small border border-[var(--ui-hairline)] p-3">
-                    <p className="m-0 text-base font-bold leading-snug text-foreground-900">{r.task.title}</p>
-                    <div className="mt-2.5 flex items-center gap-2.5">
-                      <CrewPhoto
-                        name={r.assigneeName}
-                        src={photoOf(r.task.assigneeCrewId)}
-                        size="xs"
-                      />
-                      <span className="min-w-0 flex-1">
-                        <span className="block text-sm text-foreground-700">{r.assigneeName}</span>
-                        <span className="block text-xs text-foreground-400">{r.vesselName}</span>
+            </div>
+            <span className="ml-auto flex items-center gap-1.5">
+              <Link href={calHref({ month: shiftMonth(month, -1) })} className="ui-btn-quiet" aria-label="前の月">
+                ◀
+              </Link>
+              <span className="min-w-[110px] text-center font-mono text-lg font-bold tabular-nums">
+                {y}年{m}月
+              </span>
+              <Link href={calHref({ month: shiftMonth(month, 1) })} className="ui-btn-quiet" aria-label="次の月">
+                ▶
+              </Link>
+            </span>
+          </div>
+          <div className="grid grid-cols-7 gap-1">
+            {WEEKDAYS.map((w) => (
+              <span key={w} className="text-center text-sm font-semibold text-foreground-600">
+                {w}
+              </span>
+            ))}
+            {cells.map((date, i) =>
+              date ? (
+                <div
+                  key={date}
+                  className={cn(
+                    "flex min-h-[96px] flex-col gap-1 rounded-small border p-1.5",
+                    date === today ? "border-primary" : "border-[var(--ui-hairline)]",
+                  )}
+                >
+                  <span className="font-mono text-sm tabular-nums text-foreground-700">{Number(date.slice(8))}</span>
+                  {calTasks
+                    .filter((t) => t.dueAt === date)
+                    .map((t) => (
+                      <span
+                        key={t.id}
+                        title={`${t.title} ／ ${t.assigneeName} ／ ${t.stateLabel}`}
+                        className={cn(
+                          "truncate rounded-[3px] border px-1 py-0.5 text-xs",
+                          t.state === "done"
+                            ? "border-[var(--ui-hairline)] bg-content2 text-foreground-500 line-through"
+                            : t.level === "violation"
+                              ? "border-danger bg-danger-100 text-danger"
+                              : t.level === "caution"
+                                ? "border-primary bg-warning-100 text-warning-700"
+                                : "border-[#E5D9C6] bg-[#FBF6EC] text-foreground-800",
+                        )}
+                      >
+                        {t.assigneeName.slice(0, 2)} {t.title}
                       </span>
-                      <StatusChip
-                        level={levelOf(r)}
-                        size="sm"
-                        label={
-                          r.task.state === "done"
-                            ? "完了"
-                            : r.overdue
-                              ? `${Math.abs(r.daysLeft ?? 0)}日 超過`
-                              : r.daysLeft === null
-                                ? "期限なし"
-                                : `あと${r.daysLeft}日`
-                        }
-                      />
-                    </div>
-                    <p className="m-0 mt-2 font-mono text-xs text-foreground-500">
-                      期限 {r.task.dueAt ? fmtDateTime(r.task.dueAt) : "—"} ／ {r.task.cycle ?? "臨時"}
-                    </p>
-                    <div className="mt-2.5 flex gap-2">
-                      {advanceLabel(r.task.state) ? (
-                        <form action={advanceTaskAction} className="flex-1">
-                          <input type="hidden" name="taskId" value={r.task.id} />
-                          <button type="submit" className="ui-btn-ghost h-[34px] w-full text-xs font-normal">
-                            {advanceLabel(r.task.state)}
-                          </button>
-                        </form>
-                      ) : (
-                        <span className="flex-1" />
-                      )}
-                      <DeleteTaskButton
-                        taskId={r.task.id}
-                        title={r.task.title}
-                        cycle={r.task.cycle ?? "臨時"}
-                        started={r.task.state !== "todo"}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          );
-        })}
-      </section>
-
-      <Section title="船員ごとの持ち作業（未完了）" bodyClassName="p-[18px]">
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          {crews.map((c) => (
-            <div key={c.crewMemberId} className="flex items-center gap-2.5 rounded-small bg-[#DFE1E0] px-3 py-2.5">
-              <CrewPhoto
-                name={c.name}
-                initial={c.photo}
-                src={photos.get(c.crewMemberId)}
-                size="xs"
-                className="!bg-content1"
-              />
-              <span className="min-w-0 flex-1">
-                <span className="block text-sm font-bold text-foreground-800">{c.name}</span>
-                <span className="block text-xs text-foreground-500">{c.position ?? "—"}</span>
-              </span>
-              <span className="font-mono text-lg text-foreground-900">
-                {openByCrew.get(c.crewMemberId) ?? 0}
-              </span>
-            </div>
-          ))}
-        </div>
-      </Section>
-
-      <Section title="割り当ての一覧" note={`${rows.length}件`} bodyClassName="p-0">
-        <DataTable
-          isEmpty={rows.length === 0}
-          empty="割り当てられた作業はありません。"
-          head={
-            <>
-              <th>状態</th>
-              <th>作業</th>
-              <th>担当</th>
-              <th>対象船</th>
-              <th className="num">期限</th>
-            </>
-          }
-        >
-          {rows.map((r) => (
-            <tr key={r.task.id}>
-              <td>
-                <StatusChip level={levelOf(r)} size="sm" label={TASK_STATE_LABEL[r.task.state]} />
-              </td>
-              <td>
-                <p className="m-0 font-medium text-foreground-800">{r.task.title}</p>
-                <p className="m-0 mt-0.5 text-xs text-foreground-400">{r.task.cycle ?? "臨時"}</p>
-              </td>
-              <td>{r.assigneeName}</td>
-              <td>{r.vesselName}</td>
-              <td className="num">{r.task.dueAt ? fmtDateTime(r.task.dueAt) : "—"}</td>
-            </tr>
-          ))}
-        </DataTable>
-      </Section>
-    </>
+                    ))}
+                </div>
+              ) : (
+                <span key={`blank-${i}`} />
+              ),
+            )}
+          </div>
+          {noDue.length > 0 ? (
+            <p className="m-0 text-sm text-foreground-600">期限の無い作業: {noDue.map((t) => t.title).join("、")}</p>
+          ) : null}
+        </section>
+      )}
+    </div>
   );
 }

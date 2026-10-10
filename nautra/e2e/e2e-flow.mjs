@@ -253,12 +253,13 @@ await s.goto(`${BASE}/shore/safety?tab=incidents`, { waitUntil: "networkidle" })
 const safetyText = await s.locator("main").innerText();
 check("陸上: 船内から送った事故報告が届く", safetyText.includes(title));
 
-// 配乗計画: 配乗不可の船員が事由つきで出る
+// 配乗計画: 配乗不可の船員が事由つきで出る（カードは文字を減らし、事由は札のホバーと読み上げで出す。ASSIGN-02）
 await s.goto(`${BASE}/shore/manning`, { waitUntil: "networkidle" });
-const manningText = await s.locator("main").innerText();
+const manningAll = (await s.getByRole("region", { name: "配乗ボード" }).textContent()) ?? "";
+const blockedCard = await s.getByRole("region", { name: "配乗ボード" }).locator('[aria-label*="配乗不可"]').count();
 check(
   "陸上: 配乗できない船員が事由つきで表示される",
-  /配乗できません/.test(manningText) && /保険|訓練|免状|健康/.test(manningText),
+  blockedCard > 0 && /保険|訓練|免状|健康/.test(manningAll),
 );
 
 // 届出: 添付要件で不適合が出る
@@ -451,6 +452,52 @@ check(
   await sp.close();
 }
 
+// 配乗と作業指示のホワイトボード（レビュー ASSIGN-02/03/05・ORDER-02/04）
+{
+  const mp = await shore.newPage();
+  await mp.goto(`${BASE}/shore/manning`, { waitUntil: "networkidle" });
+  const board = mp.getByRole("region", { name: "配乗ボード" });
+  check(
+    "陸上: 配乗はホワイトボード（拡大・縮小・全体）で、画面には配乗ボードだけを置く",
+    (await board.getByRole("button", { name: "拡大" }).count()) > 0 &&
+      (await mp.getByRole("region", { name: "これから60日の見通し" }).count()) === 0 &&
+      (await mp.getByRole("region", { name: "配乗待ちの船員" }).count()) === 0,
+  );
+  const zoomBefore = await board.locator("span.font-mono").first().innerText();
+  await board.getByRole("button", { name: "拡大" }).click();
+  const zoomAfter = await board.locator("span.font-mono").first().innerText();
+  check("陸上: ホワイトボードを拡大できる", zoomBefore !== zoomAfter, `${zoomBefore} → ${zoomAfter}`);
+  await board.getByRole("link", { name: "詳細 ›" }).first().click();
+  await mp.waitForURL(/\/shore\/manning\?vessel=/);
+  const detail = mp.getByRole("region", { name: /の詳細$/ });
+  const detailText = await detail.innerText();
+  check("陸上: 船の「詳細」で、その船の乗組み・見通し・乗下船の登録が開く", /乗っている船員/.test(detailText) && /60日の見通し/.test(detailText));
+
+  await mp.goto(`${BASE}/shore/tasks`, { waitUntil: "networkidle" });
+  const tb = mp.getByRole("region", { name: "作業指示のボード" });
+  const title = `E2E作業${Date.now() % 100000}`;
+  await tb.getByRole("button", { name: /中原 拓也 に作業を足す$/ }).first().click();
+  await tb.getByLabel("作業の内容").fill(title);
+  await tb.getByRole("button", { name: "追加", exact: true }).click();
+  await mp.waitForTimeout(1500);
+  const note = tb.getByRole("button", { name: new RegExp(`^${title}`) });
+  check("陸上: 作業指示のボードで、船員の列の「＋」から作業を作れる", (await note.count()) > 0);
+  // 同じ船の「未割当」の列（各船の最初の列）へ動かす
+  await note.dragTo(tb.locator('[role="group"]').first());
+  await mp.waitForTimeout(1500);
+  check("陸上: 付箋を別の列へドラッグすると担当を付け替えられる", /担当を付け替えました/.test(await mp.locator("body").innerText()));
+  // 片付け: 付箋を押して「削除」→「一覧から外す」
+  await tb.getByRole("button", { name: new RegExp(`^${title}`) }).click();
+  await mp.getByRole("region", { name: "作業の内容" }).getByRole("button", { name: "削除" }).click();
+  await mp.getByRole("checkbox").last().check();
+  await mp.getByRole("button", { name: "この内容で一覧から外す" }).click();
+  await mp.waitForTimeout(1500);
+  await mp.goto(`${BASE}/shore/tasks?view=calendar`, { waitUntil: "networkidle" });
+  const cal = mp.getByRole("region", { name: "船ごとのタスク表" });
+  check("陸上: 船ごとのタスク表をカレンダーで見られる", (await cal.count()) > 0 && /年\d+月/.test(await cal.innerText()));
+  await mp.close();
+}
+
 // 船長は船内でも当直を作れる（レビュー SHIFT-04）。作った当直は陸上の配置表に届く
 {
   const capCtx2 = await browser.newContext({ viewport: { width: 1280, height: 900 } });
@@ -460,6 +507,7 @@ check(
   for (const d of ["1", "1", "1", "1"]) await cp.getByRole("button", { name: d, exact: true }).click();
   await cp.waitForURL(`${BASE}/vessel`, { timeout: 15000 });
   await cp.goto(`${BASE}/vessel/shift`, { waitUntil: "networkidle" });
+  await cp.getByRole("button", { name: "＋ 当直を作る・変える" }).click();
   const editor = cp.getByRole("region", { name: "当直を作る・変える" });
   check("船内: 船長には「当直を作る・変える」がある", (await editor.count()) > 0);
   await editor.getByRole("group", { name: "船員" }).getByRole("button", { name: /中原/ }).click();
@@ -487,9 +535,22 @@ check(
   }
   await sp2.close();
 
+  // 陸上で外した当直は、船内（本人の画面）からも消える（ゴミ箱の取り消しが船内に届く）
+  await v.goto(`${BASE}/vessel/sync`, { waitUntil: "networkidle" });
+  const sb2 = v.getByRole("button", { name: /いま同期|手動同期|同期する/ }).first();
+  if (await sb2.count()) await sb2.click();
+  await v.waitForTimeout(2500);
+  await v.goto(`${BASE}/vessel/shift`, { waitUntil: "networkidle" });
+  await v.waitForTimeout(800);
+  check("船内: 陸上で外した当直は船内の当直にも出ない", !/02:00–03:00/.test(await v.locator("main").innerText()));
+
   // 船長以外には出さない（中原 = 航海士）
   await v.goto(`${BASE}/vessel/shift`, { waitUntil: "networkidle" });
-  check("船内: 船長以外には「当直を作る・変える」を出さない", (await v.getByRole("region", { name: "当直を作る・変える" }).count()) === 0);
+  check(
+    "船内: 船長以外には「当直を作る・変える」を出さない",
+    (await v.getByRole("button", { name: "＋ 当直を作る・変える" }).count()) === 0 &&
+      (await v.getByRole("region", { name: "当直を作る・変える" }).count()) === 0,
+  );
 }
 
 // 船員の入力項目（レビュー CREWEDIT-04）: 管理者が枠ごとに「＋ 項目を追加」で足し、入力例・必須を決め、直し、外せる

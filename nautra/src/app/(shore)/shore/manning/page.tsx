@@ -25,10 +25,15 @@ export const dynamic = "force-dynamic";
  * （黙って候補から消さず、事由と解き方を添える）。乗下船の登録を起点に、
  * 手続き一式（届出・保険・記帳・チェック）が自動で起票される。
  */
-export default async function ShoreManningPage() {
+export default async function ShoreManningPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ vessel?: string }>;
+}) {
   const guard = await requireShore("manage_manning");
   if (!guard.ok) return <ShoreGuardNotice guard={guard} screen="配乗計画ボード" />;
 
+  const sp = await searchParams;
   const now = new Date();
   const today = todayLocal(now);
   const vessels = buildVesselManning(now);
@@ -76,6 +81,11 @@ export default async function ShoreManningPage() {
   const canAddCrew = await hasShorePermission("edit_crew_master");
   const canAddVessel = await hasShorePermission("manage_fleet");
 
+  /** 詳細を開いている船（?vessel=）。開いていなければボードだけを出す（ASSIGN-03） */
+  const selected = vessels.find((v) => v.vesselId === sp.vessel);
+  const selectedGantt = selected ? gantt.rows.find((r) => r.vesselId === selected.vesselId) : undefined;
+  const selectedRecent = selected ? recent.filter((e) => e.vesselName === selected.vesselName) : [];
+
   return (
     <div className="flex flex-col gap-[18px]">
       <div className="flex flex-wrap justify-end gap-2">
@@ -92,291 +102,125 @@ export default async function ShoreManningPage() {
           </Link>
         ) : null}
       </div>
-      <ManningBoard
-        pool={ashore.map((r) => toCard(r))}
-        vessels={vessels.map((v) => ({
-          vesselId: v.vesselId,
-          name: v.vesselName,
-          spec: `定員 ${v.requiredCrew ?? "—"}名`,
-          requiredCrew: v.requiredCrew,
-          managedExternally: (v.requiredCrew ?? 0) === 0,
-          crew: v.onBoard.map((r) => toCard(r, true)),
-        }))}
-      />
 
-      {/* ── 船ごとの乗組み（法定定員に対する過不足） ── */}
-      <section aria-label="船ごとの乗組み" className="grid gap-3 lg:grid-cols-2">
-        {vessels.map((v) => {
-          const gap = v.requiredCrew === null ? null : v.onBoard.length - v.requiredCrew;
-          return (
-            <div key={v.vesselId} className="ui-card flex flex-col gap-2 p-4">
-              <div className="flex flex-wrap items-baseline justify-between gap-2">
-                <h2 className="font-bold">{v.vesselName}</h2>
-                <p className="text-sm text-foreground-600">
-                  法定定員{" "}
-                  <span className="tabular-nums font-semibold">
-                    {v.requiredCrew === null ? "未登録" : `${v.requiredCrew}名`}
-                  </span>
-                  <span className="mx-2">/</span>
-                  いま{" "}
-                  <span className="tabular-nums font-semibold">{v.onBoard.length}名</span>
+      <div className={selected ? "grid items-start gap-4 2xl:grid-cols-[minmax(0,1fr)_420px]" : "flex flex-col"}>
+        <ManningBoard
+          selectedVesselId={selected?.vesselId}
+          pool={ashore.map((r) => toCard(r))}
+          vessels={vessels.map((v) => ({
+            vesselId: v.vesselId,
+            name: v.vesselName,
+            spec: `定員 ${v.requiredCrew ?? "—"}名`,
+            requiredCrew: v.requiredCrew,
+            managedExternally: (v.requiredCrew ?? 0) === 0,
+            crew: v.onBoard.map((r) => toCard(r, true)),
+          }))}
+        />
+
+        {selected ? (
+          <section aria-label={`${selected.vesselName} の詳細`} className="ui-card flex flex-col gap-4 p-4">
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <h2 className="m-0 text-2xl font-bold text-foreground-900">{selected.vesselName}</h2>
+                <p className="m-0 mt-1 text-base text-foreground-700">
+                  定員 <span className="font-mono tabular-nums">{selected.requiredCrew ?? "—"}</span>名 ／ いま{" "}
+                  <span className="font-mono tabular-nums">{selected.onBoard.length}</span>名
                 </p>
               </div>
+              <Link href="/shore/manning" scroll={false} className="ui-btn-quiet h-9 w-9 !p-0" aria-label="閉じる">
+                ✕
+              </Link>
+            </div>
 
-              {gap === null ? (
-                <p className="text-sm text-foreground-500">
-                  法定定員が船舶マスタに登録されていないため、過不足を出せません。
-                </p>
-              ) : gap < 0 ? (
-                <p className="text-sm font-semibold text-danger">
-                  ✕ {Math.abs(gap)}名 足りません。乗船の予定を入れてください。
-                </p>
-              ) : gap === 0 ? (
-                <p className="text-sm font-semibold text-success">✓ 定員ちょうどです。</p>
+            <div>
+              <h3 className="m-0 mb-1.5 text-base font-bold">乗っている船員</h3>
+              {selected.onBoard.length === 0 ? (
+                <p className="m-0 text-sm text-foreground-500">いません</p>
               ) : (
-                <p className="text-sm text-foreground-600">✓ 定員より {gap}名 多く乗っています。</p>
-              )}
-
-              {v.onBoard.length === 0 ? (
-                <p className="text-sm text-foreground-500">いま乗っている船員はいません。</p>
-              ) : (
-                <ul className="flex flex-col gap-1 text-sm">
-                  {v.onBoard.map((row) => (
+                <ul className="m-0 flex list-none flex-col gap-1 p-0 text-sm">
+                  {selected.onBoard.map((row) => (
                     <li key={row.crewMemberId} className="flex flex-wrap items-center gap-2">
-                      {/*
-                        既に乗っている船員には「配乗できません」と出さない。
-                        3.1.2 のブロック条件は**これから配乗する候補**に対する判定であり、
-                        乗船中の人に同じ文言を出すと「今すぐ降ろせ」と読めてしまう。
-                        乗船中は「何を直す必要があるか」を示す表現にする。
-                      */}
                       <StatusChip
                         size="sm"
                         level={row.eligibility.level}
-                        label={
-                          row.eligibility.status === "eligible"
-                            ? "問題ありません"
-                            : row.eligibility.status === "blocked"
-                              ? "要対応"
-                              : "確認が要ります"
-                        }
+                        label=""
+                        hint={row.eligibility.issues.map((i) => i.label).join("・") || "問題ありません"}
                       />
-                      <Link
-                        href={`/shore/crew/${row.crewMemberId}`}
-                        className="font-semibold text-primary underline-offset-2 hover:underline"
-                      >
+                      <Link href={`/shore/crew/${row.crewMemberId}`} className="font-semibold text-primary underline-offset-2 hover:underline">
                         {row.name}
                       </Link>
                       <span className="text-foreground-600">{row.position}</span>
-                      <span className="tabular-nums text-foreground-500">
-                        {row.boardedOn ? `${row.boardedOn} から乗船中` : "乗船日 不明"}
-                      </span>
-                      {row.eligibility.issues.length > 0 ? (
-                        <span className="text-foreground-600">
-                          （{row.eligibility.issues.map((i) => i.label).join("・")}）
-                        </span>
-                      ) : null}
+                      <span className="font-mono tabular-nums text-foreground-500">{row.boardedOn ?? "—"} から</span>
                     </li>
                   ))}
                 </ul>
               )}
-
-              <div>
-                <h3 className="mt-1 text-sm font-semibold">これからの予定</h3>
-                {v.planned.length === 0 ? (
-                  <p className="text-sm text-foreground-500">この船の乗下船の予定はありません。</p>
-                ) : (
-                  <ul className="flex flex-col gap-1 text-sm">
-                    {v.planned
-                      .slice()
-                      .sort((a, b) => a.event.date.localeCompare(b.event.date))
-                      .map(({ row, event }) => (
-                        <li key={event.id} className="flex flex-wrap items-center gap-2">
-                          <span className="tabular-nums text-foreground-500">{event.date}</span>
-                          <span className="font-semibold">{t.embarkationEvent[event.eventType]}</span>
-                          <span>{row.name}</span>
-                          {event.duty ? <span className="text-foreground-600">{event.duty}</span> : null}
-                          {event.blockNoteAtPlanning ? (
-                            <span className="text-warning-700">⚠ {event.blockNoteAtPlanning}</span>
-                          ) : null}
-                        </li>
-                      ))}
-                  </ul>
-                )}
-              </div>
             </div>
-          );
-        })}
-      </section>
 
-      {/* ── 60日の見通し（簡易ガント） ── */}
-      <section aria-label="これから60日の見通し" className="ui-card p-4">
-        <h2 className="mb-1 font-bold">これから60日の見通し</h2>
-        <div className="overflow-x-auto">
-          <table className="min-w-[900px] text-sm">
-            <caption className="sr-only">船ごとの日別 乗船人数（今日から60日）</caption>
-            <thead>
-              <tr>
-                <th scope="col" className="sticky left-0 z-10 bg-content1 px-2 py-1 text-left font-medium text-foreground-500">
-                  船
-                </th>
-                {gantt.dates.map((d, i) => (
-                  <th
-                    key={d}
-                    scope="col"
-                    className="w-[14px] px-0 py-1 text-[10px] font-normal text-foreground-500"
-                  >
-                    {i % 7 === 0 ? <span className="tabular-nums">{d.slice(5)}</span> : <span className="sr-only">{d}</span>}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {gantt.rows.map((row) => (
-                <tr key={row.vesselId} className="border-t border-[var(--ui-hairline)]">
-                  <th
-                    scope="row"
-                    className="sticky left-0 z-10 whitespace-nowrap bg-content1 px-2 py-1 text-left font-semibold"
-                  >
-                    {row.vesselName}
-                    <span className="ml-1 font-normal text-foreground-500">
-                      （定員 {row.requiredCrew === null ? "未登録" : `${row.requiredCrew}名`}）
-                    </span>
-                  </th>
-                  {row.counts.map((count, i) => (
-                    <td key={gantt.dates[i]} className="px-0 py-1 align-bottom">
-                      <div
-                        className="flex h-8 w-[12px] flex-col justify-end"
-                        title={`${gantt.dates[i]} ${row.vesselName} ${count}名${row.shortages[i] ? "（定員に足りません）" : ""}`}
-                      >
-                        <div
-                          aria-hidden="true"
-                          className="w-full rounded-sm bg-foreground/70"
-                          style={{ height: `${(count / maxCount) * 100}%` }}
-                        />
-                      </div>
-                      <div className="h-3 text-center text-[9px] leading-3 text-danger">
-                        {row.shortages[i] ? "✕" : ""}
-                      </div>
-                      <span className="sr-only">
-                        {gantt.dates[i]}: {count}名{row.shortages[i] ? "（定員に足りません）" : ""}
-                      </span>
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <ul className="mt-2 flex flex-col gap-1 text-sm">
-          {gantt.rows.map((row) => {
-            const short = row.shortages.filter(Boolean).length;
-            return (
-              <li key={row.vesselId}>
-                <span className="font-semibold">{row.vesselName}</span>:{" "}
-                {row.requiredCrew === null ? (
-                  <span className="text-foreground-500">定員が未登録のため過不足を判定できません。</span>
-                ) : short === 0 ? (
-                  <span className="text-success">✓ 60日のあいだ定員を満たしています。</span>
-                ) : (
-                  <span className="text-danger">✕ 定員に足りない日が {short}日 あります。</span>
-                )}
-              </li>
-            );
-          })}
-        </ul>
-      </section>
-
-      {/* ── 配乗待ちの船員（ブロック該当者も理由つきで出す） ── */}
-      <section aria-label="配乗待ちの船員" className="ui-card p-4">
-        <h2 className="mb-1 font-bold">
-          配乗待ちの船員 <span className="tabular-nums text-foreground-500">{ashore.length}名</span>
-        </h2>
-        <p className="mb-3 text-sm text-foreground-600">
-          配乗できない事由がある人も、理由を添えてここに出します（候補から黙って外しません）。
-        </p>
-        {ashore.length === 0 ? (
-          <p className="text-sm text-foreground-500">配乗待ちの船員はいません。</p>
-        ) : (
-          <ul className="flex flex-col gap-3">
-            {ashore.map((row) => (
-              <li
-                key={row.crewMemberId}
-                className="border-b border-[var(--ui-hairline)] pb-3 last:border-b-0 last:pb-0"
-              >
-                <div className="flex flex-wrap items-center gap-2">
-                  <StatusChip
-                    size="sm"
-                    level={row.eligibility.level}
-                    label={t.manningStatus[row.eligibility.status]}
-                  />
-                  <Link
-                    href={`/shore/crew/${row.crewMemberId}`}
-                    className="font-semibold text-primary underline-offset-2 hover:underline"
-                  >
-                    {row.name}
-                  </Link>
-                  <span className="text-foreground-600">{row.position}</span>
-                  {row.plannedEvents.length > 0 ? (
-                    <span className="tabular-nums text-foreground-500">
-                      予定: {row.plannedEvents[0].date}{" "}
-                      {t.embarkationEvent[row.plannedEvents[0].eventType]}
-                    </span>
-                  ) : null}
-                </div>
-                {row.eligibility.issues.length === 0 ? (
-                  <p className="mt-1 text-sm text-success">✓ そのまま配乗できます。</p>
-                ) : (
-                  <ul className="mt-1 flex flex-col gap-1 text-sm">
-                    {row.eligibility.issues.map((i) => (
-                      <li key={i.key}>
-                        <span
-                          className={
-                            i.severity === "block"
-                              ? "font-bold text-danger"
-                              : "font-bold text-warning-700"
-                          }
-                        >
-                          {i.severity === "block" ? "✕" : "⚠"} {i.label}
-                        </span>
-                        <span className="ml-2 text-foreground-600">{i.detail}</span>
+            <div>
+              <h3 className="m-0 mb-1.5 text-base font-bold">これからの乗下船</h3>
+              {selected.planned.length === 0 ? (
+                <p className="m-0 text-sm text-foreground-500">予定はありません</p>
+              ) : (
+                <ul className="m-0 flex list-none flex-col gap-1 p-0 text-sm">
+                  {selected.planned
+                    .slice()
+                    .sort((x, y) => x.event.date.localeCompare(y.event.date))
+                    .map(({ row, event }) => (
+                      <li key={event.id} className="flex flex-wrap items-center gap-2">
+                        <span className="font-mono tabular-nums text-foreground-500">{event.date}</span>
+                        <span className="font-semibold">{t.embarkationEvent[event.eventType]}</span>
+                        <span>{row.name}</span>
+                        {event.blockNoteAtPlanning ? <span className="text-warning-700">⚠ {event.blockNoteAtPlanning}</span> : null}
                       </li>
                     ))}
-                  </ul>
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+                </ul>
+              )}
+            </div>
 
-      <EmbarkForm candidates={candidates} vessels={listVessels()} today={today} />
+            {selectedGantt ? (
+              <div>
+                <h3 className="m-0 mb-1.5 text-base font-bold">60日の見通し</h3>
+                <div className="flex h-10 items-end gap-px" aria-label={`${selected.vesselName} の60日の乗船人数`}>
+                  {selectedGantt.counts.map((count, i) => (
+                    <span
+                      key={gantt.dates[i]}
+                      title={`${gantt.dates[i]} ${count}名${selectedGantt.shortages[i] ? "（定員に足りません）" : ""}`}
+                      className={selectedGantt.shortages[i] ? "w-[5px] bg-danger" : "w-[5px] bg-foreground-700"}
+                      style={{ height: `${Math.max(6, (count / maxCount) * 100)}%` }}
+                    />
+                  ))}
+                </div>
+                <p className="m-0 mt-1 text-sm">
+                  {selectedGantt.requiredCrew === null
+                    ? "定員が未登録"
+                    : selectedGantt.shortages.some(Boolean)
+                      ? `✕ 定員に足りない日が ${selectedGantt.shortages.filter(Boolean).length}日`
+                      : "✓ 60日のあいだ定員を満たしています"}
+                </p>
+              </div>
+            ) : null}
 
-      <section aria-label="最近の乗下船" className="ui-card p-4">
-        <h2 className="mb-2 font-bold">最近の乗下船（予定・実績）</h2>
-        {recent.length === 0 ? (
-          <p className="text-sm text-foreground-500">乗下船の記録はありません。</p>
-        ) : (
-          <ul className="flex flex-col gap-1 text-sm">
-            {recent.map((e) => (
-              <li key={e.id} className="flex flex-wrap gap-2">
-                <span className="tabular-nums text-foreground-500">{fmtDateLabel(e.date)}</span>
-                <span className="font-semibold">{t.embarkationEvent[e.eventType]}</span>
-                <span>{e.crewName}</span>
-                <span className="text-foreground-600">{e.vesselName}</span>
-                {e.duty ? <span className="text-foreground-600">{e.duty}</span> : null}
-                <span className="text-foreground-500">{t.embarkationStatus[e.status]}</span>
-                {e.contractType ? (
-                  <span className="text-foreground-500">{t.embarkationContract[e.contractType]}</span>
-                ) : null}
-                {e.blockNoteAtPlanning ? (
-                  <span className="text-warning-700">⚠ {e.blockNoteAtPlanning}</span>
-                ) : null}
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+            <EmbarkForm candidates={candidates} vessels={listVessels().filter((v) => v.id === selected.vesselId)} today={today} />
 
+            {selectedRecent.length > 0 ? (
+              <div>
+                <h3 className="m-0 mb-1.5 text-base font-bold">最近の乗下船</h3>
+                <ul className="m-0 flex list-none flex-col gap-1 p-0 text-sm">
+                  {selectedRecent.slice(0, 8).map((e) => (
+                    <li key={e.id} className="flex flex-wrap gap-2">
+                      <span className="font-mono tabular-nums text-foreground-500">{fmtDateLabel(e.date)}</span>
+                      <span className="font-semibold">{t.embarkationEvent[e.eventType]}</span>
+                      <span>{e.crewName}</span>
+                      <span className="text-foreground-500">{t.embarkationStatus[e.status]}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+          </section>
+        ) : null}
+      </div>
     </div>
   );
 }

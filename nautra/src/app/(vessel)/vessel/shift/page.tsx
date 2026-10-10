@@ -50,6 +50,8 @@ export default function ShiftPage() {
   const selfId = session?.id ?? "";
   const records = useCrewRecords(selfId); // 実績は本人の打刻のみ読む
   const [showAll, setShowAll] = useState(false);
+  // 変更通知は新しい4件だけ出し、残りは「もっと見る」（一覧を全件出さない）
+  const [moreChanges, setMoreChanges] = useState(false);
 
   /** 本人の当直（本日） */
   const myToday = useMemo(
@@ -247,7 +249,7 @@ export default function ShiftPage() {
           {myChanges.length === 0 ? (
             <p className="text-foreground-600">予定の変更はありません。</p>
           ) : (
-            myChanges.slice(0, 10).map((c) => {
+            myChanges.slice(0, moreChanges ? 30 : 4).map((c) => {
               const prev = c.supersedesId ? byId.get(c.supersedesId) : undefined;
               const isUnread = myUnread.some((u) => u.id === c.id);
               return (
@@ -268,12 +270,18 @@ export default function ShiftPage() {
                   </div>
                   {c.changeNote ? <p className="text-sm text-foreground-600">理由: {c.changeNote}</p> : null}
                   <p className="text-xs text-foreground-600">
-                    陸上 {personName(c.publishedBy)} が {fmtDateTime(c.publishedAt)} に配信
+                    {/* 船長が船内で変えたものは「船長」、それ以外は陸上の配信（SHIFT-04） */}
+                    {c.publishedBy.startsWith("crew-") ? "船長" : "陸上"} {personName(c.publishedBy)} が {fmtDateTime(c.publishedAt)} に配信
                   </p>
                 </div>
               );
             })
           )}
+          {myChanges.length > 4 && !moreChanges ? (
+            <button type="button" className="ui-btn-ghost min-h-11 self-center px-5 text-base" onClick={() => setMoreChanges(true)}>
+              もっと見る（{myChanges.length - 4}件）
+            </button>
+          ) : null}
         </CardBody>
       </Card>
 

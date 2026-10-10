@@ -37,6 +37,8 @@ export function CaptainShiftEditor({
   const [to, setTo] = useState("12:00");
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null);
+  // 普段は閉じておく（シフト画面の主役は「自分の当直」。作る・変えるときだけ開く）
+  const [open, setOpen] = useState(false);
 
   /** 選んだ船員・日の当直（変えるときの対象） */
   const existing = watches
@@ -91,9 +93,22 @@ export function CaptainShiftEditor({
     }
   }
 
+  if (!open) {
+    return (
+      <button type="button" onClick={() => setOpen(true)} className="ui-btn-ghost min-h-12 self-start px-5 text-lg">
+        ＋ 当直を作る・変える
+      </button>
+    );
+  }
+
   return (
     <section aria-label="当直を作る・変える" className="ui-card flex flex-col gap-3 p-4">
-      <h2 className="m-0 text-xl font-bold text-foreground-900">当直を作る・変える</h2>
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="m-0 text-xl font-bold text-foreground-900">当直を作る・変える</h2>
+        <button type="button" onClick={() => setOpen(false)} className="ui-btn-quiet h-10 w-10 !p-0" aria-label="閉じる">
+          ✕
+        </button>
+      </div>
       <div className="flex flex-wrap gap-2" role="group" aria-label="船員">
         {CREW_MEMBERS.map((c) => (
           <button

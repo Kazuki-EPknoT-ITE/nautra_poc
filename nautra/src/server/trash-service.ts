@@ -1,4 +1,5 @@
 import { SHORE_PLANNER_ID } from "@/lib/crew";
+import { trashedIdsOf } from "@/lib/trash";
 import { carryOverFields } from "@/lib/master-fields";
 import { COMPANY_SCOPE_ID } from "@/lib/seed-masters";
 import { unretireCrewMaster } from "@/server/crew-master-service";
@@ -101,13 +102,7 @@ export function listTrash(now = new Date()): TrashRow[] {
  * 出てこない、といったずれが起きるため。
  */
 export function trashedEntityIds(kind?: string): Set<string> {
-  const ids = new Set<string>();
-  for (const e of effective("trash_entry")) {
-    if (e.restoredAt) continue;
-    if (kind && e.entityKind !== kind) continue;
-    ids.add(e.entityId);
-  }
-  return ids;
+  return trashedIdsOf(effective("trash_entry"), kind);
 }
 
 export interface RecordDeletionInput {

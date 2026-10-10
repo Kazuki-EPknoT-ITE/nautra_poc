@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { revalidatePath } from "next/cache";
 import { fmtDateTime } from "@/lib/format";
 import { personName } from "@/lib/crew";
@@ -21,7 +22,7 @@ export const dynamic = "force-dynamic";
  * 読めるようにし、30日以内なら元に戻せる。ここは要件定義書 12（正本管理・監査証跡）を
  * 利用者の目線で見せる画面で、ゴミ箱というより「取り消しの控え」に近い。
  */
-export default async function ShoreTrashPage() {
+export default async function ShoreTrashPage({ searchParams }: { searchParams: Promise<{ all?: string }> }) {
   const guard = await requireShore("manage_settings");
   if (!guard.ok) return <ShoreGuardNotice guard={guard} screen="削除・アーカイブ" />;
 
@@ -34,6 +35,9 @@ export default async function ShoreTrashPage() {
   }
 
   const rows = listTrash();
+  // 一覧は全件出さない（新しい20件。「すべて見る」で広げる）
+  const showAll = (await searchParams).all === "1";
+  const shown = showAll ? rows : rows.slice(0, 20);
 
   return (
     <>
@@ -60,7 +64,7 @@ export default async function ShoreTrashPage() {
           </p>
         ) : (
           <div>
-            {rows.map((r) => (
+            {shown.map((r) => (
               <div
                 key={r.entry.id}
                 className="flex flex-wrap items-center gap-4 border-b border-[var(--ui-hairline)] px-[18px] py-3.5 last:border-b-0"
@@ -101,6 +105,13 @@ export default async function ShoreTrashPage() {
                 )}
               </div>
             ))}
+            {rows.length > shown.length ? (
+              <div className="flex justify-center p-3">
+                <Link href="/shore/trash?all=1" className="ui-btn-ghost h-10 px-5">
+                  すべて見る（あと{rows.length - shown.length}件）
+                </Link>
+              </div>
+            ) : null}
           </div>
         )}
       </Section>

@@ -1,5 +1,6 @@
 "use client";
 
+import { trashedIdsOf } from "@/lib/trash";
 import { useEffect, useMemo, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import type { TimeRecord } from "@/domain/labor-law/types";
@@ -122,13 +123,16 @@ export function useNotices(): {
 /** 有効なシフト計画（訂正で無効化されたものを除く）と変更通知の集計（V-08） */
 export function useShiftPlans() {
   const recorded = useRecords("shift_plan");
+  // 陸上の配置表で外した当直（S-18 のゴミ箱）は船内でも出さない
+  const trash = useRecords("trash_entry");
   const ackAt = useLiveQuery(() => getMeta("shiftAckAt"), [], undefined);
   const rejectedRaw = useLiveQuery(() => getMeta("serverQuarantinedIds"), [], undefined);
   return useMemo(() => {
     // 陸上で受け付けられなかった計画（船長以外の記録とみなされた等）は、端末だけで有効にしない（SHIFT-04）
     const rejectedIds = new Set<string>(rejectedRaw ? (JSON.parse(rejectedRaw) as string[]) : []);
     const rejected = recorded.filter((p) => rejectedIds.has(p.id));
-    const all = recorded.filter((p) => !rejectedIds.has(p.id));
+    const removed = trashedIdsOf(trash, "当直シフト");
+    const all = recorded.filter((p) => !rejectedIds.has(p.id) && !removed.has(p.id));
     const effective = latestBySupersedes(all) as (ShiftPlanPayload & { kind: "shift_plan" })[];
     const watches = effective.filter((p) => p.planType === "watch");
     const stations = effective.filter((p) => p.planType === "station");
@@ -142,7 +146,7 @@ export function useShiftPlans() {
     const conflicts = findSupersedeConflicts(all);
     const conflictIds = new Set(conflicts.flatMap((c) => c.candidates.map((x) => x.id)));
     return { all, watches, stations, changes, unread, byId, ackAt, conflicts, conflictIds, rejected };
-  }, [recorded, ackAt, rejectedRaw]);
+  }, [recorded, trash, ackAt, rejectedRaw]);
 }
 
 /** 端末内の競合件数（supersedes 分岐）= 船内記録・シフト計画の全種別を対象に算出 */

@@ -130,4 +130,31 @@ export function advanceTask(taskId: string, actor?: string, now = new Date()): W
   return updated;
 }
 
+/**
+ * 担当を付け替える（ホワイトボードでカードを別の船員の列へ動かしたとき。レビュー ORDER-02）。
+ * 状態の進め方と同じく追記で表すので、誰から誰へ付け替えたかが履歴に残る（12.6）。
+ */
+export function reassignTask(taskId: string, assigneeCrewId: string | undefined, actor?: string, now = new Date()): WorkTaskPayload {
+  const current = effective("work_task").find((t) => t.id === taskId);
+  if (!current) throw new Error("この作業は見つかりませんでした（更新済みの可能性があります）");
+  if ((current.assigneeCrewId ?? undefined) === (assigneeCrewId || undefined)) return current;
+  const updated = publishMaster(
+    "work_task",
+    { ...carryOverFields(current as unknown as Record<string, unknown>), assigneeCrewId: assigneeCrewId || undefined },
+    { vesselId: current.targetVesselId, supersedesId: current.id, actor, now },
+  );
+  const name = (id?: string) => (id ? crewNameOf(id) : "未割当");
+  writeAuditLog({
+    action: "update",
+    entityKind: "work_task",
+    entityId: updated.id,
+    before: name(current.assigneeCrewId),
+    after: name(assigneeCrewId),
+    actor,
+    summary: `作業「${current.title}」の担当を ${name(current.assigneeCrewId)} → ${name(assigneeCrewId)} に付け替え`,
+    now,
+  });
+  return updated;
+}
+
 export { COMPANY_SCOPE_ID };
