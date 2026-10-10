@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { fmtDateTime } from "@/lib/format";
 import { crewPhotoMap } from "@/server/crew-photo-service";
 import { listCrewMasters, listVessels, todayLocal } from "@/server/master-service";
@@ -11,6 +10,7 @@ import {
 } from "@/server/task-service";
 import { CrewPhoto, DataTable, Section, StatusChip } from "@/ui";
 import type { WorkTaskState } from "@/sync-protocol/masters";
+import { ExportAction } from "../_components/export-action";
 import { ShoreGuardNotice } from "../_components/guard";
 import { advanceTaskAction, assignTaskAction } from "./actions";
 import { DeleteTaskButton } from "./_components/delete-task";
@@ -63,9 +63,7 @@ export default async function ShoreTasksPage() {
       <Section
         title="新しい作業を割り当てる"
         actions={
-          <Link href="/shore/exports?set=task" className="ui-btn-ghost h-8 text-xs">
-            CSVで書き出す
-          </Link>
+          <ExportAction set="task" label="作業指示・タスクを書き出す" />
         }
         divided={false}
         bodyClassName="pt-0"

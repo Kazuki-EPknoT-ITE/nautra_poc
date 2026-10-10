@@ -14,6 +14,7 @@ import { todayLocal } from "@/server/master-service";
 import { requireShore } from "@/server/shore-session";
 import { DOCUMENT_KINDS, type DocumentKind } from "@/sync-protocol/masters";
 import { Section, StatBlock, StatusChip } from "@/ui";
+import { ExportAction } from "../_components/export-action";
 import { ShoreGuardNotice } from "../_components/guard";
 import { OpinionForm } from "./_components/opinion-form";
 import { ReportForm } from "./_components/report-form";
@@ -105,9 +106,6 @@ export default async function ShoreDocumentsPage({
             {t.documentKind[k]}
           </Link>
         ))}
-        <Link href="/shore/exports?set=filing" className="ui-btn-ghost ml-auto h-9">
-          CSVで書き出す
-        </Link>
       </section>
 
       <Section title="生成書類・提出記録" note={`${rows.length}件（新しい順）`} bodyClassName="p-0">
@@ -185,13 +183,7 @@ export default async function ShoreDocumentsPage({
       <section aria-label="待機時間と荷役時間の実績" className="ui-card overflow-x-auto">
         <div className="flex flex-wrap items-center justify-between gap-2 px-4 pt-4">
           <h2 className="font-bold">待機時間・荷役時間の実績（月別・港別）</h2>
-          <Link
-            href="/api/v1/shore/standby.csv"
-            className="rounded-medium border border-[var(--ui-hairline)] px-3 py-1.5 text-sm font-semibold"
-            prefetch={false}
-          >
-            CSV で出力
-          </Link>
+          <ExportAction set="standby" label="待機・荷役の実績を書き出す" />
         </div>
         <p className="px-4 pt-2 text-sm text-foreground-600">
           荷主・オペレーターとの協議に使う基礎資料です。荷役待ちの待機は労働時間に算入されるため、

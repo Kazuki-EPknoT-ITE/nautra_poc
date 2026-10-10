@@ -13,6 +13,7 @@ import { SurfaceCard, useModalProps } from "@/ui";
 import { Button, Card, CardBody, Checkbox, Chip, Input, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, Textarea, useDisclosure } from "@/ui/heroui";
 import { GroupHeader } from "../_components/group-header";
 import { SAFETY_SUB_TABS, SubTabs } from "../_components/sub-tabs";
+import { ShowMoreButton } from "../_components/record-mode";
 import { RecordTile } from "../_components/record-tile";
 
 /**
@@ -149,6 +150,8 @@ export default function IncidentPage() {
 
   // 有効な報告（訂正で置き換えられたものを除く）を新しい順に
   const effective = useMemo(() => latestBySupersedes(reports), [reports]);
+  // 一覧は全件出さない（CLAUDE.md レイアウト節）。報告の札は背が高いので10件ずつ「もっと見る」
+  const [limit, setLimit] = useState(10);
 
   if (!session) return null;
 
@@ -197,7 +200,7 @@ export default function IncidentPage() {
             </CardBody>
           </Card>
         ) : null}
-        {effective.map((r) => (
+        {effective.slice(0, limit).map((r) => (
           <Card key={r.id} shadow="none" className="ui-card">
             <CardBody className="flex flex-col gap-2">
               <div className="flex flex-wrap items-center gap-2">
@@ -266,6 +269,7 @@ export default function IncidentPage() {
             </CardBody>
           </Card>
         ))}
+        {effective.length > limit ? <ShowMoreButton onPress={() => setLimit((l) => l + 10)} /> : null}
       </section>
 
       <Modal

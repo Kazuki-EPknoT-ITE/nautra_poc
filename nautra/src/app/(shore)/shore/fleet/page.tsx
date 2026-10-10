@@ -8,6 +8,7 @@ import { listVessels, vesselMasterOf } from "@/server/master-service";
 import { requireShore } from "@/server/shore-session";
 import { EQUIPMENT_KINDS } from "@/sync-protocol/records";
 import { DataTable, Section, StatusChip } from "@/ui";
+import { ExportAction } from "../_components/export-action";
 import { ShoreGuardNotice } from "../_components/guard";
 import { FindingForm, type FindingOption } from "./_components/finding-form";
 import { PartStockControls } from "./_components/part-stock-controls";
@@ -79,9 +80,7 @@ export default async function ShoreFleetPage({
         title="船舶一覧"
         note={`${vessels.length}隻`}
         actions={
-          <Link href="/shore/exports?set=vessel" className="ui-btn-ghost h-9">
-            CSVで書き出す
-          </Link>
+          <ExportAction set="vessel" label="船舶・証書期限を書き出す" />
         }
         bodyClassName="p-0"
       >

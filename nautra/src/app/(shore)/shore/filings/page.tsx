@@ -10,6 +10,7 @@ import {
 import { todayLocal } from "@/server/master-service";
 import { requireShore } from "@/server/shore-session";
 import { StatusChip, StepBar, type Step } from "@/ui";
+import { ExportAction } from "../_components/export-action";
 import { ShoreGuardNotice } from "../_components/guard";
 import { FilingSteps } from "./_components/filing-steps";
 import { FilingWizard } from "./_components/filing-wizard";
@@ -237,6 +238,9 @@ export default async function ShoreFilingsPage() {
 
   return (
     <div className="flex flex-col gap-[18px]">
+      <div className="flex justify-end">
+        <ExportAction set="filing" label="手続き・提出記録を書き出す" />
+      </div>
       <FilingWizard candidates={candidates} crew={crew} vessels={vessels} today={today} />
 
       <section aria-label="作成中の届出" className="flex flex-col gap-3">

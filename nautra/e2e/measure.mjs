@@ -14,7 +14,7 @@ const SHORE = [
   "/shore/dispatch", "/shore/safety", "/shore/wellbeing", "/shore/evaluations",
   "/shore/office", "/shore/documents", "/shore/labor", "/shore/templates",
   "/shore/notices", "/shore/settings", "/shore/crew/new", "/shore/tasks",
-  "/shore/exports", "/shore/trash", "/shore/fleet/vessel-001",
+  "/shore/trash", "/shore/fleet/vessel-001",
 ];
 const VESSEL = [
   "/vessel", "/vessel/punch", "/vessel/history", "/vessel/ledger", "/vessel/approve", "/vessel/logbook",

@@ -13,19 +13,30 @@ import {
   vesselNameOf,
 } from "@/server/master-service";
 import { listTasks, TASK_STATE_LABEL } from "@/server/task-service";
+import { buildStandbySummary } from "@/server/document-service";
 
 /**
- * S-17 CSV書き出し（デザイン正本 `design/poc_design`）。
+ * 書き出し（各画面の「◯◯を書き出す」。レビュー EXPORT-01〜03）。
  *
  * 「Excel に落として社内で回す」という実務は消えない。だから**画面で見えている値を
  * そのまま**書き出せるようにする。列の意味が画面とずれないよう、行の組み立ては
  * ここ1か所に置き、画面・API の双方がこれを使う。
  *
- * PoC の簡略化: 文字コードは UTF-8（BOM 付き / 無し）のみ。Shift_JIS は変換表が要り、
- * 外部ライブラリを増やさない方針のため本番で対応する（BOM 付き UTF-8 は Excel で開ける）。
+ * 書き出し専用の画面（旧 S-17）は廃止し、各画面の書き出しボタンが対象を決める。
+ * 形式は Excel ブック（.xlsx・既定）と区切りテキスト（.csv / .txt）。区切りテキストだけ
+ * 文字コード（UTF-8 BOM 付き / Shift_JIS / UTF-8）を選べる。
  */
 
-export type ExportSetId = "crew" | "manning" | "labor" | "shift" | "task" | "vessel" | "filing";
+export type ExportSetId = "crew" | "manning" | "labor" | "shift" | "task" | "vessel" | "filing" | "standby";
+
+/** 書き出しの形式。画面では拡張子と用途で見せ、"CSV" という言葉は使わない（EXPORT-02） */
+export type ExportFormat = "xlsx" | "csv" | "tsv";
+
+export function exportFormatOf(v: string | null): ExportFormat {
+  return v === "csv" || v === "tsv" ? v : "xlsx";
+}
+
+export const EXPORT_EXTENSION: Record<ExportFormat, string> = { xlsx: "xlsx", csv: "csv", tsv: "txt" };
 
 export interface ExportSet {
   id: ExportSetId;
@@ -85,6 +96,13 @@ export const EXPORT_SETS: ExportSet[] = [
     note: "届出インベントリと帳票の提出履歴",
     from: "S-08 手続き・期限管理 ／ S-14 帳票・出力センター",
     columns: ["手続き名", "根拠法令", "対象", "提出期限", "着手期限", "状態", "提出日"],
+  },
+  {
+    id: "standby",
+    label: "待機・荷役の実績",
+    note: "月別・港別の待機時間と荷役時間（荷主・オペレーターとの協議資料。3.6.4）",
+    from: "S-14 帳票・出力センター ／ V-07 作業記録",
+    columns: ["月", "港", "待機の回数", "待機時間(分)", "待機時間(時間)", "荷役の回数", "荷役時間(分)", "荷役時間(時間)", "終了未記録の件数"],
   },
 ];
 
@@ -237,6 +255,21 @@ export function buildExportRows(id: ExportSetId, now = new Date()): string[][] {
     return rows;
   }
 
+  if (id === "standby") {
+    const hours = (m: number) => (Math.round((m / 60) * 10) / 10).toString();
+    return buildStandbySummary().map((r) => [
+      r.month,
+      r.port,
+      String(r.standbyCount),
+      String(r.standbyMinutes),
+      hours(r.standbyMinutes),
+      String(r.cargoCount),
+      String(r.cargoMinutes),
+      hours(r.cargoMinutes),
+      String(r.openCount),
+    ]);
+  }
+
   // filing: 着手期限は導出値なので保持せず、ここでドメイン関数から取る（6.6②）
   return effective("procedure_task").map((p): string[] => [
     p.title,
@@ -262,6 +295,11 @@ export function toCsv(columns: string[], rows: string[][], delimiter = ","): str
   return lines.join("\r\n");
 }
 
-export function exportFileName(id: ExportSetId, now = new Date()): string {
-  return `nautra-${id}-${todayLocal(now)}.csv`;
+/** 既定のファイル名（拡張子なし）。利用者が書き換えられる */
+export function exportFileBase(id: ExportSetId, now = new Date()): string {
+  return `${exportSetById(id)?.label ?? id}_${todayLocal(now)}`;
+}
+
+export function exportFileName(id: ExportSetId, now = new Date(), format: ExportFormat = "csv"): string {
+  return `${exportFileBase(id, now)}.${EXPORT_EXTENSION[format]}`;
 }

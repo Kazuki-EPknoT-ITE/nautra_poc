@@ -51,7 +51,7 @@ export function LedgerImportForm() {
           accept=".csv,text/csv,text/plain"
           onChange={onPickFile}
           className="text-sm"
-          aria-label="CSV ファイルを選ぶ"
+          aria-label="取り込むファイルを選ぶ"
         />
         {csv ? (
           <Button
@@ -69,7 +69,7 @@ export function LedgerImportForm() {
 
       <Textarea
         name="csv"
-        label="CSV の中身（貼り付け）"
+        label="ファイルの中身（貼り付け）"
         minRows={4}
         value={csv}
         onValueChange={setCsv}

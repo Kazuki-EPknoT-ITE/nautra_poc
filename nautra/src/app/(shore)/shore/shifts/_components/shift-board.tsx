@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, useTransition, type DragEvent } from "react";
+import { useState, useTransition, type DragEvent, type ReactNode } from "react";
 import type { CheckLevel } from "@/domain/labor-law/types";
 import { cn } from "@/lib/cn";
 import { fmtDateLabel } from "@/lib/format";
@@ -55,6 +55,7 @@ export function ShiftBoard({
   total,
   warnings,
   appliedRuleVersion,
+  exportSlot,
 }: {
   vesselName: string;
   vessels: { id: string; name: string }[];
@@ -68,6 +69,8 @@ export function ShiftBoard({
   total: number;
   warnings: { crewName: string; date: string; label: string; level: CheckLevel }[];
   appliedRuleVersion: string;
+  /** 「シフトを書き出す」（権限が無いときは null。サーバ側の ExportAction が決める） */
+  exportSlot?: ReactNode;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -137,9 +140,7 @@ export function ShiftBoard({
           {filled} / {total} 枡
         </span>
         {pending ? <span className="text-sm text-primary">配信中…</span> : null}
-        <Link href="/shore/exports?set=shift" className="ui-btn-ghost h-[38px]">
-          CSVで書き出す
-        </Link>
+        {exportSlot}
       </section>
 
       <section className="grid items-start gap-3.5 xl:grid-cols-[264px_minmax(0,1fr)]">

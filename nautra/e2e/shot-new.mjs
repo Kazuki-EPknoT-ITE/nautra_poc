@@ -11,7 +11,7 @@ for (const [path, name] of [
   ["/shore", "dash"],
   ["/shore/manning", "manning"],
   ["/shore/tasks", "tasks"],
-  ["/shore/exports", "exports"],
+  ["exports"],
   ["/shore/trash", "trash"],
   ["/shore/fleet/vessel-001", "vessel-detail"],
   ["/shore/crew", "crew-list"],

@@ -13,6 +13,7 @@ import { buildLeaveBalance, buildLeaveBoard } from "@/server/leave-service";
 import { hasShorePermission, requireShore } from "@/server/shore-session";
 import { cn } from "@/lib/cn";
 import { Section, StatusChip } from "@/ui";
+import { ExportAction } from "../_components/export-action";
 import { ShoreGuardNotice } from "../_components/guard";
 import { ApprovalForm, type PendingDay } from "./_components/approval-form";
 import { LeaveForm } from "./_components/leave-form";
@@ -183,9 +184,7 @@ export default async function ShoreLaborPage({
             >
               記録簿を印刷・PDF
             </Link>
-            <Link href="/shore/exports?set=labor" className="ui-btn-ghost h-9">
-              CSVで書き出す
-            </Link>
+            <ExportAction set="labor" label="労務記録を書き出す" />
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-3 border-t border-[var(--ui-hairline)] pt-3">
@@ -629,7 +628,7 @@ export default async function ShoreLaborPage({
       {/* 国交省 Excel マクロ様式の取込（3.2.2） */}
       {canApprove ? (
         <Section
-          title="これまでの記録簿を取り込む（Excel様式 → CSV）"
+          title="これまでの記録簿を取り込む（Excel 様式）"
           note="取り込んだ分も打刻と同じ一次記録として追記されます"
           divided={false}
         >

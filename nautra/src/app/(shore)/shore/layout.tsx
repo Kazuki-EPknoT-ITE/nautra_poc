@@ -50,7 +50,6 @@ const NAV_GROUPS: {
       { href: "/shore/filings", label: "届出", permission: "manage_filing" },
       { href: "/shore/procedures", label: "手続き・期限", permission: "manage_procedures" },
       { href: "/shore/documents", label: "帳票・出力", permission: "manage_documents" },
-      { href: "/shore/exports", label: "CSV書き出し", permission: "manage_documents" },
     ],
   },
   {

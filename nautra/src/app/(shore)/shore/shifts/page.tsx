@@ -7,6 +7,7 @@ import { buildWatchLoad, getShiftWeek, getStationPlans } from "@/server/shift-se
 import { requireShore } from "@/server/shore-session";
 import { listVessels } from "@/server/master-service";
 import { buildShiftBoard, WATCH_SLOTS } from "@/server/shift-board-service";
+import { ExportAction } from "../_components/export-action";
 import { ShoreGuardNotice } from "../_components/guard";
 import { ShiftBoard } from "./_components/shift-board";
 import { NewShiftForm, type CrewOption } from "./_components/new-shift-form";
@@ -118,6 +119,7 @@ export default async function ShoreShiftsPage({
         total={board.total}
         warnings={board.warnings}
         appliedRuleVersion={board.appliedRuleVersion}
+        exportSlot={<ExportAction set="shift" label="シフトを書き出す" className="h-[38px]" />}
       />
 
       <section aria-label="週間当直表" className="ui-card overflow-x-auto">

@@ -10,6 +10,7 @@ import { listTasksForVessel, TASK_STATE_LABEL } from "@/server/task-service";
 import { crewPhotoMap } from "@/server/crew-photo-service";
 import { buildVesselOverview } from "@/server/vessel-overview-service";
 import { CrewPhoto, DataTable, Section, StatusChip } from "@/ui";
+import { ExportAction } from "../../_components/export-action";
 import { ShoreGuardNotice } from "../../_components/guard";
 
 export const dynamic = "force-dynamic";
@@ -73,12 +74,11 @@ export default async function VesselDetailPage({ params }: { params: Promise<{ i
           <Link href="/shore/tasks" className="ui-btn-ghost h-9 border-[#666666] bg-transparent font-normal text-white">
             作業を割り当てる
           </Link>
-          <Link
-            href="/shore/exports?set=vessel"
-            className="ui-btn-ghost h-9 border-[#666666] bg-transparent font-normal text-[#DFE1E0]"
-          >
-            CSVで書き出す
-          </Link>
+          <ExportAction
+            set="vessel"
+            label="船舶・証書期限を書き出す"
+            className="border-[#666666] bg-transparent font-normal text-[#DFE1E0]"
+          />
         </div>
       </section>
 

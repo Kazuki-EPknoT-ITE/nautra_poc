@@ -7,6 +7,7 @@ import { buildManningBoard } from "@/server/manning-service";
 import { requireShore } from "@/server/shore-session";
 import { crewPhotoMap } from "@/server/crew-photo-service";
 import { CrewPhoto, StatusChip } from "@/ui";
+import { ExportAction } from "../_components/export-action";
 import { ShoreGuardNotice } from "../_components/guard";
 import { CrewSearchForm } from "./_components/crew-search-form";
 
@@ -87,9 +88,7 @@ export default async function ShoreCrewPage({
         </div>
         <CrewSearchForm status={status} q={q} />
         <div className="ml-auto flex flex-wrap items-center gap-2">
-          <Link href="/shore/exports?set=crew" className="ui-btn-ghost h-9">
-            CSVで書き出す
-          </Link>
+          <ExportAction set="crew" label="船員名簿を書き出す" />
           <Link href="/shore/crew/new" className="ui-btn-primary h-9">
             ＋ 船員を登録
           </Link>

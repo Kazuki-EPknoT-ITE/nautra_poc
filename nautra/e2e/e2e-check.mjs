@@ -28,7 +28,6 @@ const SHORE = [
   "/shore/evaluations",
   "/shore/office",
   "/shore/documents",
-  "/shore/exports",
   "/shore/labor",
   "/shore/templates",
   "/shore/notices",

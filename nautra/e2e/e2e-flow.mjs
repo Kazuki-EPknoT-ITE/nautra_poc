@@ -342,6 +342,51 @@ check(
   );
 }
 
+// 書き出し（レビュー EXPORT-01〜03）: 専用画面は無く、各画面の「◯◯を書き出す」から形式と列を選んで保存する
+{
+  const ex = await shore.newPage();
+  // 「名前を付けて保存」の窓は自動試験では操作できないので、窓を持たないブラウザと同じ経路（ダウンロード）で確かめる
+  await ex.addInitScript(() => {
+    delete window.showSaveFilePicker;
+  });
+  await ex.goto(`${BASE}/shore/crew`, { waitUntil: "networkidle" });
+  const navText = await ex.getByRole("navigation").first().innerText();
+  check("陸上: メニューに書き出し専用の画面が無い", !/CSV|書き出し/.test(navText));
+  const mainBefore = await ex.locator("main").innerText();
+  check("陸上: 画面に「CSV」という言葉を出さない", !/CSV/.test(mainBefore));
+  await ex.getByRole("button", { name: "船員名簿を書き出す" }).click();
+  const dlg = ex.getByRole("dialog", { name: "船員名簿を書き出す" });
+  await dlg.getByText(/\d+行/).waitFor({ timeout: 10000 });
+  const dlgText = await dlg.innerText();
+  check(
+    "陸上: 書き出しの問いかけで形式（.xlsx/.csv/.txt）・列・中身・ファイル名を選べる",
+    /\.xlsx/.test(dlgText) && /\.csv/.test(dlgText) && /\.txt/.test(dlgText) && /氏名/.test(dlgText) && !/CSV/.test(dlgText),
+  );
+  const [download] = await Promise.all([
+    ex.waitForEvent("download", { timeout: 15000 }),
+    dlg.getByRole("button", { name: "保存する" }).click(),
+  ]);
+  const xlsxPath = join(tmpdir(), `nautra-e2e-${Date.now()}.xlsx`);
+  await download.saveAs(xlsxPath);
+  const { readFileSync } = await import("node:fs");
+  const bytes = readFileSync(xlsxPath);
+  check(
+    "陸上: Excel 形式（.xlsx）で保存できる",
+    download.suggestedFilename().endsWith(".xlsx") && bytes.subarray(0, 2).toString() === "PK" &&
+      bytes.includes(Buffer.from("xl/worksheets/sheet1.xml")),
+    download.suggestedFilename(),
+  );
+  // 区切りテキスト（Shift_JIS）も同じ問いかけから
+  await dlg.getByRole("button", { name: /カンマ区切り/ }).click();
+  await dlg.getByRole("button", { name: "古い Excel 向け" }).click();
+  const [dl2] = await Promise.all([
+    ex.waitForEvent("download", { timeout: 15000 }),
+    dlg.getByRole("button", { name: "保存する" }).click(),
+  ]);
+  check("陸上: カンマ区切り（.csv）も選べる", dl2.suggestedFilename().endsWith(".csv"), dl2.suggestedFilename());
+  await ex.close();
+}
+
 // S-15 → サインイン: 招待したアカウントが実在し、招待コードで登録して入れる
 {
   const email = `e2e-${Date.now().toString(36)}@shoun-kaiun.co.jp`;

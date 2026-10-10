@@ -11,6 +11,7 @@ import { crewPhotoMap } from "@/server/crew-photo-service";
 import { listVessels, todayLocal } from "@/server/master-service";
 import { requireShore } from "@/server/shore-session";
 import { StatusChip } from "@/ui";
+import { ExportAction } from "../_components/export-action";
 import { ShoreGuardNotice } from "../_components/guard";
 import { EmbarkForm } from "./_components/embark-form";
 import { ManningBoard } from "./_components/manning-board";
@@ -74,6 +75,9 @@ export default async function ShoreManningPage() {
 
   return (
     <div className="flex flex-col gap-[18px]">
+      <div className="flex justify-end">
+        <ExportAction set="manning" label="配乗計画を書き出す" />
+      </div>
       <ManningBoard
         pool={ashore.map((r) => toCard(r))}
         vessels={vessels.map((v) => ({

@@ -48,10 +48,19 @@ export function csvResponse(
     response: new Response(new Uint8Array(body), {
       headers: {
         "Content-Type": `text/csv; charset=${charset}`,
-        "Content-Disposition": `attachment; filename="${fileName}"`,
+        "Content-Disposition": contentDisposition(fileName),
         "Cache-Control": "no-store",
         "X-Nautra-Replaced-Chars": String(replaced),
       },
     }),
   };
+}
+
+/**
+ * 添付ファイル名のヘッダ。日本語の名前はそのままヘッダに入れられない（ByteString 制約で例外になる）ので
+ * RFC 5987 の `filename*` で渡し、英数字だけの名前を古いブラウザ向けに添える。
+ */
+export function contentDisposition(fileName: string): string {
+  const ascii = fileName.replace(/[^ -~]/g, "_").replace(/"/g, "");
+  return `attachment; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(fileName)}`;
 }
