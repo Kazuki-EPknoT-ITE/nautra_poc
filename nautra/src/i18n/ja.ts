@@ -773,6 +773,7 @@ export const t = {
     generated_document: "生成帳票",
     agreement: "労使協定・就業規則",
     crew_photo: "顔写真",
+    vessel_photo: "船の写真",
     work_task: "作業指示・タスク",
     trash_entry: "削除・アーカイブ",
     shore_user: "陸上ユーザー",

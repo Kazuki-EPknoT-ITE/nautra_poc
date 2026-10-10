@@ -418,6 +418,44 @@ check(
   await lp.close();
 }
 
+// 船の登録（レビュー VESSEL-02/03・ASSIGN-04）: 配乗計画から「＋ 船を登録」で船の画面へ入り、入力を確かめられる。
+// 実際の登録はデモの紙面に船が積み上がるため、サーバ側の試験（vessel-master.test.ts）で確かめる
+{
+  const fp = await shore.newPage();
+  await fp.goto(`${BASE}/shore/manning`, { waitUntil: "networkidle" });
+  check(
+    "陸上: 配乗計画に「＋ 船を登録」「＋ 船員を登録」がある",
+    (await fp.getByRole("link", { name: "＋ 船を登録" }).count()) > 0 && (await fp.getByRole("link", { name: "＋ 船員を登録" }).count()) > 0,
+  );
+  await fp.getByRole("link", { name: "＋ 船を登録" }).click();
+  await fp.waitForURL(/\/shore\/fleet\/new\?back=/);
+  await fp.getByLabel(/^船名/).fill(`E2E試験丸${Date.now()}`);
+  await fp.getByLabel(/^IMO番号/).fill("123");
+  await fp.getByRole("button", { name: "船を登録する" }).click();
+  await fp.waitForTimeout(1200);
+  const newText = await fp.locator("main").innerText();
+  check("陸上: 船の登録は入力を確かめる（IMO番号は7桁）", /IMO番号は7桁/.test(newText) && /\/shore\/fleet\/new/.test(fp.url()));
+
+  // 写真の無い船（デモでは第七豊洋丸）に写真を付け、試験の跡を残さないよう外す
+  const vPhoto = join(tmpdir(), "nautra-e2e-vessel.png");
+  writeFileSync(vPhoto, makePng(0x70, 0x70, 0x70));
+  await fp.goto(`${BASE}/shore/fleet/vessel-002/edit`, { waitUntil: "networkidle" });
+  await fp.getByRole("button", { name: "保存する" }).click();
+  await fp.waitForTimeout(1200);
+  check("陸上: 登録済みの船の情報をそのまま開いて保存できる", /変更はありません|保存しました/.test(await fp.locator("main").innerText()));
+  await fp.setInputFiles('input[type="file"]', vPhoto);
+  await fp.waitForTimeout(1800);
+  const vSaved = await fp.locator("main").innerText();
+  await fp.goto(`${BASE}/shore/fleet`, { waitUntil: "networkidle" });
+  const listImg = await fp.locator('main img[alt$="の写真"]').count();
+  check("陸上: 船の写真を登録でき、船の一覧に出る", /船の写真を登録しました|写真は変わっていません/.test(vSaved) && listImg > 0);
+  await fp.goto(`${BASE}/shore/fleet/vessel-002/edit`, { waitUntil: "networkidle" });
+  await fp.getByRole("button", { name: "写真を外す" }).click();
+  await fp.waitForTimeout(1500);
+  check("陸上: 船の写真を外せる", /船の写真を外しました/.test(await fp.locator("main").innerText()));
+  await fp.close();
+}
+
 // 書き出し（レビュー EXPORT-01〜03）: 専用画面は無く、各画面の「◯◯を書き出す」から形式と列を選んで保存する
 {
   const ex = await shore.newPage();

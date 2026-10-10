@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
+import { shrinkImage } from "@/lib/shrink-image";
 import { CrewPhoto } from "@/ui";
 import { saveCrewPhotoAction } from "../actions";
 
@@ -59,7 +60,7 @@ export function PhotoField({
       return;
     }
     try {
-      save(await shrink(file));
+      save(await shrinkImage(file, MAX_W, MAX_H, QUALITY));
     } catch {
       setError("この画像は読み込めませんでした。別のファイルでお試しください");
     }
@@ -107,30 +108,4 @@ export function PhotoField({
       </div>
     </div>
   );
-}
-
-/** 画像を枠の大きさまで縮めて data URL にする（切り抜きはせず、収まるように縮小する） */
-function shrink(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = () => reject(new Error("read failed"));
-    reader.onload = () => {
-      const img = new Image();
-      img.onerror = () => reject(new Error("decode failed"));
-      img.onload = () => {
-        const scale = Math.min(MAX_W / img.width, MAX_H / img.height, 1);
-        const w = Math.max(1, Math.round(img.width * scale));
-        const h = Math.max(1, Math.round(img.height * scale));
-        const canvas = document.createElement("canvas");
-        canvas.width = w;
-        canvas.height = h;
-        const ctx = canvas.getContext("2d");
-        if (!ctx) return reject(new Error("no 2d context"));
-        ctx.drawImage(img, 0, 0, w, h);
-        resolve(canvas.toDataURL("image/jpeg", QUALITY));
-      };
-      img.src = String(reader.result);
-    };
-    reader.readAsDataURL(file);
-  });
 }

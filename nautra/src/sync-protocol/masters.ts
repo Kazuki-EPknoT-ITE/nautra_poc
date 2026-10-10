@@ -812,6 +812,25 @@ export const crewPhotoPayloadSchema = z
   .passthrough();
 export type CrewPhotoPayload = z.infer<typeof crewPhotoPayloadSchema>;
 
+/**
+ * 船の写真（レビュー VESSEL-03）。顔写真と同じ理由で**船舶マスタとは別のエンティティ**に持つ
+ * （写真の差し替えでマスタの版を増やさない）。端末で横長に縮めてから送る。
+ */
+export const vesselPhotoPayloadSchema = z
+  .object({
+    ...masterBase,
+    targetVesselId: z.string(),
+    /** 縮小済みの data URL（image/jpeg） */
+    dataUrl: z.string(),
+    width: z.number().optional(),
+    height: z.number().optional(),
+    bytes: z.number().optional(),
+    /** 取り外したときは true（削除ではなく追記で表す） */
+    removed: z.boolean().optional(),
+  })
+  .passthrough();
+export type VesselPhotoPayload = z.infer<typeof vesselPhotoPayloadSchema>;
+
 /* ═══════════════ S-16 作業指示・タスク割当 ═══════════════ */
 
 export const WORK_TASK_STATES = ["todo", "doing", "done"] as const;
@@ -960,6 +979,7 @@ export const MASTER_PAYLOAD_SCHEMAS = {
   evaluation: evaluationPayloadSchema,
   leave_record: leaveRecordPayloadSchema,
   vessel_master: vesselMasterPayloadSchema,
+  vessel_photo: vesselPhotoPayloadSchema,
   maintenance_plan: maintenancePlanPayloadSchema,
   part_stock: partStockPayloadSchema,
   dock_plan: dockPlanPayloadSchema,

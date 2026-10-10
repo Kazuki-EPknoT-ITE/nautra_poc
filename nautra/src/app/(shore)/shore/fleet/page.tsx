@@ -6,6 +6,7 @@ import { fmtDateLabel, fmtDateTime } from "@/lib/format";
 import { buildFleetBoard } from "@/server/fleet-service";
 import { listVessels, vesselMasterOf } from "@/server/master-service";
 import { requireShore } from "@/server/shore-session";
+import { vesselPhotoMap } from "@/server/vessel-master-service";
 import { EQUIPMENT_KINDS } from "@/sync-protocol/records";
 import { DataTable, Section, StatusChip } from "@/ui";
 import { ExportAction } from "../_components/export-action";
@@ -64,7 +65,8 @@ export default async function ShoreFleetPage({
   const tab = TABS.some((x) => x.id === sp.tab) ? sp.tab! : TABS[0]!.id;
   const vesselId = vessels.find((v) => v.id === sp.vessel)?.id ?? vessels[0]?.id ?? "";
   /** 一覧に出す諸元。判定はせず、マスタの値をそのまま並べる */
-  const vesselRows = vessels.map((v) => ({ ...v, master: vesselMasterOf(v.id) }));
+  const photos = vesselPhotoMap();
+  const vesselRows = vessels.map((v) => ({ ...v, master: vesselMasterOf(v.id), photo: photos.get(v.id) }));
   const board = buildFleetBoard(vesselId);
   const latest = new Map(board.latestByEquipment);
   const master = board.master;
@@ -80,7 +82,13 @@ export default async function ShoreFleetPage({
         title="船舶一覧"
         note={`${vessels.length}隻`}
         actions={
-          <ExportAction set="vessel" label="船舶・証書期限を書き出す" />
+          <div className="flex flex-wrap items-center gap-2">
+            <ExportAction set="vessel" label="船舶・証書期限を書き出す" />
+            {/* 船の登録はアプリ全体でここだけ（VESSEL-02） */}
+            <Link href="/shore/fleet/new" className="ui-btn-primary h-9">
+              ＋ 船を登録
+            </Link>
+          </div>
         }
         bodyClassName="p-0"
       >
@@ -88,6 +96,7 @@ export default async function ShoreFleetPage({
           maxHeight={null}
           head={
             <>
+              <th aria-label="写真" />
               <th>船名</th>
               <th className="num">総トン数</th>
               <th>船種</th>
@@ -100,6 +109,16 @@ export default async function ShoreFleetPage({
         >
           {vesselRows.map((v) => (
             <tr key={v.id} className={v.id === vesselId ? "bg-warning-100" : undefined}>
+              <td className="w-[84px]">
+                <span className="flex h-[44px] w-[70px] items-center justify-center overflow-hidden rounded-[12px] border border-[var(--ui-hairline)] bg-content2">
+                  {v.photo ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={v.photo} alt={`${v.name}の写真`} className="h-full w-full object-cover" />
+                  ) : (
+                    <span className="font-mono text-2xs text-foreground-400">PHOTO</span>
+                  )}
+                </span>
+              </td>
               <td>
                 <Link
                   href={`/shore/fleet?vessel=${v.id}&tab=${tab}`}
@@ -129,9 +148,14 @@ export default async function ShoreFleetPage({
                 />
               </td>
               <td className="num">
-                <Link href={`/shore/fleet/${v.id}`} className="ui-btn-quiet">
-                  管理ページ
-                </Link>
+                <span className="inline-flex gap-1.5">
+                  <Link href={`/shore/fleet/${v.id}/edit`} className="ui-btn-quiet">
+                    編集
+                  </Link>
+                  <Link href={`/shore/fleet/${v.id}`} className="ui-btn-quiet">
+                    管理ページ
+                  </Link>
+                </span>
               </td>
             </tr>
           ))}
@@ -156,7 +180,14 @@ export default async function ShoreFleetPage({
         <>
       {/* ── 船舶マスタ ── */}
       <section aria-label="船舶の基本情報" className="ui-card p-4">
-        <h2 className="mb-2 font-bold">船舶の基本情報</h2>
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <h2 className="m-0 font-bold">船舶の基本情報</h2>
+          {vesselId ? (
+            <Link href={`/shore/fleet/${vesselId}/edit`} className="ui-btn-quiet">
+              編集する
+            </Link>
+          ) : null}
+        </div>
         {!master ? (
           <p className="text-sm text-foreground-500">この船の情報は登録されていません。</p>
         ) : (

@@ -164,6 +164,13 @@ export const SYNC_ENTITY_REGISTRY = {
     policy: "shore_priority",
     origin: "shore",
   },
+  // 船の写真（VESSEL-03）。陸上の画面でだけ使うので船内へは配らない（回線を写真で埋めない）
+  vessel_photo: {
+    payload: RECORD_PAYLOAD_SCHEMAS.vessel_photo,
+    policy: "shore_priority",
+    origin: "shore",
+    distribution: "shore_only",
+  },
   // 乗下船・配乗計画は「計画は陸上・実績は船内の別レコード」（12.5 計画/実績分離）
   embarkation: {
     payload: RECORD_PAYLOAD_SCHEMAS.embarkation,

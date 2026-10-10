@@ -16,7 +16,7 @@ const PATHS = [
   "/shore/wellbeing", "/shore/evaluations", "/shore/office", "/shore/documents",
   "/shore/labor", "/shore/templates", "/shore/notices", "/shore/settings",
   "/shore/crew/new", "/shore/tasks", "/shore/trash",
-  "/shore/fleet/vessel-001",
+  "/shore/fleet/vessel-001", "/shore/fleet/new", "/shore/fleet/vessel-001/edit",
   "/vessel", "/vessel/login",
 ];
 

@@ -9,6 +9,7 @@ import { requireShore } from "@/server/shore-session";
 import { listTasksForVessel, TASK_STATE_LABEL } from "@/server/task-service";
 import { crewPhotoMap } from "@/server/crew-photo-service";
 import { buildVesselOverview } from "@/server/vessel-overview-service";
+import { vesselPhotoOf } from "@/server/vessel-master-service";
 import { CrewPhoto, DataTable, Section, StatusChip } from "@/ui";
 import { ExportAction } from "../../_components/export-action";
 import { ShoreGuardNotice } from "../../_components/guard";
@@ -42,10 +43,19 @@ export default async function VesselDetailPage({ params }: { params: Promise<{ i
   );
   const tasks = listTasksForVessel(id);
   const photos = crewPhotoMap();
+  const vesselPhoto = vesselPhotoOf(id);
 
   return (
     <>
       <section className="ui-dark flex flex-wrap items-center gap-7 px-6 py-5">
+        <span className="flex h-[120px] w-[192px] flex-none items-center justify-center overflow-hidden rounded-[12px] border border-[#444] bg-[#2f2b2c]">
+          {vesselPhoto ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={vesselPhoto} alt={`${v.name}の写真`} className="h-full w-full object-cover" />
+          ) : (
+            <span className="font-mono text-xs tracking-[0.14em] text-[#99877D]">PHOTO</span>
+          )}
+        </span>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-3">
             <h2 className="m-0 text-3xl font-bold text-white">{v.name}</h2>
@@ -67,6 +77,9 @@ export default async function VesselDetailPage({ params }: { params: Promise<{ i
         <div className="flex flex-none flex-col gap-2">
           <Link href="/shore/manning" className="ui-btn-primary h-9">
             船員を配乗する
+          </Link>
+          <Link href={`/shore/fleet/${id}/edit`} className="ui-btn-ghost h-9 border-[#666666] bg-transparent font-normal text-white">
+            船の情報・写真を編集
           </Link>
           <Link href="/shore/shifts" className="ui-btn-ghost h-9 border-[#666666] bg-transparent font-normal text-white">
             シフトを作る

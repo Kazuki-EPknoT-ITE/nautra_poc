@@ -22,6 +22,8 @@ const SHORE = [
   "/shore/shifts",
   "/shore/fleet",
   "/shore/fleet/vessel-001",
+  "/shore/fleet/new",
+  "/shore/fleet/vessel-001/edit",
   "/shore/dispatch",
   "/shore/safety",
   "/shore/wellbeing",

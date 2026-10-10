@@ -9,7 +9,7 @@ import {
 import { buildAshoreCrew, buildManningBoard, buildVesselManning } from "@/server/manning-service";
 import { crewPhotoMap } from "@/server/crew-photo-service";
 import { listVessels, todayLocal } from "@/server/master-service";
-import { requireShore } from "@/server/shore-session";
+import { hasShorePermission, requireShore } from "@/server/shore-session";
 import { StatusChip } from "@/ui";
 import { ExportAction } from "../_components/export-action";
 import { ShoreGuardNotice } from "../_components/guard";
@@ -73,10 +73,24 @@ export default async function ShoreManningPage() {
     since: row.boardedOn ?? null,
   });
 
+  const canAddCrew = await hasShorePermission("edit_crew_master");
+  const canAddVessel = await hasShorePermission("manage_fleet");
+
   return (
     <div className="flex flex-col gap-[18px]">
-      <div className="flex justify-end">
+      <div className="flex flex-wrap justify-end gap-2">
         <ExportAction set="manning" label="配乗計画を書き出す" />
+        {/* 船・船員の登録はそれぞれの画面だけが行う（12.3）。ここは入口だけ置き、登録後はこの画面へ戻す */}
+        {canAddCrew ? (
+          <Link href="/shore/crew/new" className="ui-btn-ghost h-9">
+            ＋ 船員を登録
+          </Link>
+        ) : null}
+        {canAddVessel ? (
+          <Link href="/shore/fleet/new?back=/shore/manning" className="ui-btn-ghost h-9">
+            ＋ 船を登録
+          </Link>
+        ) : null}
       </div>
       <ManningBoard
         pool={ashore.map((r) => toCard(r))}

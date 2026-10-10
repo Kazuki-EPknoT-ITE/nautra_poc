@@ -8,6 +8,7 @@ import type {
   CredentialPayload,
   CrewMasterPayload,
   CrewPhotoPayload,
+  VesselPhotoPayload,
   DockPlanPayload,
   EmbarkationPayload,
   EvaluationPayload,
@@ -1788,6 +1789,36 @@ function crewPhotoSeed(today: string): SyncEvent[] {
   return rows.map((r) => makeRecordEvent("crew_photo", r, SEED_DEVICE));
 }
 
+/**
+ * 船の写真のデモ（VESSEL-03）。実写の代わりに無彩色の船の影を置く（顔写真のシルエットと同じ考え方）。
+ * 1隻だけに付け、残りの船は「PHOTO」の印が出る状態を一覧でそのまま確かめられるようにする。
+ */
+function vesselSilhouette(): string {
+  const svg =
+    `<svg xmlns="http://www.w3.org/2000/svg" width="480" height="300" viewBox="0 0 480 300">` +
+    `<rect width="480" height="300" fill="#DFE1E0"/>` +
+    `<rect y="205" width="480" height="95" fill="#99877D" fill-opacity="0.35"/>` +
+    `<path d="M60 180h330l40-40H120l-20 40z" fill="#6F5638"/>` +
+    `<path d="M300 140v-55h55v55z" fill="#917351"/>` +
+    `<path d="M315 85v-20h12v20z" fill="#6F5638"/>` +
+    `<path d="M40 180h400l-35 30H75z" fill="#231F20" fill-opacity="0.85"/>` +
+    `</svg>`;
+  return `data:image/svg+xml,${encodeURIComponent(svg)}`;
+}
+
+function vesselPhotoSeed(today: string): SyncEvent[] {
+  const dataUrl = vesselSilhouette();
+  const row: VesselPhotoPayload = {
+    ...mbase("sd-vphoto-vessel-001", at9(addDays(today, -58)), COMPANY_SCOPE_ID),
+    targetVesselId: DEMO_VESSEL.id,
+    dataUrl,
+    width: 480,
+    height: 300,
+    bytes: dataUrl.length,
+  };
+  return [makeRecordEvent("vessel_photo", row, SEED_DEVICE)];
+}
+
 /* ───────────── 陸上アプリのユーザーアカウント（S-15） ───────────── */
 
 /**
@@ -1851,6 +1882,7 @@ export function makeMasterSeedEvents(today: string): SyncEvent[] {
     ...documentSeed(today),
     ...taskSeed(today),
     ...crewPhotoSeed(today),
+    ...vesselPhotoSeed(today),
     ...shoreUserSeed(today),
     ...trashSeed(today),
   ];
