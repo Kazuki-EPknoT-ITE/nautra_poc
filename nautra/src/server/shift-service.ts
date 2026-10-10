@@ -129,6 +129,8 @@ export interface PublishShiftChangeInput {
   from: string;
   to: string;
   changeNote?: string;
+  /** 日を移すとき（配置表でブロックを別の日へドラッグしたとき）。省略時は元の日のまま */
+  date?: string;
   /**
    * 変更イベントID（冪等キーの元）。画面側で採番して渡すと再試行・二重送信が同一イベントになる。
    * 省略時はサーバで採番する（PoC）。
@@ -150,18 +152,20 @@ export function publishShiftChange(input: PublishShiftChangeInput, now = new Dat
   if (!/^\d{2}:\d{2}$/.test(input.from) || !/^\d{2}:\d{2}$/.test(input.to)) {
     throw new Error("時刻は HH:MM で指定してください");
   }
+  const date = input.date ?? original.date;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error("日付は YYYY-MM-DD で指定してください");
   const payload: ShiftPlanPayload = shiftPlanPayloadSchema.parse({
     id: input.changeId?.trim() || `shift-${ulid().toLowerCase()}`,
     tenantId: DEMO_TENANT_ID,
     vesselId: DEMO_VESSEL.id,
-    occurredAt: new Date(`${original.date}T${input.from}:00`).toISOString(),
+    occurredAt: new Date(`${date}T${input.from}:00`).toISOString(),
     recordedAt: now.toISOString(),
     recordedBy: SHORE_PLANNER_ID,
     deviceId: SHORE_DEVICE,
     supersedesId: original.id,
     planType: "watch",
     crewMemberId: original.crewMemberId,
-    date: original.date,
+    date,
     shiftType: input.shiftType,
     from: input.from,
     to: input.to,
@@ -376,7 +380,7 @@ export function buildWatchLoad(now = new Date(), days = 14): WatchLoad {
  * シフト計画を「そのとおり働いた場合の打刻」に置き換える。
  * 判定は打刻から行うドメイン純関数を使い回し、計画用の判定を別実装しない。
  */
-function planToTimeRecords(plans: ShiftPlanPayload[]): TimeRecord[] {
+export function planToTimeRecords(plans: ShiftPlanPayload[]): TimeRecord[] {
   const records: TimeRecord[] = [];
   for (const p of plans) {
     if (!p.shiftType || p.shiftType === "off") continue;

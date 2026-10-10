@@ -418,6 +418,80 @@ check(
   await lp.close();
 }
 
+// シフトの配置表（レビュー SHIFT-03/06/07）: カレンダーに船員をドラッグして置き、押して内容を見て変更・外す
+{
+  const sp = await shore.newPage();
+  await sp.goto(`${BASE}/shore/shifts?step=2`, { waitUntil: "networkidle" });
+  const stepCurrent = await sp.getByRole("group", { name: "刻み" }).getByRole("link", { name: "2時間" }).getAttribute("aria-current");
+  const calText = await sp.locator("main").innerText();
+  check(
+    "陸上: シフトは週のカレンダー（配置表）で、刻みを選べ、労務チェックと当直時間が同じ画面にある",
+    stepCurrent === "true" && /労務チェック/.test(calText) && /今週/.test(calText) && !/今週の当直（変則の時間帯を含む一覧）/.test(calText),
+  );
+  await sp.goto(`${BASE}/shore/shifts`, { waitUntil: "networkidle" });
+  const firstCrew = sp.getByRole("region", { name: "当直の配置表" }).locator('[draggable="true"]').first();
+  const crewName = (await firstCrew.innerText()).split("\n")[0].trim();
+  const lastDay = sp.getByRole("group", { name: /の当直$/ }).last();
+  await firstCrew.dragTo(lastDay, { targetPosition: { x: 20, y: 22 * 26 + 5 } });
+  await sp.waitForTimeout(1800);
+  const afterDrop = await sp.locator("main").innerText();
+  check("陸上: 船員を配置表の枠へドラッグすると当直ができて配信される（1時間刻み）", /22:00–23:00/.test(afterDrop) && /作って配信しました/.test(afterDrop), crewName);
+  const block = sp.getByRole("button", { name: new RegExp(`^${crewName} 22:00–23:00`) }).last();
+  await block.click();
+  const panel = sp.getByRole("region", { name: "当直の内容" });
+  await panel.getByLabel("終了").fill("23:30");
+  await panel.getByRole("button", { name: "変更して配信" }).click();
+  await sp.waitForTimeout(1800);
+  check("陸上: ブロックを押すと内容が出て、そこから変更して配信できる", /22:00–23:30 に変更して配信しました/.test(await sp.locator("main").innerText()));
+  await sp.getByRole("button", { name: new RegExp(`^${crewName} 22:00–23:30`) }).last().click();
+  await sp.getByRole("region", { name: "当直の内容" }).getByRole("button", { name: "この当直を外す" }).click();
+  await sp.getByRole("region", { name: "当直の内容" }).getByRole("button", { name: "外す", exact: true }).click();
+  await sp.waitForTimeout(1800);
+  check("陸上: 当直を外せる（30日以内なら戻せる）", /外しました/.test(await sp.locator("main").innerText()));
+  await sp.close();
+}
+
+// 船長は船内でも当直を作れる（レビュー SHIFT-04）。作った当直は陸上の配置表に届く
+{
+  const capCtx2 = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const cp = await capCtx2.newPage();
+  await cp.goto(`${BASE}/vessel/login`, { waitUntil: "networkidle" });
+  await cp.getByRole("radio", { name: /高松/ }).click();
+  for (const d of ["1", "1", "1", "1"]) await cp.getByRole("button", { name: d, exact: true }).click();
+  await cp.waitForURL(`${BASE}/vessel`, { timeout: 15000 });
+  await cp.goto(`${BASE}/vessel/shift`, { waitUntil: "networkidle" });
+  const editor = cp.getByRole("region", { name: "当直を作る・変える" });
+  check("船内: 船長には「当直を作る・変える」がある", (await editor.count()) > 0);
+  await editor.getByRole("group", { name: "船員" }).getByRole("button", { name: /中原/ }).click();
+  await editor.getByLabel("開始").fill("02:00");
+  await editor.getByLabel("終了").fill("03:00");
+  await editor.getByRole("button", { name: "当直を作る" }).click();
+  await cp.waitForTimeout(1200);
+  check("船内: 船長が当直を作れる", /当直を作成しました/.test(await editor.innerText()));
+  await cp.goto(`${BASE}/vessel/sync`, { waitUntil: "networkidle" });
+  const sb = cp.getByRole("button", { name: /いま同期|手動同期|同期する/ }).first();
+  if (await sb.count()) await sb.click();
+  await cp.waitForTimeout(2500);
+  await capCtx2.close();
+
+  const sp2 = await shore.newPage();
+  await sp2.goto(`${BASE}/shore/shifts`, { waitUntil: "networkidle" });
+  const capBlock = sp2.getByRole("button", { name: /^中原 拓也 02:00–03:00/ }).last();
+  check("陸上: 船長が船内で作った当直が配置表に届く", (await capBlock.count()) > 0);
+  if (await capBlock.count()) {
+    // 試験の跡を残さない
+    await capBlock.click();
+    await sp2.getByRole("region", { name: "当直の内容" }).getByRole("button", { name: "この当直を外す" }).click();
+    await sp2.getByRole("region", { name: "当直の内容" }).getByRole("button", { name: "外す", exact: true }).click();
+    await sp2.waitForTimeout(1500);
+  }
+  await sp2.close();
+
+  // 船長以外には出さない（中原 = 航海士）
+  await v.goto(`${BASE}/vessel/shift`, { waitUntil: "networkidle" });
+  check("船内: 船長以外には「当直を作る・変える」を出さない", (await v.getByRole("region", { name: "当直を作る・変える" }).count()) === 0);
+}
+
 // 船員の入力項目（レビュー CREWEDIT-04）: 管理者が枠ごとに「＋ 項目を追加」で足し、入力例・必須を決め、直し、外せる
 {
   const cp2 = await shore.newPage();

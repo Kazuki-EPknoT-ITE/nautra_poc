@@ -27,6 +27,7 @@ import {
 import { STATION_SCENARIOS, type ShiftPlanPayload } from "@/sync-protocol/records";
 import { Button, Card, CardBody, CardHeader, Chip, Divider } from "@/ui/heroui";
 import { CrewWatchTable } from "../_components/crew-watch-table";
+import { CaptainShiftEditor } from "../_components/captain-shift-editor";
 import { GroupHeader } from "../_components/group-header";
 
 /**
@@ -42,7 +43,8 @@ export default function ShiftPage() {
   const session = useSessionCrew();
   const { tr } = useLocale(); // 当直種別・配置場面の表示言語（10.2）
   const canViewAll = usePermission("view_all_crew"); // 全員の当直表は船長のみ
-  const { watches, stations, changes, unread, byId, ackAt } = useShiftPlans();
+  const canManageShift = usePermission("manage_shift"); // 当直の作成・変更も船長のみ（SHIFT-04）
+  const { watches, stations, changes, unread, byId, ackAt, conflictIds, rejected } = useShiftPlans();
   const now = useNowTick(30_000);
   const today = ymdLocal(now);
   const selfId = session?.id ?? "";
@@ -313,11 +315,15 @@ export default function ShiftPage() {
               />
             </div>
           ))}
-          <p className="text-xs text-foreground-600">
-            配置は陸上が変更すると、この画面にすぐ反映されます（変更された行には「変更」が付きます）。
-          </p>
         </CardBody>
       </Card>
+
+      {canManageShift && session ? <CaptainShiftEditor sessionId={session.id} today={today} watches={watches} /> : null}
+      {canManageShift && rejected.length > 0 ? (
+        <p role="alert" className="ui-card m-0 border-danger px-4 py-3 text-lg text-danger">
+          ✕ 陸上で受け付けられなかった当直が {rejected.length}件 あります（船長の記録と確認できませんでした）。陸上に確認してください
+        </p>
+      ) : null}
 
       {/* 今週の当直（本人。船長は全員表示に切替可） */}
       <Card shadow="none" className="ui-card">
@@ -337,7 +343,7 @@ export default function ShiftPage() {
         <Divider />
         <CardBody className={canViewAll && showAll ? "p-0" : undefined}>
           {canViewAll && showAll ? (
-            <CrewWatchTable watches={watches} today={today} changedIds={changedIds} selfId={selfId} />
+            <CrewWatchTable watches={watches} today={today} changedIds={changedIds} conflictIds={conflictIds} selfId={selfId} />
           ) : (
             <div className="flex flex-col gap-1">
               {myWeek.map(({ date, plans }) => (

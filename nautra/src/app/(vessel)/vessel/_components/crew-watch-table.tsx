@@ -17,11 +17,14 @@ export function CrewWatchTable({
   watches,
   today,
   changedIds,
+  conflictIds = new Set<string>(),
   selfId,
 }: {
   watches: ShiftPlanPayload[];
   today: string;
   changedIds: Set<string>;
+  /** 陸上と船長が別々に変えた当直（双方を残して要確認。SHIFT-04） */
+  conflictIds?: Set<string>;
   selfId: string;
 }) {
   const days = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(today, i - 1)), [today]);
@@ -84,6 +87,7 @@ export function CrewWatchTable({
                           >
                             {p.shiftType ? t.shiftType[p.shiftType].replace("当直", "") : ""} {p.from}–{p.to}
                             {changedIds.has(p.id) ? " ✎" : ""}
+                            {conflictIds.has(p.id) ? " ⚡競合" : ""}
                           </span>
                         ))
                       )}

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { applyPush, createEmptyStoreState } from "@/server/apply-push";
 import {
   checkOriginPolicy,
+  checkVesselAuthorPolicy,
   isRecordKind,
   knownSyncEventSchema,
   makeRecordEvent,
@@ -78,9 +79,10 @@ describe("エンティティレジストリ（基本設計書 8.6）", () => {
     expect(checkOriginPolicy("notice", "dev-01abc")).toMatch(/shore-authoritative/);
   });
 
-  it("シフト計画は計画・実績分離ポリシー、陸上発（origin=shore）として宣言される", () => {
+  it("シフト計画は計画・実績分離ポリシーで、陸上と船長（船内）が書ける（レビュー SHIFT-04）", () => {
     expect(SYNC_ENTITY_REGISTRY.shift_plan.policy).toBe("plan_actual_split");
-    expect(SYNC_ENTITY_REGISTRY.shift_plan.origin).toBe("shore");
+    expect(SYNC_ENTITY_REGISTRY.shift_plan.origin).toBe("both");
+    expect(SYNC_ENTITY_REGISTRY.shift_plan.vesselAuthorRole).toBe("captain");
   });
 
   it("新種別のイベントは Push で受理され、再送は冪等重複になり、未知種別は隔離される", () => {
@@ -174,10 +176,17 @@ describe("競合ポリシー／発生元の適用（基本設計書 8.3: 計画�
     publishedBy: "shore-yamamoto",
   };
 
-  it("陸上正本の種別（shift_plan）は陸上端末からのみ受理し、船内端末からの Push は隔離する（破棄しない）", () => {
+  it("陸上正本の種別（船員マスタ等）は船内端末からの Push を隔離する（破棄しない）", () => {
+    expect(checkOriginPolicy("crew_master", "shore-planner-device")).toBeNull();
+    expect(checkOriginPolicy("crew_master", "dev-01abc")).toMatch(/shore-authoritative/);
+  });
+
+  it("シフト計画は陸上端末からは受理、船内端末からは船長の記録だけ受理し、ほかは隔離する（破棄しない）", () => {
     expect(checkOriginPolicy("shift_plan", "shore-planner-device")).toBeNull();
     expect(checkOriginPolicy("shift_plan", "seed-shore-device")).toBeNull();
-    expect(checkOriginPolicy("shift_plan", "dev-01abc")).toMatch(/shore-authoritative/);
+    expect(checkOriginPolicy("shift_plan", "dev-01abc")).toBeNull(); // 発生元では止めず、記録者で判断する
+    expect(checkVesselAuthorPolicy("shift_plan", "dev-01abc", { recordedBy: "c-cap" }, () => "captain")).toBeNull();
+    expect(checkVesselAuthorPolicy("shift_plan", "dev-01abc", { recordedBy: "c-x" }, () => "deck_rating")).toMatch(/author policy/);
     expect(checkOriginPolicy("voyage_log", "dev-01abc")).toBeNull(); // 船内発の一次記録は受理
 
     const state = createEmptyStoreState("store-test", 1);
@@ -186,7 +195,8 @@ describe("競合ポリシー／発生元の適用（基本設計書 8.3: 計画�
     const r = applyPush(state, "dev-01abc", [fromVessel, fromShore], new Date("2026-08-21T00:00:00Z"));
     expect(r.quarantined).toEqual(["s-vessel"]);
     expect(r.accepted).toEqual(["shore-planner-device:s-shore"]);
-    expect(state.quarantine[0].reason).toMatch(/origin policy/);
+    // 船員マスタが無い（記録者のロールが分からない）ので、船内からの計画は隔離される
+    expect(state.quarantine[0].reason).toMatch(/author policy/);
     expect(state.quarantine[0].raw).toEqual(fromVessel); // 原文保持
   });
 

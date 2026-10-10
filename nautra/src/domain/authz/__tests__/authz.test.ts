@@ -28,6 +28,8 @@ describe("船内ロールの権限（基本設計書 11.2）", () => {
     ["write_checklist", { captain: true, deck_officer: true, chief_engineer: true, deck_rating: true }],
     ["write_work_report", { captain: true, deck_officer: true, chief_engineer: true, deck_rating: true }],
     ["view_shift", { captain: true, deck_officer: true, chief_engineer: true, deck_rating: true }],
+    // 当直の作成・変更は船長だけ（陸上正本の例外。レビュー SHIFT-04）
+    ["manage_shift", { captain: true, deck_officer: false, chief_engineer: false, deck_rating: false }],
     ["view_sync", { captain: true, deck_officer: true, chief_engineer: true, deck_rating: true }],
   ];
 

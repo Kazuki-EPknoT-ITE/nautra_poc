@@ -69,6 +69,7 @@ export const t = {
     view_own_ledger: "自分の記録簿を見る",
     approve_labor: "船内承認（労務）",
     view_all_crew: "他船員の記録を見る",
+    manage_shift: "当直を作る・変える（船内）",
     write_logbook: "航海日誌を書く",
     write_checklist: "点検表を記録する",
     write_work_report: "作業記録を書く",

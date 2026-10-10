@@ -134,10 +134,14 @@ export const SYNC_ENTITY_REGISTRY = {
     policy: "append_only",
     origin: "vessel",
   },
+  // 当直・配置の計画は陸上が正本。ただし**船長だけ**は船内でも作成・変更できる（レビュー SHIFT-04。利用者の判断）。
+  // 船内端末から届いた計画は、記録者が船長でなければ隔離する（checkVesselAuthorPolicy）。
+  // 陸上と船長が同じ計画を別々に変えた場合は双方を残し「競合（要確認）」として示す（自動では解決しない）
   shift_plan: {
     payload: RECORD_PAYLOAD_SCHEMAS.shift_plan,
     policy: "plan_actual_split",
-    origin: "shore",
+    origin: "both",
+    vesselAuthorRole: "captain",
   },
   // 船内へのお知らせ・速報: 陸上が正本（船内は参照のみ）
   notice: {
@@ -281,6 +285,8 @@ export const SYNC_ENTITY_REGISTRY = {
     policy: ConflictPolicy;
     origin: "vessel" | "shore" | "both";
     distribution?: Distribution;
+    /** 船内端末から積めるのはこのロールの記録者だけ（origin が both の種別に限って使う） */
+    vesselAuthorRole?: string;
   }
 >;
 
@@ -296,6 +302,34 @@ export function isVesselDistributable(kind: string): boolean {
   return def?.distribution !== "shore_only";
 }
 export const SYNC_KINDS = Object.keys(SYNC_ENTITY_REGISTRY) as SyncKind[];
+
+/**
+ * 船内端末から積める記録者のロールを確かめる（レビュー SHIFT-04: シフトは船長だけが船内で作成できる）。
+ * `roleOf` は記録者（船員ID）の**記録した時点の**ロールを船員マスタから引く関数（オフラインで作った記録が、
+ * あとで降格されたせいで弾かれないように）。違反の理由を返し、問題なければ null。
+ * 陸上端末からの記録は対象外（陸上の権限は陸上の画面・API が確かめる）。
+ *
+ * PoC の限界: `recordedBy` は端末が送る値で、Push に船員の認証が無いため自己申告の確認にとどまる。
+ * 本番は認証済みの船内セッション（sync_devices と船員のトークン）と突き合わせる。
+ */
+export const AUTHOR_POLICY_PREFIX = "author policy:";
+
+export function checkVesselAuthorPolicy(
+  kind: string,
+  deviceId: string,
+  payload: unknown,
+  roleOf: (crewMemberId: string, at: string | undefined) => string | undefined,
+): string | null {
+  const def = (SYNC_ENTITY_REGISTRY as Record<string, { vesselAuthorRole?: string }>)[kind];
+  if (!def?.vesselAuthorRole || isShoreDevice(deviceId)) return null;
+  const p = payload as { recordedBy?: unknown; recordedAt?: unknown; occurredAt?: unknown };
+  const at = typeof p.recordedAt === "string" ? p.recordedAt : typeof p.occurredAt === "string" ? p.occurredAt : undefined;
+  const role = typeof p.recordedBy === "string" ? roleOf(p.recordedBy, at) : undefined;
+  if (role !== def.vesselAuthorRole) {
+    return `${AUTHOR_POLICY_PREFIX} ${kind} from a vessel device must be recorded by ${def.vesselAuthorRole} (got ${role ?? "unknown"})`;
+  }
+  return null;
+}
 
 /**
  * 陸上側の端末ID規約（PoC）。本番は sync_devices の role（vessel/shore）で判定する。

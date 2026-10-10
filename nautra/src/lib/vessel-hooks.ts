@@ -121,9 +121,14 @@ export function useNotices(): {
 
 /** 有効なシフト計画（訂正で無効化されたものを除く）と変更通知の集計（V-08） */
 export function useShiftPlans() {
-  const all = useRecords("shift_plan");
+  const recorded = useRecords("shift_plan");
   const ackAt = useLiveQuery(() => getMeta("shiftAckAt"), [], undefined);
+  const rejectedRaw = useLiveQuery(() => getMeta("serverQuarantinedIds"), [], undefined);
   return useMemo(() => {
+    // 陸上で受け付けられなかった計画（船長以外の記録とみなされた等）は、端末だけで有効にしない（SHIFT-04）
+    const rejectedIds = new Set<string>(rejectedRaw ? (JSON.parse(rejectedRaw) as string[]) : []);
+    const rejected = recorded.filter((p) => rejectedIds.has(p.id));
+    const all = recorded.filter((p) => !rejectedIds.has(p.id));
     const effective = latestBySupersedes(all) as (ShiftPlanPayload & { kind: "shift_plan" })[];
     const watches = effective.filter((p) => p.planType === "watch");
     const stations = effective.filter((p) => p.planType === "station");
@@ -135,8 +140,9 @@ export function useShiftPlans() {
     const byId = new Map(all.map((p) => [p.id, p]));
     // 自動解決不能な競合（同一原本を複数の変更が置き換えた分岐）。双方保持し「要確認」として提示（8.3）
     const conflicts = findSupersedeConflicts(all);
-    return { all, watches, stations, changes, unread, byId, ackAt, conflicts };
-  }, [all, ackAt]);
+    const conflictIds = new Set(conflicts.flatMap((c) => c.candidates.map((x) => x.id)));
+    return { all, watches, stations, changes, unread, byId, ackAt, conflicts, conflictIds, rejected };
+  }, [recorded, ackAt, rejectedRaw]);
 }
 
 /** 端末内の競合件数（supersedes 分岐）= 船内記録・シフト計画の全種別を対象に算出 */
