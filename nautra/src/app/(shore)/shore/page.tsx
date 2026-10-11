@@ -79,7 +79,7 @@ export default async function ShoreDashboardPage() {
       value: d.totals.deadlineUrgent,
       unit: "件",
       tone: "violation",
-      href: "/shore/procedures",
+      href: "/shore/filings?tab=procedures",
       hint: "手続き・期限管理を見る",
     },
     {
@@ -221,7 +221,7 @@ export default async function ShoreDashboardPage() {
         {d.deadlines.length > 20 ? (
           <p className="border-t border-[var(--ui-hairline)] px-[18px] py-3 text-xs text-foreground-500">
             ほかに {d.deadlines.length - 20}件 あります。
-            <Link href="/shore/procedures" className="ml-1 text-primary underline-offset-2 hover:underline">
+            <Link href="/shore/filings?tab=procedures" className="ml-1 text-primary underline-offset-2 hover:underline">
               手続き・期限
             </Link>
             で全部見られます。

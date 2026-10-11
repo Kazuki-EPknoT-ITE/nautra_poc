@@ -8,10 +8,14 @@ import {
   type FilingRow,
 } from "@/server/filing-service";
 import { todayLocal } from "@/server/master-service";
-import { requireShore } from "@/server/shore-session";
+import { hasShorePermission, requireShore } from "@/server/shore-session";
 import { StatusChip, StepBar, type Step } from "@/ui";
 import { ExportAction } from "../_components/export-action";
 import { ShoreGuardNotice } from "../_components/guard";
+import { ProcedureList } from "../_components/procedures/procedure-list";
+import { EventChainForm, NewProcedureForm } from "../_components/procedures/procedure-forms";
+import { PROCEDURE_GROUP_LABEL } from "@/domain/procedures/deadlines";
+import { buildProcedureBoard, procedureFormOptions } from "@/server/procedure-service";
 import { FilingSteps } from "./_components/filing-steps";
 import { FilingWizard } from "./_components/filing-wizard";
 
@@ -224,10 +228,23 @@ function FilingCard({ row, today }: { row: FilingRow; today: string }) {
   );
 }
 
-export default async function ShoreFilingsPage() {
+/**
+ * 届出の画面は作業ごとにタブで分ける（1画面1主題・めくらずに済むように。レビュー 0-3 / FILING-02）。
+ * 「手続き・期限」は旧 S-08 の会社全体の一覧で、ここへ移した（DEADLINE-02）。
+ */
+const TABS = [
+  { id: "create", label: "届出を作る" },
+  { id: "progress", label: "作成中" },
+  { id: "done", label: "提出済み" },
+  { id: "procedures", label: "手続き・期限" },
+];
+
+export default async function ShoreFilingsPage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
   const guard = await requireShore("manage_filing");
   if (!guard.ok) return <ShoreGuardNotice guard={guard} screen="届出ウィザード" />;
 
+  const sp = await searchParams;
+  const tab = TABS.some((x) => x.id === sp.tab) ? sp.tab! : TABS[0]!.id;
   const now = new Date();
   const today = todayLocal(now);
   const rows = listFilings(now);
@@ -235,36 +252,80 @@ export default async function ShoreFilingsPage() {
   const finished = rows.filter((r) => r.filing.status === "submitted" || r.filing.status === "accepted");
   const candidates = listFilingCandidates();
   const { crew, vessels } = filingFormOptions();
+  const canProcedures = await hasShorePermission("manage_procedures");
+  const board = tab === "procedures" ? buildProcedureBoard(now) : null;
+  const options = tab === "procedures" ? procedureFormOptions() : null;
 
   return (
     <div className="flex flex-col gap-[18px]">
-      <div className="flex justify-end">
+      <div className="flex flex-wrap items-center gap-2">
+        <nav aria-label="届出の主題" className="flex flex-wrap gap-2">
+          {TABS.map((x) => (
+            <Link
+              key={x.id}
+              href={`/shore/filings?tab=${x.id}`}
+              aria-current={x.id === tab ? "page" : undefined}
+              className={`ui-btn-quiet ${x.id === tab ? "ui-btn-selected" : ""}`}
+            >
+              {x.label}
+              {x.id === "progress" && inProgress.length > 0 ? <span className="ml-1 font-mono">{inProgress.length}</span> : null}
+            </Link>
+          ))}
+        </nav>
+        <span className="ml-auto" />
         <ExportAction set="filing" label="手続き・提出記録を書き出す" />
       </div>
-      <FilingWizard candidates={candidates} crew={crew} vessels={vessels} today={today} />
 
-      <section aria-label="作成中の届出" className="flex flex-col gap-3">
-        <h2 className="font-bold">
-          作成中の届出 <span className="tabular-nums text-foreground-500">{inProgress.length}件</span>
-        </h2>
-        {inProgress.length === 0 ? (
-          <p className="text-sm text-foreground-500">作成中の届出はありません。</p>
-        ) : (
-          inProgress.map((row) => <FilingCard key={row.filing.id} row={row} today={today} />)
-        )}
-      </section>
+      {tab === "create" ? <FilingWizard candidates={candidates} crew={crew} vessels={vessels} today={today} /> : null}
 
-      <section aria-label="提出済みの届出" className="flex flex-col gap-3">
-        <h2 className="font-bold">
-          提出済みの届出 <span className="tabular-nums text-foreground-500">{finished.length}件</span>
-        </h2>
-        {finished.length === 0 ? (
-          <p className="text-sm text-foreground-500">提出済みの届出はありません。</p>
-        ) : (
-          finished.map((row) => <FilingCard key={row.filing.id} row={row} today={today} />)
-        )}
-      </section>
+      {tab === "progress" ? (
+        <section aria-label="作成中の届出" className="flex flex-col gap-3">
+          {inProgress.length === 0 ? (
+            <p className="ui-card m-0 px-4 py-5 text-sm text-foreground-500">作成中の届出はありません。</p>
+          ) : (
+            inProgress.map((row) => <FilingCard key={row.filing.id} row={row} today={today} />)
+          )}
+        </section>
+      ) : null}
 
+      {tab === "done" ? (
+        <section aria-label="提出済みの届出" className="flex flex-col gap-3">
+          {finished.length === 0 ? (
+            <p className="ui-card m-0 px-4 py-5 text-sm text-foreground-500">提出済みの届出はありません。</p>
+          ) : (
+            finished.map((row) => <FilingCard key={row.filing.id} row={row} today={today} />)
+          )}
+        </section>
+      ) : null}
+
+      {tab === "procedures" && board && options ? (
+        <>
+          <section aria-label="いま気にすべき件数" className="grid gap-3 sm:grid-cols-3">
+            {[
+              { label: "期限を過ぎた", value: board.summary.overdue, level: board.summary.overdue > 0 ? "violation" : "ok" },
+              { label: "期限が近い", value: board.summary.dueSoon, level: board.summary.dueSoon > 0 ? "violation" : "ok" },
+              { label: "準備を始める時期", value: board.summary.startDue, level: board.summary.startDue > 0 ? "caution" : "ok" },
+            ].map((x) => (
+              <div key={x.label} className="ui-card flex items-center justify-between gap-2 px-4 py-3">
+                <span className="text-base text-foreground-700">{x.label}</span>
+                <StatusChip level={x.level as "ok" | "caution" | "violation"} label={`${x.value}件`} />
+              </div>
+            ))}
+          </section>
+          {board.byGroup.map(({ group, rows: groupRows }) => (
+            <section key={group} aria-label={PROCEDURE_GROUP_LABEL[group]} className="ui-card flex flex-col gap-2 p-4">
+              <h2 className="m-0 text-base font-bold">{PROCEDURE_GROUP_LABEL[group]}</h2>
+              <ProcedureList rows={groupRows} canComplete={canProcedures} showSubject empty="この群に、いま対応する手続きはありません" />
+            </section>
+          ))}
+          {canProcedures ? (
+            <>
+              <EventChainForm options={options} today={board.today} />
+              <NewProcedureForm options={options} />
+            </>
+          ) : null}
+        </>
+      ) : null}
     </div>
   );
 }

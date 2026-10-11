@@ -17,7 +17,7 @@ const SHORE = [
   "/shore/manning",
   "/shore/tasks",
   "/shore/filings",
-  "/shore/procedures",
+  "/shore/filings?tab=procedures",
   "/shore/training",
   "/shore/shifts",
   "/shore/fleet",

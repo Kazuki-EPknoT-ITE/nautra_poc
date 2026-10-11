@@ -15,6 +15,8 @@ import { crewPhotoOf } from "@/server/crew-photo-service";
 import { listCrewFields } from "@/server/crew-field-service";
 import { isSensitiveCategory, type CrewFieldView } from "@/lib/crew-fields";
 import { buildManningRow } from "@/server/manning-service";
+import { buildProcedureBoard } from "@/server/procedure-service";
+import { ProcedureList } from "../../_components/procedures/procedure-list";
 import {
   ageOf,
   crewMasterOf,
@@ -73,6 +75,11 @@ export default async function ShoreCrewKartePage({ params }: { params: Promise<{
 
   const canSensitive = await hasShorePermission("view_sensitive_health");
   const canEdit = await hasShorePermission("edit_crew_master");
+  const canProcedures = await hasShorePermission("manage_procedures");
+  // この船員の手続き・期限（旧 S-08 から移した。DEADLINE-02）
+  const procedures = buildProcedureBoard().rows.filter(
+    (r) => r.status.task.subjectType === "crew" && r.status.task.subjectId === id,
+  );
   // 管理者が足した項目（CREWEDIT-04）。健康の枠の値は要配慮情報の権限がある人にだけ出す
   const customFields = listCrewFields().filter((f) => canSensitive || !isSensitiveCategory(f.category));
   const customRows = (category: CrewFieldView["category"]) =>
@@ -304,6 +311,12 @@ export default async function ShoreCrewKartePage({ params }: { params: Promise<{
             ))}
           </ul>
         )}
+      </section>
+
+      {/* ── 手続き・期限（この船員の分） ── */}
+      <section aria-label="手続き・期限" className="ui-card flex flex-col gap-2 p-4">
+        <h2 className="m-0 font-bold">手続き・期限</h2>
+        <ProcedureList rows={procedures} canComplete={canProcedures} empty="この船員の、いま対応する手続きはありません" />
       </section>
 
       {/* ── 資格・訓練 ── */}

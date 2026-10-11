@@ -29,7 +29,6 @@ const SCREEN_META: [pattern: string, title: string][] = [
   ["/shore/evaluations", "評価"],
   ["/shore/wellbeing", "健康・相談"],
   ["/shore/filings", "届出"],
-  ["/shore/procedures", "手続き・期限"],
   ["/shore/documents", "帳票・出力"],
   ["/shore/dispatch", "配船・位置"],
   ["/shore/safety", "安全・事故"],

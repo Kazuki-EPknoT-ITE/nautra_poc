@@ -5,7 +5,7 @@ import { BUSINESS_EVENT_LABEL, type BusinessEvent } from "@/domain/procedures/ch
 import { PROCEDURE_GROUP_LABEL } from "@/domain/procedures/deadlines";
 import { PROCEDURE_GROUPS, type ProcedureGroup } from "@/sync-protocol/records";
 import { Button, Input, Select, SelectItem, Textarea } from "@/ui/heroui";
-import { chainFromEventAction, createProcedureAction, type ProcedureFormState } from "../actions";
+import { chainFromEventAction, createProcedureAction, type ProcedureFormState } from "./procedure-actions";
 
 const INITIAL: ProcedureFormState = { ok: false, message: "" };
 

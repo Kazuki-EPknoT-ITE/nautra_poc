@@ -267,13 +267,20 @@ await s.goto(`${BASE}/shore/filings`, { waitUntil: "networkidle" });
 const filingText = await s.locator("main").innerText();
 check("陸上: 届出の一覧が出る", /届出/.test(filingText));
 
-// 手続き: 着手期限で並ぶ
+// 手続き・期限（レビュー DEADLINE-01/02）: 独立した画面は無く、届出の「手続き・期限」と船員カルテ・船の管理ページに出る
 await s.goto(`${BASE}/shore/procedures`, { waitUntil: "networkidle" });
+check("陸上: 旧「手続き・期限」の画面は届出の「手続き・期限」へ移る", s.url().includes("/shore/filings?tab=procedures"));
 const procText = await s.locator("main").innerText();
 check(
-  "陸上: 手続きが着手期限つきで出る",
-  /着手/.test(procText) && /準備を始める時期/.test(procText),
+  "陸上: 手続きは準備を始める日つきで、何をすればよいかと作業する場所が出る",
+  /準備/.test(procText) && /準備を始める時期/.test(procText) && (await s.getByRole("link", { name: /届出を作る ›|資格・証書へ ›|船の管理へ ›/ }).count()) > 0,
 );
+const navTextS = await s.getByRole("navigation").first().innerText();
+check("陸上: メニューに独立した「手続き・期限」が無い", !/手続き・期限/.test(navTextS));
+await s.goto(`${BASE}/shore/crew/crew-nakahara`, { waitUntil: "networkidle" });
+check("陸上: 船員カルテにその船員の手続き・期限が出る", (await s.getByRole("region", { name: "手続き・期限" }).count()) > 0);
+await s.goto(`${BASE}/shore/fleet/vessel-001`, { waitUntil: "networkidle" });
+check("陸上: 船の管理ページにその船の手続き・期限が出る", (await s.getByRole("region", { name: "この船の手続き・期限" }).count()) > 0);
 
 // 訓練: 未修了の警告
 await s.goto(`${BASE}/shore/training`, { waitUntil: "networkidle" });

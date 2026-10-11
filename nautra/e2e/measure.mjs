@@ -10,7 +10,7 @@ const THRESHOLD = 3000; // これを超えたら「読むのに延々とめく�
 const SHORE = [
   "/shore", "/shore/crew", "/shore/crew/crew-nakahara", "/shore/crew/crew-nakahara/edit",
   "/shore/crew/crew-nakahara/credentials", "/shore/manning", "/shore/filings",
-  "/shore/procedures", "/shore/training", "/shore/shifts", "/shore/fleet",
+  "/shore/filings?tab=procedures", "/shore/training", "/shore/shifts", "/shore/fleet",
   "/shore/dispatch", "/shore/safety", "/shore/wellbeing", "/shore/evaluations",
   "/shore/office", "/shore/documents", "/shore/labor", "/shore/templates",
   "/shore/notices", "/shore/settings", "/shore/crew/new", "/shore/tasks",

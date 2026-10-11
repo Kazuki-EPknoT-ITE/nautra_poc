@@ -105,7 +105,7 @@ export function buildDeadlineBoard(now = new Date()): DeadlineItem[] {
       subject: t.procedureGroup[status.task.group] ?? status.task.group,
       message: status.message,
       days: status.daysToDue,
-      href: "/shore/procedures",
+      href: "/shore/filings?tab=procedures",
     });
   }
 

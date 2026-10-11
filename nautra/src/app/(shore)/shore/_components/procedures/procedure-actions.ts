@@ -27,9 +27,9 @@ async function guardProcedures(): Promise<
   };
 }
 
+/** 手続きは届出・船員カルテ・船の管理ページ・ダッシュボードに出るので、陸上の画面をまとめて更新する（DEADLINE-02） */
 function revalidate() {
-  revalidatePath("/shore/procedures");
-  revalidatePath("/shore");
+  revalidatePath("/shore", "layout");
 }
 
 /** 手続きの消込（完了にする）。訂正は追記なので、完了も新しいレコードで表す */

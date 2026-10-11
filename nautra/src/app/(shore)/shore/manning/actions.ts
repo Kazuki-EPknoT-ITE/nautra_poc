@@ -50,7 +50,7 @@ export async function registerEmbarkationAction(
     });
 
     revalidatePath("/shore/manning");
-    revalidatePath("/shore/procedures");
+    revalidatePath("/shore/filings");
     revalidatePath("/shore/filings");
 
     const head = `登録しました: ${eventType === "on" ? "乗船" : "下船"} ${result.embarkation.date}`;
@@ -118,7 +118,7 @@ export async function moveCrewAction(
     });
 
     revalidatePath("/shore/manning");
-    revalidatePath("/shore/procedures");
+    revalidatePath("/shore/filings");
     revalidatePath("/shore/fleet");
 
     return {

@@ -5,11 +5,13 @@ import { fmtDateTime } from "@/lib/format";
 import { DEFAULT_CREDENTIAL_RULE_SET } from "@/rules/credential-rules";
 import { buildFleetBoard } from "@/server/fleet-service";
 import { credentialsOf, listVessels, todayLocal } from "@/server/master-service";
-import { requireShore } from "@/server/shore-session";
+import { hasShorePermission, requireShore } from "@/server/shore-session";
 import { listTasksForVessel, TASK_STATE_LABEL } from "@/server/task-service";
 import { crewPhotoMap } from "@/server/crew-photo-service";
 import { buildVesselOverview } from "@/server/vessel-overview-service";
 import { vesselPhotoOf } from "@/server/vessel-master-service";
+import { buildProcedureBoard } from "@/server/procedure-service";
+import { ProcedureList } from "../../_components/procedures/procedure-list";
 import { CrewPhoto, DataTable, Section, StatusChip } from "@/ui";
 import { ExportAction } from "../../_components/export-action";
 import { ShoreGuardNotice } from "../../_components/guard";
@@ -44,6 +46,11 @@ export default async function VesselDetailPage({ params }: { params: Promise<{ i
   const tasks = listTasksForVessel(id);
   const photos = crewPhotoMap();
   const vesselPhoto = vesselPhotoOf(id);
+  const canProcedures = await hasShorePermission("manage_procedures");
+  // この船の手続き・期限（旧 S-08 から移した。DEADLINE-02）
+  const procedures = buildProcedureBoard().rows.filter(
+    (r) => r.status.task.subjectType === "vessel" && r.status.task.subjectId === id,
+  );
 
   return (
     <>
@@ -241,6 +248,11 @@ export default async function VesselDetailPage({ params }: { params: Promise<{ i
           ))}
         </DataTable>
       </Section>
+
+      <section aria-label="この船の手続き・期限" className="ui-card flex flex-col gap-2 p-4">
+        <h2 className="m-0 font-bold">この船の手続き・期限</h2>
+        <ProcedureList rows={procedures} canComplete={canProcedures} empty="この船の、いま対応する手続きはありません" />
+      </section>
 
       <Section title="この船に関係する期限" note={`${v.deadlines.length}件`} bodyClassName="p-0">
         <DataTable

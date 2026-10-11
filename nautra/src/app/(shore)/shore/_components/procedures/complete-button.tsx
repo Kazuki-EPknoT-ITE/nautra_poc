@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 import { Button } from "@/ui/heroui";
-import { completeProcedureAction, type ProcedureFormState } from "../actions";
+import { completeProcedureAction, type ProcedureFormState } from "./procedure-actions";
 
 const INITIAL: ProcedureFormState = { ok: false, message: "" };
 

@@ -31,7 +31,7 @@ async function guardFiling(): Promise<{ ok: true; actor: string } | { ok: false;
 
 function revalidate() {
   revalidatePath("/shore/filings");
-  revalidatePath("/shore/procedures");
+  revalidatePath("/shore/filings");
   revalidatePath("/shore/documents");
 }
 
