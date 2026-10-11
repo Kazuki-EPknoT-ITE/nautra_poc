@@ -451,10 +451,7 @@ export default async function ShoreLaborPage({
       /* 休日・有給休暇・補償休日（3.2.4） */
       <section aria-label="休日・有給休暇・補償休日" className="ui-card flex flex-col gap-4 p-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="font-bold">休日・有給休暇・補償休日</h2>
-          <p className="text-xs text-foreground-500">
-            残り日数は付与と取得から計算した値です（記録として持ちません）
-          </p>
+          <h2 className="font-bold" title="残り日数は付与と取得から計算した値です（記録として持ちません）">休日・有給休暇・補償休日</h2>
         </div>
 
         {leaveBoard.some((b) => b.expiringGrants.length > 0) ? (
@@ -577,7 +574,7 @@ export default async function ShoreLaborPage({
         title="労務管理記録簿（第16号の5書式に相当）"
         note="検査・監査で提出する法定帳簿です"
         actions={
-          <p className="m-0 text-xs text-foreground-400">
+          <p className="m-0 cursor-help text-xs text-foreground-400" title="記録は打刻（一次記録）から毎回導出しています。修正は本人の差戻し・再入力のみで、記録簿を直接 書き換えることはできません（要件定義書 12.3）。">
             {period.month} ／ {period.crewName} ／ 適用ルール版 {period.appliedRuleVersion}
           </p>
         }
@@ -651,10 +648,6 @@ export default async function ShoreLaborPage({
           </tbody>
           </table>
         </div>
-        <p className="m-0 border-t border-[var(--ui-hairline)] px-[18px] py-3 text-xs text-foreground-500">
-          記録は打刻（一次記録）から毎回導出しています。修正は本人の差戻し・再入力のみで、記録簿を直接
-          書き換えることはできません（要件定義書 12.3）。
-        </p>
       </Section>
 
       {/* 国交省 Excel マクロ様式の取込（3.2.2） */}

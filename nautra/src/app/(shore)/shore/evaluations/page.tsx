@@ -230,7 +230,7 @@ export default async function ShoreEvaluationsPage({
               </table>
               {crew.rows.map((r) =>
                 r.record.comment ? (
-                  <p key={`${r.record.id}-c`} className="mt-2 text-xs text-foreground-600">
+                  <p key={`${r.record.id}-c`} data-user-text className="mt-2 text-xs text-foreground-600">
                     <span className="tabular-nums font-semibold">{r.record.periodTo}</span> の所見（
                     {personLabel(r.record.evaluatedBy)}）: {r.record.comment}
                   </p>

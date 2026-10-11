@@ -312,15 +312,12 @@ export default async function ShoreFleetPage({
       {/* ── 3.4.1 定期保守計画 ── */}
       <section aria-label="定期保守の計画" className="ui-card overflow-x-auto">
         <div className="px-4 pt-4">
-          <h2 className="font-bold">
+          <h2 className="font-bold" title="次回の予定日は「前回の実施日 + 周期」で毎回計算しています（保存していません）。">
             定期保守の計画
             <span className="ml-2 tabular-nums text-sm font-normal text-foreground-500">
               予定日を過ぎているもの {board.plans.filter((p) => p.level === "violation").length}件
             </span>
           </h2>
-          <p className="text-sm text-foreground-500">
-            次回の予定日は「前回の実施日 + 周期」で毎回計算しています（保存していません）。
-          </p>
         </div>
         {board.plans.length === 0 ? (
           <p className="p-4 text-sm text-foreground-500">保守の計画は登録されていません。</p>

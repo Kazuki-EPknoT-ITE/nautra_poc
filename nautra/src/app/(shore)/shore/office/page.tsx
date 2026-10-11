@@ -1,3 +1,4 @@
+import { StatusChip } from "@/ui";
 import Link from "next/link";
 import { t } from "@/i18n/ja";
 import { fmtMinutes } from "@/lib/format";
@@ -241,12 +242,7 @@ export default async function ShoreOfficePage({
         <>
       {/* ══════ 3.6.1 / 3.6.2 請求・入金 ══════ */}
       <section id="invoices" aria-label="請求・入金" className="flex flex-col gap-3">
-        <h2 className="text-lg font-bold">請求・入金</h2>
-        <p className="ui-card p-4 text-sm text-foreground-600">
-          請求書はインボイス制度・電子帳簿保存法の保存要件の対象です。電子で受け渡しした請求書は
-          電子のまま保存し、日付・金額・取引先で探せるようにしておく必要があります。
-          ここでは原本の識別（保存先のファイル名）を一緒に持ち、どの原本を指しているかを追えるようにしています。
-        </p>
+        <h2 className="text-lg font-bold" title="請求書はインボイス制度・電子帳簿保存法の保存要件の対象です。電子のまま保存し、日付・金額・取引先で探せるように、原本の識別（保存先のファイル名）を一緒に持ちます">請求・入金</h2>
         <div className="ui-card overflow-x-auto">
           {invoices.length === 0 ? (
             <p className="p-4 text-sm text-foreground-500">登録された請求はありません。</p>
@@ -414,15 +410,14 @@ export default async function ShoreOfficePage({
             </Link>
           ))}
         </div>
-        <p className="ui-card p-4 text-sm text-foreground-600">
-          時間外は打刻から計算し、設定のまるめ単位（{officeRules.payrollRoundingUnitMinutes}分・
-          {officeRules.payrollRoundingMode === "nearest"
-            ? "四捨五入"
-            : officeRules.payrollRoundingMode === "floor"
-              ? "切り捨て"
-              : "切り上げ"}
-          ）を当てはめた値を給与に渡します。まるめの前後を並べて出しているので、まるめで
-          どれだけ増減するかが確認できます。支給額はその場で計算した表示で、保存はしていません。
+        <p className="m-0" title="時間外は打刻から計算し、まるめを当てはめた値を給与に渡します。まるめの前後を並べています。支給額はその場で計算した表示で、保存しません">
+          <StatusChip
+            level="none"
+            label={`まるめ ${officeRules.payrollRoundingUnitMinutes}分・${
+              officeRules.payrollRoundingMode === "nearest" ? "四捨五入" : officeRules.payrollRoundingMode === "floor" ? "切り捨て" : "切り上げ"
+            }`}
+            hint={false}
+          />
         </p>
         <div className="ui-card overflow-x-auto">
           {payrolls.length === 0 ? (
@@ -498,9 +493,8 @@ export default async function ShoreOfficePage({
               </tbody>
             </table>
           )}
-          <p className="px-4 py-3 text-xs text-foreground-500">
-            支給額 = 基本給 + 手当 + 時間外手当 − 控除。判定に使ったルール版{" "}
-            {payrolls[0]?.appliedRuleVersion ?? "—"}。
+          <p className="px-4 py-3 text-xs text-foreground-500" title={`判定に使ったルール版 ${payrolls[0]?.appliedRuleVersion ?? "—"}`}>
+            支給額 = 基本給 + 手当 + 時間外手当 − 控除
           </p>
         </div>
         <PayrollConfirmForm payrolls={draftPayrolls} />
@@ -513,10 +507,6 @@ export default async function ShoreOfficePage({
       {/* ══════ 3.6.3 補助金・行政手続き ══════ */}
       <section id="subsidies" aria-label="補助金・行政手続き" className="flex flex-col gap-3">
         <h2 className="text-lg font-bold">補助金・行政手続き</h2>
-        <p className="ui-card p-4 text-sm text-foreground-600">
-          船舶の建造・改造に係る補助金、内航海運業法にもとづく届出、海上労働検査への対応資料の準備を
-          ここでまとめて管理します。
-        </p>
         <div className="ui-card overflow-x-auto">
           {subsidies.length === 0 ? (
             <p className="p-4 text-sm text-foreground-500">登録された手続きはありません。</p>

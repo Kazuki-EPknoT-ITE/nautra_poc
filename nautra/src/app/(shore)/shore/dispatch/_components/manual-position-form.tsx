@@ -28,11 +28,7 @@ export function ManualPositionForm({ vessels }: { vessels: VesselOption[] }) {
 
   return (
     <form action={formAction} className="ui-card flex flex-col gap-3 p-4">
-      <h2 className="font-bold">位置を手で入れる</h2>
-      <p className="text-sm text-foreground-500">
-        AIS を積んでいない船や、受信が途切れた船の位置を補うための入力です。無線・電話で聞いた
-        位置をそのまま入れてください。
-      </p>
+      <h2 className="font-bold" title="AIS を積んでいない船や、受信が途切れた船の位置を補うための入力です。無線・電話で聞いた 位置をそのまま入れてください。">位置を手で入れる</h2>
       <input type="hidden" name="targetVesselId" value={vesselId} />
       <input type="hidden" name="navStatus" value={navStatus} />
       <div className="grid gap-3 sm:grid-cols-2">

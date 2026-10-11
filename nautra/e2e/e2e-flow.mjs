@@ -378,6 +378,18 @@ check(
   "陸上: 回線4類型・打刻の本人確認・導入構成が出る",
   /常時つながる/.test(connText) && /打刻のときの本人確認/.test(punchText) && /最小構成/.test(tierText),
 );
+// 管理（レビュー ADMIN-01/02）: 権限表は陸上／船内を切り替える。協定の登録は「＋」で開く。説明の文を置かない
+{
+  const permText = await settingsTab("permissions");
+  check("陸上: 権限表は陸上／船内アプリを切り替えて1枚ずつ出す", /できること（陸上）/.test(permText) && !/できること（船内アプリ）/.test(permText) && !/唯一の情報源/.test(permText));
+  const agrText = await settingsTab("agreements");
+  check("陸上: 労使協定の登録は「＋ 協定・規則を登録する」で開く", /＋ 協定・規則を登録する/.test(agrText));
+  await s.goto(`${BASE}/shore/trash?view=rules`, { waitUntil: "networkidle" });
+  check("陸上: 削除・アーカイブは「削除したもの」と「削除するとどうなるか」を分ける", /削除するとどうなるか/.test(await s.locator("main").innerText()) && (await s.getByRole("button", { name: "元に戻す" }).count()) === 0);
+  await s.goto(`${BASE}/shore/crew/crew-nakahara`, { waitUntil: "networkidle" });
+  const karteText = await s.locator("main").innerText();
+  check("陸上: カルテは説明の文を札のホバーへ移し、文字を減らす（レビュー CHART-01）", !/乗下船の記録から計算しています/.test(karteText) && !/唯一の情報源/.test(karteText) && /免状更新の乗船履歴/.test(karteText));
+}
 const auditText = await settingsTab("audit");
 check("陸上: 監査ログに要配慮情報の参照が残る", /要配慮情報の参照/.test(auditText));
 

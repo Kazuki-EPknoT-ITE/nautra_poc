@@ -37,13 +37,13 @@ export function LedgerImportForm() {
   return (
     <form action={formAction} className="flex flex-col gap-3">
       <input type="hidden" name="mode" value={mode} />
-      <p className="text-sm text-foreground-600">
-        いま Excel マクロで記録簿を付けている場合は、その表を
-        <span className="font-semibold">「CSV UTF-8」で保存</span>
-        して、その中身をここに貼り付けてください。日付・船員・作業種別・開始・終了の列があれば、
-        列の並びや見出しの書き方が違っても読み取ります。
-      </p>
-
+      <ol
+        className="m-0 flex flex-wrap gap-x-6 gap-y-1 pl-5 text-sm text-foreground-700"
+        title="日付・船員・作業種別・開始・終了の列があれば、列の並びや見出しの書き方が違っても読み取ります"
+      >
+        <li>Excel の記録簿を「CSV UTF-8」で保存</li>
+        <li>ファイルを選ぶか、中身を貼り付ける</li>
+      </ol>
       <div className="flex flex-wrap items-center gap-3">
         <input
           ref={fileRef}
@@ -88,6 +88,7 @@ export function LedgerImportForm() {
         </Button>
         <Button
           type="submit"
+          title="取り込んだ勤務は「事後入力」として追記し、備考に「Excel様式から取込」と残します。 同じ勤務を二度取り込んでも記録は増えません。"
           color="primary"
           isLoading={pending && mode === "commit"}
           isDisabled={state.phase !== "preview" || state.okRows.length === 0}
@@ -143,10 +144,6 @@ export function LedgerImportForm() {
         </div>
       ) : null}
 
-      <p className="text-xs text-foreground-500">
-        取り込んだ勤務は「事後入力」として追記し、備考に「Excel様式から取込」と残します。
-        同じ勤務を二度取り込んでも記録は増えません。
-      </p>
     </form>
   );
 }

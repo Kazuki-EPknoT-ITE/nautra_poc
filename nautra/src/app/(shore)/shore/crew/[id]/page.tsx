@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ROLE_PERMISSIONS, VESSEL_ROLES, type VesselRole } from "@/domain/authz/roles";
+import { VESSEL_ROLES, type VesselRole } from "@/domain/authz/roles";
 import { evaluateSeaService } from "@/domain/crew/sea-service";
 import { t } from "@/i18n/ja";
 import { expiryLevel, freshnessLevel } from "@/lib/credential-plain";
@@ -189,20 +189,19 @@ export default async function ShoreCrewKartePage({ params }: { params: Promise<{
                 <span className="tabular-nums text-foreground-500">
                   期限 {s.credential.expiresOn ?? "—"}
                 </span>
-                <StatusChip level={expiryLevel(s.expiry)} size="sm" label={t.expiryState[s.expiry]} />
+                <StatusChip level={expiryLevel(s.expiry)} size="sm" label={t.expiryState[s.expiry]} hint={s.message} />
                 <StatusChip
                   level={freshnessLevel(s.freshness)}
                   size="sm"
                   label={t.freshnessState[s.freshness]}
                 />
-                <span className="text-foreground-600">{s.message}</span>
               </li>
             ))}
           </ul>
         )}
 
         <div className="ui-inset mt-3 p-3">
-          <h3 className="text-sm font-bold">既往歴・服薬状況（要配慮個人情報）</h3>
+          <h3 className="text-sm font-bold" title="要配慮個人情報。この欄を開いたことは記録されます（誰が・いつ見たかを残す決まり）">既往歴・服薬状況</h3>
           {canSensitive ? (
             <>
               <dl className="mt-1">
@@ -210,13 +209,10 @@ export default async function ShoreCrewKartePage({ params }: { params: Promise<{
                 <Row label={t.crewMasterField.medication} value={master.medication} />
                 {customRows("health")}
               </dl>
-              <p className="mt-2 text-xs text-foreground-500">
-                この欄を開いたことは記録されます（誰が・いつ見たかを残す決まりです）。
-              </p>
             </>
           ) : (
             <p className="mt-1 text-sm text-foreground-600">
-              要配慮情報のため表示されません。
+              🔒 権限のある担当者だけが見られます
             </p>
           )}
         </div>
@@ -289,24 +285,17 @@ export default async function ShoreCrewKartePage({ params }: { params: Promise<{
             label={t.manningStatus[row.eligibility.status]}
           />
         </div>
-        {row.eligibility.issues.length === 0 ? (
-          <p className="text-sm">
-            止まっている事由はありません。証書・保険・直近の労働時間はいずれも基準内です。
-          </p>
-        ) : (
+        {row.eligibility.issues.length === 0 ? null : (
           <ul className="flex flex-col gap-2">
             {row.eligibility.issues.map((issue) => (
-              <li key={issue.key} className="ui-inset flex flex-col gap-1 p-3">
-                {/* Chip は div を描くため p に入れない（不正なネストはハイドレーションを壊す） */}
-                <div className="flex flex-wrap items-center gap-2 text-sm font-semibold">
-                  <StatusChip
-                    level={issue.severity === "block" ? "violation" : "caution"}
-                    size="sm"
-                    label={issue.severity === "block" ? "配乗できません" : "確認が要ります"}
-                  />
-                  {issue.label}
-                </div>
-                <p className="text-sm text-foreground-600">{issue.detail}</p>
+              <li key={issue.key} className="ui-inset flex flex-wrap items-center gap-2 p-2.5 text-sm font-semibold">
+                <StatusChip
+                  level={issue.severity === "block" ? "violation" : "caution"}
+                  size="sm"
+                  label={issue.severity === "block" ? "配乗できません" : "確認が要ります"}
+                  hint={issue.detail}
+                />
+                {issue.label}
               </li>
             ))}
           </ul>
@@ -337,21 +326,20 @@ export default async function ShoreCrewKartePage({ params }: { params: Promise<{
         ) : (
           <ul className="flex flex-col gap-2">
             {statuses.map((s) => (
-              <li key={s.credential.id} className="ui-inset flex flex-col gap-1 p-3">
+              <li key={s.credential.id} className="ui-inset flex flex-col gap-1 p-2.5">
                 {/* Chip は div を描くため p に入れない（不正なネストはハイドレーションを壊す） */}
                 <div className="flex flex-wrap items-center gap-2 text-sm">
                   <span className="font-semibold">{s.credential.name}</span>
                   <span className="text-foreground-500">
                     {t.credentialCategory[s.credential.category] ?? s.credential.category}
                   </span>
-                  <StatusChip level={expiryLevel(s.expiry)} size="sm" label={t.expiryState[s.expiry]} />
+                  <StatusChip level={expiryLevel(s.expiry)} size="sm" label={t.expiryState[s.expiry]} hint={s.message} />
                   <StatusChip
                     level={freshnessLevel(s.freshness)}
                     size="sm"
                     label={t.freshnessState[s.freshness]}
                   />
                 </div>
-                <p className="text-sm text-foreground-600">{s.message}</p>
                 <p className="text-xs text-foreground-500">
                   <span className="tabular-nums">
                     交付 {s.credential.issuedOn ?? "—"} / 期限 {s.credential.expiresOn ?? "なし"} /
@@ -386,18 +374,13 @@ export default async function ShoreCrewKartePage({ params }: { params: Promise<{
         {/* 6.2 C群「海技免状の更新」: 乗船履歴要件（5年内1年以上）の充足を自動判定する。
             足りない場合は更新講習という別の経路があるため、可否ではなく経路を示す */}
         <div className="ui-inset mb-3 flex flex-wrap items-center gap-x-3 gap-y-1 p-3">
+          <span className="text-sm font-semibold">免状更新の乗船履歴</span>
           <StatusChip
             level={seaService.level}
             size="sm"
             label={seaService.meetsRequirement ? "履歴で更新できます" : "履歴が不足"}
+            hint={`${seaService.message}（${seaService.from} 以降に ${seaService.requiredDays}日以上。乗下船の記録から計算）`}
           />
-          <p className="min-w-0 flex-1 text-sm">{seaService.message}</p>
-          <p className="text-xs text-foreground-500">
-            免状更新の乗船履歴要件（
-            <span className="tabular-nums">{seaService.from}</span> 以降に
-            <span className="tabular-nums"> {seaService.requiredDays}</span> 日以上）に対する充足を、
-            乗下船の記録から計算しています。
-          </p>
         </div>
 
         {embarkations.length === 0 ? (
@@ -425,23 +408,21 @@ export default async function ShoreCrewKartePage({ params }: { params: Promise<{
       </section>
 
       <section aria-label="人事考課" className="ui-card p-4">
-        <h2 className="mb-2 font-bold">人事考課</h2>
-        <p className="text-sm">
+        <h2 className="mb-2 font-bold" title="点数・所見はカルテには出しません（閲覧者を限定する決まり。要件定義書 3.1.5）">人事考課</h2>
+        <p className="m-0 flex flex-wrap items-center gap-3 text-sm">
+          <span>
           {evaluations.length === 0
-            ? "記録された考課はありません。"
-            : `記録が ${evaluations.length}件 あります（直近の対象期間: ${
+            ? "記録はありません"
+            : `${evaluations.length}件（直近 ${
                 evaluations
                   .map((e) => e.periodTo)
                   .sort()
                   .at(-1) ?? "—"
-              }）。`}
-        </p>
-        <p className="mt-1 text-xs text-foreground-500">
-          点数・所見はカルテには出しません。閲覧できる担当者は{" "}
-          <Link href="/shore/evaluations" className="text-primary underline-offset-2 hover:underline">
-            人事考課
-          </Link>{" "}
-          で確認してください（閲覧者を限定する決まりです。要件定義書 3.1.5）。
+              }）`}
+          </span>
+          <Link href={`/shore/evaluations?tab=trend&crew=${id}`} className="ui-btn-quiet">
+            人事考課で見る
+          </Link>
         </p>
       </section>
 
@@ -472,33 +453,13 @@ export default async function ShoreCrewKartePage({ params }: { params: Promise<{
         </ul>
       </section>
 
-      {role ? (
-        <section aria-label="このロールでできること" className="ui-card p-4">
-          <h2 className="mb-2 font-bold">このロールでできること（船内アプリ）</h2>
-          <div className="flex flex-wrap gap-2 text-sm">
-            {ROLE_PERMISSIONS[role].map((p) => (
-              <span key={p} className="rounded-small bg-default-100 px-2 py-1">
-                {t.permission[p] ?? p}
-              </span>
-            ))}
-          </div>
-          <p className="mt-2 text-xs text-foreground-500">
-            判定は権限表（src/domain/authz）が唯一の情報源です。一覧は{" "}
-            <Link href="/shore/settings" className="text-primary underline-offset-2 hover:underline">
-              設定・権限
-            </Link>
-            で確認できます。
-          </p>
-        </section>
-      ) : null}
-
       <section aria-label="最近の記録" className="ui-card p-4">
         <h2 className="mb-2 font-bold">最近の記録（本人が関わったもの）</h2>
         {karte.recentRecords.length === 0 ? (
           <p className="text-sm text-foreground-500">記録がありません。</p>
         ) : (
           <ul className="flex flex-col gap-1 text-sm">
-            {karte.recentRecords.map((r, i) => (
+            {karte.recentRecords.slice(0, 8).map((r, i) => (
               <li key={`${r.kind}-${i}`} className="flex flex-wrap gap-2">
                 <span className="tabular-nums text-foreground-500">{fmtDateTime(r.occurredAt)}</span>
                 <span className="font-semibold">{r.kind}</span>

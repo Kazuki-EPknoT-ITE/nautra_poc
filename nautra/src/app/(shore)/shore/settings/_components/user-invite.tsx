@@ -259,13 +259,6 @@ export function UserInvitePanel({
 
       <FlashToast message={flash} onDone={() => setFlash(null)} />
 
-      <p className="m-0 border-t border-[var(--ui-hairline)] px-[18px] py-3 text-xs text-foreground-500">
-        ロールは招待した管理者が決めます（利用者は選べません）。招待するとアカウントができ、
-        本人がサインイン画面の「新規登録」で招待コードとパスワードを入れると使えるようになります。
-        無効化したユーザーは「削除・アーカイブ」から30日以内なら戻せます。
-        PoC の簡略化: 招待メールは送らず、招待コードをこの画面に出して手渡しします。本番は
-        Supabase Auth（管理者は多要素認証）と行レベルのアクセス制御を併用します（基本設計書 11.3）。
-      </p>
     </section>
   );
 }

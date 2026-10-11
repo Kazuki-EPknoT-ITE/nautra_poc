@@ -4,6 +4,7 @@ import { useActionState } from "react";
 import { t } from "@/i18n/ja";
 import type { InsuranceKind } from "@/sync-protocol/records";
 import { Button, Input, Select, SelectItem, Textarea } from "@/ui/heroui";
+import { StatusChip } from "@/ui";
 import { createCrewMasterAction, saveCrewMasterAction, type CrewMasterFormState } from "../actions";
 import type { CrewFieldView } from "@/lib/crew-fields";
 import { CustomFields } from "./custom-fields";
@@ -216,9 +217,8 @@ export function CrewMasterForm({
       </Section>
 
       <Section title="保険の加入状況（写し・最終確認日つき）" id="insurance">
-        <p className="text-xs text-foreground-500">
-          正本は日本年金機構・協会けんぽ・ハローワークにあります。ここは写しなので、
-          いつ・どうやって確認したかを必ず入れてください（要件定義書 12.2 / 12.4）。
+        <p className="m-0">
+          <StatusChip level="none" size="sm" label="写し" hint="正本は日本年金機構・協会けんぽ・ハローワークにあります。いつ・どうやって確認したかを必ず入れてください（要件定義書 12.2 / 12.4）" />
         </p>
         {values.insurances.map((ins) => (
           <div key={ins.kind} className="flex flex-col gap-2">
@@ -258,7 +258,12 @@ export function CrewMasterForm({
       </Section>
 
       <div className="flex flex-wrap items-center gap-3">
-        <Button type="submit" color="primary" isLoading={pending}>
+        <Button
+          type="submit"
+          color="primary"
+          isLoading={pending}
+          title="保存すると前の内容を消さずに新しい版を追加します。誰がいつ何を変えたかは変更履歴に残ります（要件定義書 12.3 / 12.6）"
+        >
           {mode === "new" ? "この内容で登録する" : "保存する"}
         </Button>
         {state.message ? (
@@ -269,10 +274,6 @@ export function CrewMasterForm({
           </p>
         ) : null}
       </div>
-      <p className="text-xs text-foreground-500">
-        保存すると、前の内容を消さずに「新しい版」を追加します。誰がいつ何を変えたかは下の変更履歴で
-        確認できます（要件定義書 12.3 / 12.6）。
-      </p>
     </form>
   );
 }

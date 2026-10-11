@@ -113,7 +113,7 @@ export default async function ShoreCrewEditPage({ params }: { params: Promise<{ 
       <CrewMasterForm values={values} age={age} canEditSensitive={canEditSensitive} fields={fields} canManageFields />
 
       <section aria-label="この船員の変更履歴" className="ui-card p-4">
-        <h2 className="mb-2 font-bold">この船員の変更履歴</h2>
+        <h2 className="mb-2 font-bold" title="変更しても前の内容は消えません。既往歴・服薬状況は「変更あり」とだけ残し、値そのものは 履歴に書きません（要件定義書 12.6）。">この船員の変更履歴</h2>
         {historyEntries.length === 0 ? (
           <p className="text-sm text-foreground-500">変更の記録はありません。</p>
         ) : (
@@ -152,10 +152,6 @@ export default async function ShoreCrewEditPage({ params }: { params: Promise<{ 
             ))}
           </ul>
         )}
-        <p className="mt-2 text-xs text-foreground-500">
-          変更しても前の内容は消えません。既往歴・服薬状況は「変更あり」とだけ残し、値そのものは
-          履歴に書きません（要件定義書 12.6）。
-        </p>
       </section>
     </div>
   );

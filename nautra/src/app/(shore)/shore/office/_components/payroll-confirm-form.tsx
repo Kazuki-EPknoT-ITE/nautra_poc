@@ -23,7 +23,7 @@ export function PayrollConfirmForm({ payrolls }: { payrolls: DraftPayrollOption[
   if (payrolls.length === 0) {
     return (
       <div className="ui-card p-4">
-        <h3 className="font-bold">給与を確定する</h3>
+        <h3 className="font-bold" title="確定すると、そのときの時間外（まるめ後）を給与に保存します。あとから打刻が直っても確定した給与の時間外は動きません（打刻そのものは残ります）">給与を確定する</h3>
         <p className="mt-1 text-sm text-foreground-500">計算中の給与はありません。</p>
       </div>
     );
@@ -32,10 +32,6 @@ export function PayrollConfirmForm({ payrolls }: { payrolls: DraftPayrollOption[
   return (
     <form action={formAction} className="ui-card flex flex-col gap-3 p-4">
       <h3 className="font-bold">給与を確定する</h3>
-      <p className="text-sm text-foreground-600">
-        確定すると、そのときの時間外（まるめ後）の分数を給与に保存します。支払った金額の根拠として
-        残すため、あとから打刻が直っても確定した給与の時間外は動きません。打刻そのものは残ります。
-      </p>
       <input type="hidden" name="payrollId" value={payrollId} />
       <Select
         label="計算中の給与"

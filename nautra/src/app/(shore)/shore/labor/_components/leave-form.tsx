@@ -34,10 +34,7 @@ export function LeaveForm({
 
   return (
     <form action={formAction} className="ui-inset flex flex-col gap-3 p-4">
-      <h3 className="font-bold">休日・有給を登録する</h3>
-      <p className="text-xs text-foreground-600">
-        残り日数は付与と取得から毎回計算しています。ここで直接書き換えることはできません。
-      </p>
+      <h3 className="font-bold" title="残り日数は付与と取得から毎回計算しています。ここで直接書き換えることはできません。">休日・有給を登録する</h3>
       <input type="hidden" name="crewMemberId" value={crewMemberId} />
       <input type="hidden" name="kind" value={kind} />
       <input type="hidden" name="leaveAction" value={leaveAction} />

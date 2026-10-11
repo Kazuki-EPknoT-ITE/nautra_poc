@@ -51,6 +51,9 @@ const SHORE = [
   "/shore/notices",
   "/shore/settings",
   "/shore/trash",
+  "/shore/trash?view=rules",
+  "/shore/settings?tab=permissions&view=vessel",
+  "/shore/settings?tab=agreements&add=1",
 ];
 
 const VESSEL = [
