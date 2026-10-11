@@ -30,6 +30,7 @@ import { CrewWatchTable } from "../_components/crew-watch-table";
 import { CaptainShiftEditor } from "../_components/captain-shift-editor";
 import { GroupHeader } from "../_components/group-header";
 import { StationMatrix, WeekTimeline } from "./_components/week-timeline";
+import { TodayWatchBar, WatchStatusBand } from "./_components/today-watch";
 
 /**
  * V-08 シフト・配置表。当直シフト・通常配置表の参照（編集は陸上 S-10）と変更通知。
@@ -130,95 +131,31 @@ export default function ShiftPage() {
         }
       />
 
-      {/* いまの状態（初めてでも一目で分かる大きな表示） */}
-      <Card shadow="none" className="ui-card">
-        <CardBody className="flex flex-col gap-3 p-5">
-          <div className="flex flex-wrap items-baseline gap-3">
-            <span aria-hidden="true" className="text-3xl">
-              {plain.icon}
-            </span>
-            <span className="text-2xl font-bold">{plain.title}</span>
-            <span className="ml-auto text-sm text-foreground-600">
-              {session ? `${session.name}（${session.position}）` : "—"} / {fmtDateLabel(today)}
-            </span>
-          </div>
-          {plain.detail ? <p className="text-lg text-foreground-600">{plain.detail}</p> : null}
-          {status.state === "on_duty" && status.current ? (
-            <div className="ui-inset flex flex-wrap items-center gap-3 p-4">
-              <span className="tabular-nums text-3xl font-bold">
-                {status.current.plan.from}–{status.current.plan.to}
-              </span>
-              <span className="text-lg">
-                {status.current.plan.shiftType ? tr("shiftType", status.current.plan.shiftType) : ""}
-              </span>
-              <Button
-                as={Link}
-                href="/vessel/punch"
-                color="primary"
-                radius="lg"
-                className="ml-auto min-h-12 px-6 text-base font-bold"
-              >
-                打刻する
-              </Button>
-            </div>
-          ) : null}
-        </CardBody>
-      </Card>
+      {/* いまの当直（レビュー ROSTER-02 / photo_7）。打刻の時計と同じ暗い帯で、あと何分かと進み具合を大きく */}
+      <WatchStatusBand status={status} now={now} shiftLabel={(st) => (st ? tr("shiftType", st) : "当直")} />
 
       {/* 本日の予定と打刻 */}
       <Card shadow="none" className="ui-card">
         <CardHeader className="border-l-4 border-primary pl-3 text-xl font-bold">本日の当直（あなたの分）</CardHeader>
         <Divider />
-        <CardBody className="flex flex-col gap-2">
+        <CardBody>
           {withActual.length === 0 ? (
-            <p className="text-foreground-600">本日の当直はありません。</p>
+            <p className="m-0 text-foreground-600">本日の当直はありません</p>
           ) : (
-            withActual.map(({ plan, matched, started, onDuty }) => (
-              <div
-                key={plan.id}
-                className={cn("ui-inset flex flex-col gap-1 p-4", onDuty && "border-2 border-primary")}
-              >
-                <div className="flex flex-wrap items-center gap-3">
-                  <span className="tabular-nums text-2xl font-bold">
-                    {plan.from}–{plan.to}
-                  </span>
-                  <span className="text-lg">{plan.shiftType ? tr("shiftType", plan.shiftType) : "—"}</span>
-                  {onDuty ? (
-                    <Chip size="sm" color="primary" variant="solid" radius="sm">
-                      ● 当直中
-                    </Chip>
-                  ) : null}
-                  {changedIds.has(plan.id) ? (
-                    <Chip size="sm" variant="flat" color="warning" radius="sm">
-                      ✎ 変更されました
-                    </Chip>
-                  ) : null}
-                </div>
-                <p
-                  className={cn(
-                    "text-base",
-                    matched.length > 0
-                      ? "text-foreground-600"
-                      : onDuty
-                        ? "font-semibold text-warning-700"
-                        : "text-foreground-600",
-                  )}
-                >
-                  {matched.length > 0 ? "✓ " : onDuty ? "⚠ " : "－ "}
-                  {describeActual(matched.length, started, onDuty)}
-                  {matched.length > 0 ? (
-                    <span className="ml-2 tabular-nums">
-                      {matched
-                        .map(
-                          (iv) =>
-                            `${fmtTime(iv.startAt.toISOString())}–${iv.endAt ? fmtTime(iv.endAt.toISOString()) : "作業中"}`,
-                        )
-                        .join(", ")}
-                    </span>
-                  ) : null}
-                </p>
-              </div>
-            ))
+            <TodayWatchBar
+              now={now}
+              dayStart={new Date(`${today}T00:00:00`)}
+              rows={withActual.map(({ plan, matched, started, onDuty }) => ({
+                id: plan.id,
+                from: plan.from,
+                to: plan.to,
+                label: plan.shiftType ? tr("shiftType", plan.shiftType) : "当直",
+                changed: changedIds.has(plan.id),
+                onDuty,
+                started,
+                actual: matched.map((iv) => ({ startAt: iv.startAt, endAt: iv.endAt ?? undefined })),
+              }))}
+            />
           )}
         </CardBody>
       </Card>

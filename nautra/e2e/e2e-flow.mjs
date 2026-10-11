@@ -152,6 +152,14 @@ check(
 // 作業記録（レビュー TASKREC-02）: 記録の入口は絵が主役の大きなタイル
 await v.goto(`${BASE}/vessel/work`, { waitUntil: "networkidle" });
 check("船内: 作業記録の入口は絵のタイル（4つ）", (await v.locator("main button svg").count()) >= 4);
+// 過去の記録の待機時間（レビュー TASKREC-02・photo_6）: 文の説明を置かず、絵と数字と7日の棒で
+await v.getByRole("tab", { name: /過去の記録/ }).click().catch(() => v.getByRole("button", { name: /過去の記録/ }).click());
+await v.waitForTimeout(400);
+{
+  const card = v.getByRole("region", { name: /スタンバイ待機時間/ });
+  const txt = (await card.count()) ? await card.innerText() : "";
+  check("船内: 待機時間のカードは絵・数字・7日の棒だけ（説明の文なし）", (await card.locator("svg").count()) >= 1 && !/エビデンス|要件定義書|別系統/.test(txt) && txt.split("\n").length < 14);
+}
 
 // 相談を匿名で送る
 await v.goto(`${BASE}/vessel/wellbeing`, { waitUntil: "networkidle" });
@@ -175,10 +183,11 @@ check(
   ledgerText.match(/この4週間[^\n]{0,40}/)?.[0] ?? "",
 );
 {
-  // 労働（レビュー WORK-03/04/06）: 判定を大きな見出しに、残り時間の帯をその下（いちばん上の段）に
-  const h = ledgerText.indexOf("働いた時間");
-  const k = ledgerText.indexOf("作業種別ごとの内訳");
-  check("船内: 労働は判定の見出しのすぐ下に残り時間の帯を置く", (await v.locator("main h2").first().innerText()).length > 0 && h >= 0 && (k < 0 || h < k));
+  // 労働（レビュー WORK-03/04/06・photo_3〜5）: 「まとめて見る」（4週間・今月）をいちばん上に、判定はその下の大きな見出し
+  const firstRegion = await v.locator("main section[aria-label]").first().getAttribute("aria-label");
+  const m = ledgerText.indexOf("この4週間");
+  const w = ledgerText.indexOf("働いた時間");
+  check("船内: 労働は「まとめて見る」をいちばん上に置き、その下に判定と残り時間", firstRegion === "まとめて見る" && m >= 0 && m < w, String(firstRegion));
 }
 check("船内: 作業ごとの時間の下に合計が出る（説明の文は置かない。レビュー WORK-05）", /合計/.test(ledgerText) && !/名前を押すと/.test(ledgerText));
 
@@ -704,6 +713,9 @@ check(
     // 配置表（レビュー ROSTER-02/03）: 今週の当直は24時間の帯、船内の配置は縦に船員・横に場面の1枚の表
     const bars = await v.getByRole("list", { name: "今週の当直" }).getByRole("listitem").count();
     const head = await v.locator("main thead").last().innerText();
+    check("船内: いまの当直は暗い帯（あと何分）、本日の当直は予定と打刻を重ねた1日の帯（レビュー ROSTER-02/03・photo_7/8）",
+      (await v.getByRole("region", { name: "いまの当直" }).count()) === 1 &&
+        ((await v.getByRole("img", { name: "本日の当直の予定と打刻" }).count()) === 1 || /本日の当直はありません/.test(shiftText)));
     check("船内: 今週の当直は7日分の帯、配置は場面を横に並べた1枚の表", bars === 7 && /出入港/.test(head) && /荷役/.test(head) && /非常/.test(head), `${bars}日`);
   }
 

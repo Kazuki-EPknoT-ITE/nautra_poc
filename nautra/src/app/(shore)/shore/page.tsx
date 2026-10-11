@@ -120,6 +120,7 @@ export default async function ShoreDashboardPage() {
               key={v.vesselId}
               href={`/shore/fleet/${v.vesselId}`}
               className="ui-row flex flex-col gap-1.5 p-3.5 transition-colors hover:bg-content2"
+              title={[v.spec, v.route].filter(Boolean).join(" ／ ")}
             >
               <span className="flex items-baseline justify-between gap-2">
                 <span className="truncate text-lg font-bold text-foreground-900">{v.name}</span>
@@ -130,10 +131,6 @@ export default async function ShoreDashboardPage() {
                   label={v.onBoard.length === 0 && v.stateLevel === "caution" ? "配乗なし" : v.state}
                 />
               </span>
-              <span className="block text-xs leading-normal text-foreground-500">{v.spec}</span>
-              {v.route ? (
-                <span className="block truncate text-xs text-foreground-400">{v.route}</span>
-              ) : null}
               <span className="grid grid-cols-4 gap-1.5 border-t border-[var(--ui-hairline)] pt-2.5">
                 {[
                   { k: "乗船", v: v.onBoard.length, cls: "text-foreground-900" },
@@ -146,13 +143,12 @@ export default async function ShoreDashboardPage() {
                   },
                 ].map((c) => (
                   <span key={c.k} className="block">
-                    <span className="block text-2xs tracking-normal text-foreground-400">{c.k}</span>
+                    <span className="block text-sm text-foreground-500">{c.k}</span>
                     <span className={`block font-mono text-xl tabular-nums ${c.cls}`}>{c.v}</span>
                   </span>
                 ))}
               </span>
-              <span className="block text-2xs leading-normal tracking-normal text-foreground-400">
-                次の期限{" "}
+              <span className="block text-sm leading-normal text-foreground-600">
                 {v.nextDeadline
                   ? `${v.nextDeadline.title}（${
                       v.nextDeadline.days === null
@@ -161,7 +157,7 @@ export default async function ShoreDashboardPage() {
                           ? `${Math.abs(v.nextDeadline.days)}日 超過`
                           : `あと${v.nextDeadline.days}日`
                     }）`
-                  : "なし"}
+                  : "期限の近いものなし"}
               </span>
             </Link>
           ))}

@@ -16,12 +16,11 @@ import {
 import { appendRecord, assertNotFuture, newRecordBase } from "@/lib/vessel-actions";
 import { useRecords, useActiveCrew } from "@/lib/vessel-hooks";
 import { WORK_REPORT_TYPES, type WorkReportPayload, type WorkReportType } from "@/sync-protocol/records";
-import { useModalProps } from "@/ui";
+import { LineIcon, type LineIconName, useModalProps } from "@/ui";
 import { Button, Card, CardBody, Chip, Input, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, RadioGroup, Radio, Select, SelectItem, Textarea, useDisclosure } from "@/ui/heroui";
 import { CrewPicker } from "../_components/crew-picker";
 import { GroupHeader } from "../_components/group-header";
 import { RecordTile } from "../_components/record-tile";
-import type { LineIconName } from "@/ui";
 import {
   PastEmpty,
   PastFilterBar,
@@ -130,6 +129,19 @@ export default function WorkPage() {
         .reduce((sum, r) => sum + (durationMinutes(r) ?? 0), 0),
     [reports, weekStart],
   );
+  /** 直近7日の日ごとの待機時間（文字を読まずに、棒の高さで多い日が分かるように。レビュー TASKREC-02） */
+  const standbyByDay = useMemo(
+    () =>
+      Array.from({ length: 7 }, (_, i) => {
+        const day = addDays(weekStart, i);
+        const minutes = reports
+          .filter((r) => r.reportType === "standby" && ymdLocal(new Date(r.startedAt)) === day)
+          .reduce((sum, r) => sum + (durationMinutes(r) ?? 0), 0);
+        return { day, minutes };
+      }),
+    [reports, weekStart],
+  );
+  const standbyMax = Math.max(60, ...standbyByDay.map((d) => d.minutes));
   const standbyWeekCount = reports.filter(
     (r) => r.reportType === "standby" && ymdLocal(new Date(r.startedAt)) >= weekStart,
   ).length;
@@ -217,17 +229,30 @@ export default function WorkPage() {
       </>
       ) : (
       <>
-      <Card shadow="none" className="ui-card border border-warning/60">
-        <CardBody className="flex flex-col items-start gap-2 text-left sm:flex-row sm:items-center sm:gap-6">
-          <div className="shrink-0">
-            <p className="text-sm text-foreground-600">スタンバイ待機時間（直近7日・全船員）</p>
-            <p className="tabular-nums text-2xl font-bold">
-              {fmtMinutes(standbyWeek)}
-              <span className="ml-2 text-base font-normal text-foreground-600">{standbyWeekCount}件</span>
-            </p>
-          </div>
-        </CardBody>
-      </Card>
+      <section
+        aria-label="スタンバイ待機時間（直近7日・全船員）"
+        title="スタンバイ待機時間（直近7日・全船員）。荷主・オペレーターとの協議の材料になります（要件定義書 3.3.3）。労働時間は打刻（スタンバイ）で数えます"
+        className="ui-card flex flex-wrap items-end gap-6 px-5 py-4"
+      >
+        <span className="flex items-center gap-4">
+          <LineIcon name="standby" size={56} className="text-primary" />
+          <span className="flex flex-col">
+            <span className="font-mono text-5xl font-semibold tabular-nums">{fmtMinutes(standbyWeek)}</span>
+            <span className="font-mono text-base tabular-nums text-foreground-500">{standbyWeekCount}件 ／ 7日</span>
+          </span>
+        </span>
+        <span className="flex h-20 flex-1 items-end gap-2" aria-hidden="true">
+          {standbyByDay.map((d) => (
+            <span key={d.day} className="flex flex-1 flex-col items-center gap-1" title={`${d.day.slice(5).replace("-", "/")} ${fmtMinutes(d.minutes)}`}>
+              <span
+                className={d.minutes > 0 ? "w-full rounded-t-[2px] bg-primary" : "w-full bg-[#DFE1E0]"}
+                style={{ height: `${d.minutes > 0 ? Math.max(6, (d.minutes / standbyMax) * 56) : 2}px` }}
+              />
+              <span className="font-mono text-xs text-foreground-500">{Number(d.day.slice(8))}</span>
+            </span>
+          ))}
+        </span>
+      </section>
 
       <div className="flex flex-wrap gap-2">
         {(["all", ...WORK_REPORT_TYPES] as const).map((f) => (

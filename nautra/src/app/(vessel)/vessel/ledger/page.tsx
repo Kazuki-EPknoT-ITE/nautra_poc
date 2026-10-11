@@ -192,6 +192,28 @@ export default function LedgerPage() {
       ) : null}
 
       {/* いちばん大きく「今日はどうなのか」を出す */}
+      {/* まとめて見る（4週間・今月。要件定義書 3.2.1）。レビュー WORK-06 / photo_5: いちばん上に、見えやすく */}
+      <section aria-label="まとめて見る" className="grid gap-3 md:grid-cols-2">
+        <PeriodBlock
+          title="この4週間"
+          summary={fourWeeks}
+          locale={locale}
+          tr={tr}
+          sentence={describePeriodTotal(
+            "この4週間",
+            fourWeeks,
+            fourWeeks.checks.find((c) => c.key === "four_week_max"),
+          )}
+        />
+        <PeriodBlock
+          title="今月（今日まで）"
+          summary={thisMonth}
+          locale={locale}
+          tr={tr}
+          sentence={describePeriodTotal("今月", thisMonth, undefined)}
+        />
+      </section>
+
       <SurfaceCard
        
         className={cn(
@@ -278,7 +300,7 @@ export default function LedgerPage() {
       <section aria-label="本日の数字" className="grid gap-3 sm:grid-cols-3">
         {laborKpis.map((k) => (
           <div key={k.caption} className="ui-card cursor-help px-[18px] py-4" title={k.note}>
-            <p className="m-0 text-base text-foreground-500">{k.caption}</p>
+            <p className="m-0 border-l-4 border-primary pl-2.5 text-xl font-bold text-foreground-900">{k.caption}</p>
             <p className="m-0 mt-2 flex items-baseline gap-2">
               <span
                 className={cn(
@@ -354,33 +376,6 @@ export default function LedgerPage() {
           </div>
         </section>
       ) : null}
-
-      {/* まとめて見る（4週間・今月）。日単位・週単位に続く自動集計。要件定義書 3.2.1 */}
-      <SurfaceCard>
-        <CardHeader className="px-5 pb-2 pt-5"><span className="border-l-4 border-primary pl-3 text-xl font-bold text-foreground-900">まとめて見る</span></CardHeader>
-        <CardBody className="flex flex-col gap-3 px-5 pb-5">
-          <PeriodBlock
-            title="この4週間"
-            summary={fourWeeks}
-            locale={locale}
-            tr={tr}
-            sentence={describePeriodTotal(
-              "この4週間",
-              fourWeeks,
-              fourWeeks.checks.find((c) => c.key === "four_week_max"),
-            )}
-          />
-          <PeriodBlock
-            title="今月（今日まで）"
-            summary={thisMonth}
-            locale={locale}
-            tr={tr}
-            /* 今月の目安は「残業の上限」なので、合計時間の目安としては書かない
-               （目安は下のチェック行に「今月の残業した時間」として出る） */
-            sentence={describePeriodTotal("今月", thisMonth, undefined)}
-          />
-        </CardBody>
-      </SurfaceCard>
 
       {/* 承認状況（本人向けに何をすればよいかまで書く） */}
       <SurfaceCard>
@@ -468,25 +463,33 @@ function PeriodBlock({
 }) {
   const exceptional = describeExceptionalMinutes(summary.exceptionalMinutes);
   return (
-    <div className="ui-inset flex flex-col gap-2 p-3">
+    <div
+      className={cn(
+        "ui-card flex flex-col gap-3 border-2 px-5 py-4",
+        summary.level === "violation" ? "border-danger" : summary.level === "caution" ? "border-warning" : "border-transparent",
+      )}
+    >
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <span className="text-lg font-bold">{title}</span>
-        <StatusChip level={summary.level} size="sm" label={tr("level", summary.level)} />
+        <h2 className="m-0 border-l-4 border-primary pl-3 text-2xl font-bold text-foreground-900">{title}</h2>
+        <StatusChip level={summary.level} size="lg" label={tr("level", summary.level)} hint={false} />
       </div>
-      <p className="text-pretty">{sentence}</p>
+      <p className="m-0 flex items-baseline gap-2" title={sentence}>
+        <span className="font-mono text-5xl font-semibold tabular-nums text-foreground-900">{fmtMinutes(summary.workedMinutes)}</span>
+        <span className="text-base text-foreground-500">働いた時間</span>
+      </p>
       {exceptional ? (
-        <p className="text-pretty text-sm text-foreground-600">
-          <span aria-hidden="true">⚑ </span>
-          {exceptional}実績としては記録簿に残ります。
+        <p className="m-0 text-sm text-foreground-600" title={`${exceptional}実績としては記録簿に残ります。`}>
+          <span aria-hidden="true">⚑ </span>別枠あり
         </p>
       ) : null}
-      <ul className="flex flex-col gap-1">
+      <ul className="m-0 grid list-none gap-2 p-0 sm:grid-cols-2">
         {summary.checks.map((c) => (
-          <li key={c.key} className="flex flex-wrap items-center gap-2 text-sm">
-            <span aria-hidden="true">{LEVEL_PLAIN[c.level].icon}</span>
-            <span className="font-semibold">{checkPlainLabelFor(locale, c.key)}</span>
-            <span className="tabular-nums">{formatCheckActual(c)}</span>
-            <span className="text-foreground-600">{describeCheck(c)}</span>
+          <li key={c.key} className="ui-inset flex flex-col gap-1 px-3 py-2">
+            <span className="flex items-center justify-between gap-2">
+              <span className="text-base font-bold">{checkPlainLabelFor(locale, c.key)}</span>
+              <StatusChip level={c.level} size="sm" hint={describeCheck(c)} />
+            </span>
+            <span className="font-mono text-xl tabular-nums">{formatCheckActual(c)}</span>
           </li>
         ))}
       </ul>
