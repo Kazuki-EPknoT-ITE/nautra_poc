@@ -38,6 +38,7 @@ export function StatBlock({
   note,
   tone = "none",
   href,
+  title,
   className,
 }: {
   label: string;
@@ -46,6 +47,8 @@ export function StatBlock({
   note?: ReactNode;
   tone?: "none" | "caution" | "violation";
   href?: string;
+  /** ホバーで出す説明（数字の意味・押すと何が開くか） */
+  title?: string;
   className?: string;
 }) {
   /** 0 や「—」のときは色を付けない（注意・警告が意味を失わないようにする） */
@@ -75,7 +78,7 @@ export function StatBlock({
   );
   if (href) {
     return (
-      <Link href={href} className={cn(shell, "transition-colors hover:bg-content2")}>
+      <Link href={href} title={title} className={cn(shell, "transition-colors hover:bg-content2")}>
         {body}
       </Link>
     );

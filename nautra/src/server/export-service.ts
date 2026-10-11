@@ -14,6 +14,7 @@ import {
 } from "@/server/master-service";
 import { listTasks, TASK_STATE_LABEL } from "@/server/task-service";
 import { buildStandbySummary } from "@/server/document-service";
+import { currentShiftPlans } from "@/server/trash-service";
 
 /**
  * 書き出し（各画面の「◯◯を書き出す」。レビュー EXPORT-01〜03）。
@@ -193,11 +194,11 @@ export function buildExportRows(id: ExportSetId, now = new Date()): string[][] {
 
   if (id === "shift") {
     const names = new Map(listCrewMasters(true).map((m) => [m.crewMemberId, m.name]));
-    return effective("shift_plan").map((s): string[] => [
+    return currentShiftPlans().map((s): string[] => [
       vesselNameOf(s.vesselId),
       s.date ?? "",
       s.planType === "watch"
-        ? `${s.from?.slice(11, 16) ?? ""}–${s.to?.slice(11, 16) ?? ""}`
+        ? `${s.from ?? ""}–${s.to ?? ""}`
         : (s.station ?? ""),
       s.crewMemberId,
       names.get(s.crewMemberId) ?? s.crewMemberId,

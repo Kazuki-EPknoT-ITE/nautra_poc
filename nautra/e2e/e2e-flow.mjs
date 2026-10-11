@@ -382,6 +382,20 @@ await s.goto(`${BASE}/shore/safety`, { waitUntil: "networkidle" });
   check("陸上: 安全・事故は報告の一覧と選んだ報告が並ぶ（既定のタブ）", list > 0 && detail === 1, `${list}件`);
 }
 
+// ダッシュボード・船員一覧・労務（レビュー DASH-02 / CREW-03/06 / LABOR-04）
+await s.goto(`${BASE}/shore`, { waitUntil: "networkidle" });
+{
+  const dash = await s.getByRole("region", { name: "法令遵守アラート集計" }).innerText();
+  check("陸上: ダッシュボードの数字は短い名前と → だけ（説明はホバー）", /警告の日/.test(dash) && !/を見る/.test(dash));
+  await s.goto(`${BASE}/shore/crew`, { waitUntil: "networkidle" });
+  const list = await s.getByRole("region", { name: "船員一覧" }).innerText();
+  check("陸上: 船員一覧のカードは名前・状態・船・数字だけ（0件の注意や長い文を出さない）", !/証書はすべて期限内/.test(list) && !/警告 0日/.test(list) && !/本日の当直:/.test(list));
+  check("陸上: 外した当直は船員一覧の当直にも出ない", !/02:00–03:00 ほか/.test(list) && !/ほか1[0-9]/.test(list));
+  await s.goto(`${BASE}/shore/labor?crew=crew-nakahara`, { waitUntil: "networkidle" });
+  const lab = await s.locator("main").innerText();
+  check("陸上: 労務の上限カードの下に同じ判定を繰り返さない（数字だけの集計にする）", !/4週間・1か月のまとめ/.test(lab) && (await s.getByRole("region", { name: "この月の集計" }).count()) === 1);
+}
+
 // 設定: 接続4類型・認証方式・縮退構成
 // S-15 は主題ごとのタブに分かれているので、1枚ずつ開いて確かめる
 async function settingsTab(tab) {

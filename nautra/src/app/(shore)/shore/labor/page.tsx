@@ -110,7 +110,7 @@ export default async function ShoreLaborPage({
     }));
 
   /** 4週・月の判定（3.2.1 自動集計 / 3.2.5③） */
-  // 休日（rest_day）は下に専用の枠を置くので、上限系の一覧からは外す
+  // 休日（rest_day）は4枚目のカードで別に出すので、上限系の一覧からは外す
   const periodChecks = [
     ...period.aggregates.fourWeek.checks
       .filter((c) => c.key !== "rest_day")
@@ -241,10 +241,11 @@ export default async function ShoreLaborPage({
           <div
             key={l.key}
             className={cn(
-              "ui-card px-[18px] py-4",
+              "ui-card cursor-help px-[18px] py-4",
               l.level === "violation" && "border-danger",
               l.level === "caution" && "border-primary",
             )}
+            title={l.note}
           >
             <div className="flex items-start justify-between gap-2">
               <p className="m-0 text-sm leading-normal text-foreground-500">{l.label}</p>
@@ -274,73 +275,28 @@ export default async function ShoreLaborPage({
                 style={{ width: `${Math.min(100, Math.round(l.ratio * 100))}%` }}
               />
             </span>
-            <p className="m-0 mt-2 text-xs leading-normal text-foreground-500">{l.note}</p>
           </div>
         ))}
       </section>
 
-      {/* 4週単位・月単位の集計（3.2.1「日単位・週単位・4週単位・月単位」） */}
-      <Section
-        title="4週間・1か月のまとめ"
-        divided={false}
-        bodyClassName="px-[18px] pb-4 pt-0"
-        actions={
-          <p className="m-0 text-xs text-foreground-400">
-            働いた日 {period.aggregates.monthly.workedDays}日 / 休んだ日{" "}
-            {period.aggregates.monthly.restDays}日 / 時間外{" "}
-            {fmtMinutes(period.aggregates.monthly.overtimeMinutes)} / 週平均{" "}
-            {fmtMinutes(period.aggregates.fourWeek.weeklyAverageMinutes)}
-          </p>
-        }
-      >
-        <div className="grid gap-3 sm:grid-cols-2">
-          {periodChecks.map(({ check, range }) => (
-            <div key={`${check.key}-${range}`} className="ui-inset flex items-center gap-3 p-3">
-              <StatusChip level={check.level} size="sm" hint={check.level === "ok" ? undefined : describeCheck(check)} />
-              <div className="min-w-0 flex-1">
-                <p className="font-semibold">{checkLabel(check.key)}</p>
-                <p className="text-xs text-foreground-600">
-                  <span className="tabular-nums">{checkValue(check.key, check.actual)}</span>
-                  <span className="text-foreground-500">
-                    {" "}
-                    / 上限 {checkValue(check.key, check.limit)}（{range}）
-                  </span>
-                </p>
-              </div>
-            </div>
-          ))}
-          {/* 週1日以上の休日付与（3.2.5⑤）。休暇記録の日付を含めて判定する */}
-          <div className="ui-inset flex items-center gap-3 p-3">
-            <StatusChip
-              level={period.aggregates.restDay.level}
-              size="sm"
-              hint={period.aggregates.restDay.level === "ok" ? undefined : describeCheck(period.aggregates.restDay)}
-            />
-            <div className="min-w-0 flex-1">
-              <p className="font-semibold">{checkLabel("rest_day")}</p>
-              <p className="text-xs text-foreground-600">
-                直近1週間で休んだ日{" "}
-                <span className="tabular-nums">{period.aggregates.restDay.actual}日</span>
-                <span className="text-foreground-500">
-                  {" "}
-                  / 必要 {period.aggregates.restDay.limit}日
-                </span>
-                {period.aggregates.restDay.level !== "ok"
-                  ? " — 休日が足りません。休みを入れてください。"
-                  : ""}
-              </p>
-            </div>
-          </div>
-        </div>
-      </Section>
+      {/* 4週単位・月単位の集計（3.2.1）。判定は上の4枚にあるので、ここは数字だけ */}
+      <section aria-label="この月の集計" className="flex flex-wrap gap-2">
+        {[
+          ["働いた日", `${period.aggregates.monthly.workedDays}日`],
+          ["休んだ日", `${period.aggregates.monthly.restDays}日`],
+          ["時間外", fmtMinutes(period.aggregates.monthly.overtimeMinutes)],
+          ["4週の週平均", fmtMinutes(period.aggregates.fourWeek.weeklyAverageMinutes)],
+        ].map(([k, v]) => (
+          <span key={k} className="ui-card flex items-baseline gap-2 px-4 py-2.5">
+            <span className="text-sm text-foreground-500">{k}</span>
+            <span className="font-mono text-xl font-semibold tabular-nums text-foreground-900">{v}</span>
+          </span>
+        ))}
+      </section>
 
       {canApprove ? (
         <ApprovalForm crewMemberId={crewMemberId} crewName={period.crewName} days={pendingDays} />
-      ) : (
-        <p className="ui-card p-4 text-sm text-foreground-600">
-          承認・差戻しは労務管理責任者の担当です。ここでは記録の確認のみ行えます。
-        </p>
-      )}
+      ) : null}
 
         </>
       ) : null}

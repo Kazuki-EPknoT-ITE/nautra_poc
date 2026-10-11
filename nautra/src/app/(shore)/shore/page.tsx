@@ -44,7 +44,7 @@ export default async function ShoreDashboardPage() {
     hint: string;
   }[] = [
     {
-      label: "警告日数 ／ 7日間",
+      label: "警告の日（7日）",
       value: d.totals.violationDays,
       unit: "日",
       tone: "violation",
@@ -52,7 +52,7 @@ export default async function ShoreDashboardPage() {
       hint: "労務・記録簿（要対応の日）を見る",
     },
     {
-      label: "注意日数 ／ 7日間",
+      label: "注意の日（7日）",
       value: d.totals.cautionDays,
       unit: "日",
       tone: "caution",
@@ -60,14 +60,14 @@ export default async function ShoreDashboardPage() {
       hint: "労務・記録簿（要注意の日）を見る",
     },
     {
-      label: "承認待の日次レコード",
+      label: "承認待ち",
       value: d.totals.pendingApprovals,
       unit: "件",
       href: "/shore/labor",
       hint: "労務・記録簿（承認待）を見る",
     },
     {
-      label: "差戻中",
+      label: "差戻し中",
       value: d.totals.remandedDays,
       unit: "件",
       tone: "caution",
@@ -75,7 +75,7 @@ export default async function ShoreDashboardPage() {
       hint: "労務・記録簿（差戻中）を見る",
     },
     {
-      label: "期限超過・期限接近",
+      label: "期限が近い",
       value: d.totals.deadlineUrgent,
       unit: "件",
       tone: "violation",
@@ -83,11 +83,11 @@ export default async function ShoreDashboardPage() {
       hint: "手続き・期限管理を見る",
     },
     {
-      label: "配乗不可の船員",
+      label: "配乗できない",
       value: d.totals.manningBlocked,
       unit: "名",
       tone: "violation",
-      href: "/shore/crew",
+      href: "/shore/crew?status=blocked",
       hint: "配乗不可の船員を見る",
     },
   ];
@@ -103,7 +103,8 @@ export default async function ShoreDashboardPage() {
             unit={s.unit}
             tone={s.tone ?? "none"}
             href={s.href}
-            note={`${s.hint} →`}
+            title={s.hint}
+            note="→"
           />
         ))}
       </section>
@@ -199,9 +200,8 @@ export default async function ShoreDashboardPage() {
                 <p className="m-0 font-medium text-foreground-800">{item.subject}</p>
                 <p className="m-0 mt-0.5 text-xs text-foreground-400">{DEADLINE_KIND[item.kind]}</p>
               </td>
-              <td>
-                <p className="m-0">{item.title}</p>
-                <p className="m-0 mt-0.5 text-xs text-foreground-500">{item.message}</p>
+              <td title={item.message} className="cursor-help">
+                {item.title}
               </td>
               <td className="num">
                 {item.days === null
@@ -219,12 +219,10 @@ export default async function ShoreDashboardPage() {
           ))}
         </DataTable>
         {d.deadlines.length > 20 ? (
-          <p className="border-t border-[var(--ui-hairline)] px-[18px] py-3 text-xs text-foreground-500">
-            ほかに {d.deadlines.length - 20}件 あります。
-            <Link href="/shore/filings?tab=procedures" className="ml-1 text-primary underline-offset-2 hover:underline">
-              手続き・期限
+          <p className="m-0 border-t border-[var(--ui-hairline)] px-[18px] py-3">
+            <Link href="/shore/filings?tab=procedures" className="ui-btn-quiet">
+              すべて見る（ほか {d.deadlines.length - 20}件）
             </Link>
-            で全部見られます。
           </p>
         ) : null}
       </Section>

@@ -1,9 +1,10 @@
 import { SHORE_PLANNER_ID } from "@/lib/crew";
-import { trashedIdsOf } from "@/lib/trash";
+import { latestExcludingTrashed, trashedIdsOf } from "@/lib/trash";
 import { carryOverFields } from "@/lib/master-fields";
 import { COMPANY_SCOPE_ID } from "@/lib/seed-masters";
 import { unretireCrewMaster } from "@/server/crew-master-service";
 import { effective, publishMaster, todayLocal, writeAuditLog } from "@/server/master-service";
+import { getRecordsOfKind as effectiveAll } from "@/server/store";
 import { enableShoreUser } from "@/server/shore-user-service";
 import type { TrashEntryPayload, TrashMode } from "@/sync-protocol/masters";
 
@@ -103,6 +104,14 @@ export function listTrash(now = new Date()): TrashRow[] {
  */
 export function trashedEntityIds(kind?: string): Set<string> {
   return trashedIdsOf(effective("trash_entry"), kind);
+}
+
+/**
+ * いま有効な当直・配置（最新の版を選んでから、外したものを除く）。陸上で当直を読むところは
+ * すべてこれを通す（船員一覧の「本日の当直」・週の当直・書き出しが、外した当直を出し続けていた）。
+ */
+export function currentShiftPlans() {
+  return latestExcludingTrashed(effectiveAll("shift_plan"), trashedEntityIds("当直シフト"));
 }
 
 export interface RecordDeletionInput {

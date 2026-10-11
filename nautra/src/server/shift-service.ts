@@ -18,6 +18,7 @@ import {
 import { currentLaborRuleSet } from "./labor-rules";
 import { crewNameOf, listCrewMasters } from "./master-service";
 import { getRecordsOfKind, pushToStore } from "./store";
+import { currentShiftPlans } from "./trash-service";
 
 /**
  * 陸上のシフト管理サービス（manning ドメイン。S-10 簡易版）。
@@ -41,7 +42,7 @@ export function getShiftWeek(now = new Date()): ShiftWeek {
   const today = ymdLocal(now);
   const days = Array.from({ length: 7 }, (_, i) => addDays(today, i - 1));
   const all = getRecordsOfKind("shift_plan");
-  const effective = latestBySupersedes(all).filter((p) => p.planType === "watch");
+  const effective = currentShiftPlans().filter((p) => p.planType === "watch");
   const cells: Record<string, ShiftPlanPayload[]> = {};
   for (const p of effective) {
     if (!p.date) continue;
