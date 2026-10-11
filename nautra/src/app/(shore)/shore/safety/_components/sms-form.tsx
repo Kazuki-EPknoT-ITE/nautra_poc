@@ -15,16 +15,17 @@ const STATUSES: ("open" | "in_progress" | "closed")[] = ["open", "in_progress", 
  * 安全管理の記録を1件登録する（3.5.1）。
  * 種別を選ぶと、その種別で意味のある入力欄だけを出す（不要な欄で迷わせない）。
  */
-export function SmsForm() {
+export function SmsForm({ defaultKind }: { defaultKind?: string }) {
   const [state, formAction, pending] = useActionState(publishSmsDocumentAction, INITIAL);
-  const [kind, setKind] = useState<SmsDocKind>("nonconformity");
+  const [kind, setKind] = useState<SmsDocKind>(
+    (KINDS as string[]).includes(defaultKind ?? "") ? (defaultKind as SmsDocKind) : "nonconformity",
+  );
   const [status, setStatus] = useState<"open" | "in_progress" | "closed">("open");
   const [severity, setSeverity] = useState("3");
   const [likelihood, setLikelihood] = useState("2");
 
   return (
     <form action={formAction} className="ui-card flex flex-col gap-3 p-4">
-      <h2 className="font-bold">安全管理の記録を登録</h2>
       <input type="hidden" name="kind" value={kind} />
       <input type="hidden" name="status" value={status} />
       {kind === "risk_assessment" ? (

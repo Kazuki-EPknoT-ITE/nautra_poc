@@ -147,6 +147,12 @@ check(
 await v.goto(`${BASE}/vessel/wellbeing`, { waitUntil: "networkidle" });
 const wellbeingText0 = await v.locator("main").innerText();
 check("船内: 相談・アンケートの入口が3種ある", /体調|アンケート/.test(wellbeingText0) && /相談/.test(wellbeingText0));
+// 匿名の相談を1件送る（陸上の「相談に答える」で、カードの中から答えられることを後で確かめる。レビュー HEALTH-04）
+const consultWord = `E2E相談${Date.now() % 100000}`;
+await v.getByRole("button", { name: /相談・通報/ }).first().click();
+await v.getByLabel("相談したいこと・伝えたいこと").fill(consultWord);
+await v.getByRole("button", { name: "送信する" }).click();
+await v.waitForTimeout(800);
 
 // 記録簿に4週・今月の判定が出る
 await v.goto(`${BASE}/vessel/ledger`, { waitUntil: "networkidle" });
@@ -307,6 +313,57 @@ check("陸上: 配船の計画と航跡の実績を船ごとに比べられる�
 await s.goto(`${BASE}/shore/training`, { waitUntil: "networkidle" });
 const trainText = await s.locator("main").innerText();
 check("陸上: 基本訓練の未修了が警告される", /未修了|受講が必要/.test(trainText));
+// 訓練（レビュー TRAIN-02）: 修了状況の「手配する」から、船員と訓練を入れた手配の入力が開く
+{
+  const arrange = s.locator('main a[href*="do=arrange&crew="]').first();
+  if (await arrange.count()) {
+    await arrange.click();
+    await s.waitForURL(/do=arrange/);
+    await s.waitForTimeout(500);
+    const v = await s.getByLabel("訓練の名前").inputValue();
+    check("陸上: 修了状況の「手配する」で、訓練の名前まで入った手配の入力が開く", v.length > 0, v);
+  } else {
+    check("陸上: 修了状況に「手配する」がある", false);
+  }
+}
+
+// 評価（レビュー EVAL-04）: 一覧・推移・記入・直すがタブで分かれ、「直す」で元の評価を読み込んだ入力が開く
+await s.goto(`${BASE}/shore/evaluations`, { waitUntil: "networkidle" });
+{
+  const nav = await s.getByRole("navigation", { name: "評価の主題" }).innerText();
+  check("陸上: 評価は一覧・推移・記入・直すのタブに分かれる", /評価の一覧/.test(nav) && /推移/.test(nav) && /記入する/.test(nav) && /直す/.test(nav));
+  const fix = s.getByRole("region", { name: "評価の一覧" }).getByRole("link", { name: "直す" }).first();
+  if (await fix.count()) {
+    await fix.click();
+    await s.waitForURL(/tab=edit&edit=/);
+    check("陸上: 評価の「直す」で、元の評価を読み込んだ入力が開く", /直す評価:/.test(await s.locator("main").innerText()) && (await s.getByRole("button", { name: "訂正して保存する" }).count()) === 1);
+  }
+}
+
+// 健康・相談（レビュー HEALTH-04）: 相談への回答はカードの中で。集計と船内環境は別のタブ
+await s.goto(`${BASE}/shore/wellbeing`, { waitUntil: "networkidle" });
+{
+  const nav = await s.getByRole("navigation", { name: "健康・相談の主題" }).innerText();
+  check("陸上: 健康・相談は答える／集計／船内環境のタブに分かれる", /相談に答える/.test(nav) && /集計/.test(nav) && /船内環境/.test(nav));
+  const card = s.getByRole("listitem").filter({ hasText: consultWord });
+  const form = card.getByRole("form", { name: "この相談に答える" });
+  if (await form.count()) {
+    await form.getByLabel("回答").fill("E2E: 受け取りました。全体に周知します。");
+    await form.getByRole("button", { name: "回答する" }).click();
+    await s.waitForTimeout(1500);
+    check("陸上: 船内から届いた相談に、そのカードの中で答えられる（答えるとカードに回答が載る）", /回答しました|受け取りました。全体に周知します/.test(await card.innerText()));
+  } else {
+    check("陸上: 船内から届いた相談が、答える欄つきで並ぶ", false, consultWord);
+  }
+}
+
+// 安全・事故（レビュー ACCIDENT-02）: 一覧と選んだ報告を横に並べ、めくらずに確認・記入できる
+await s.goto(`${BASE}/shore/safety`, { waitUntil: "networkidle" });
+{
+  const list = await s.getByRole("region", { name: "事故・ヒヤリハットの報告" }).locator("a").count();
+  const detail = await s.getByRole("article", { name: "選んだ報告" }).count();
+  check("陸上: 安全・事故は報告の一覧と選んだ報告が並ぶ（既定のタブ）", list > 0 && detail === 1, `${list}件`);
+}
 
 // 設定: 接続4類型・認証方式・縮退構成
 // S-15 は主題ごとのタブに分かれているので、1枚ずつ開いて確かめる

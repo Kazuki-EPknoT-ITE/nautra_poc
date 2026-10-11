@@ -1,83 +1,40 @@
 "use client";
 
-import { useActionState, useState } from "react";
-import { Button, Select, SelectItem, Textarea } from "@/ui/heroui";
+import { useActionState } from "react";
 import { respondConsultationAction, type WellbeingFormState } from "../actions";
-
-export interface ConsultationOption {
-  id: string;
-  label: string;
-  canReceive: boolean;
-}
 
 const INITIAL: WellbeingFormState = { ok: false, message: "" };
 
 /**
- * 匿名の相談への回答フォーム（3.5.3）。
+ * 匿名の相談への回答（3.5.3）。相談のカードの中で答える（一覧から相談を選び直させない。レビュー HEALTH-04）。
  * 相談者の氏名は画面に出さない（そもそもこの画面に渡していない）。
  * 回答は「相談への返信」として船内に表示され、誰への返信かは相談者本人だけが分かる。
  */
-export function ConsultationReplyForm({ consultations }: { consultations: ConsultationOption[] }) {
+export function ConsultationReplyForm({ responseId, canReceive }: { responseId: string; canReceive: boolean }) {
   const [state, formAction, pending] = useActionState(respondConsultationAction, INITIAL);
-  const [responseId, setResponseId] = useState(consultations[0]?.id ?? "");
-  const [mode, setMode] = useState<"respond" | "receive">("respond");
 
-  if (consultations.length === 0) {
-    return (
-      <div className="ui-card p-4">
-        <h3 className="font-bold">相談に回答する</h3>
-        <p className="mt-1 text-sm text-foreground-500">届いている相談はありません。</p>
-      </div>
-    );
-  }
-
-  const selected = consultations.find((c) => c.id === responseId);
-
+  if (state.ok) return <p className="m-0 text-sm font-semibold">✓ {state.message}</p>;
   return (
-    <form action={formAction} className="ui-card flex flex-col gap-3 p-4">
-      <h3 className="font-bold">相談に回答する</h3>
+    <form action={formAction} className="flex flex-col gap-2" aria-label="この相談に答える">
       <input type="hidden" name="responseId" value={responseId} />
-      <input type="hidden" name="mode" value={mode} />
-      <Select
-        label="対象の相談"
-        selectedKeys={responseId ? [responseId] : []}
-        onSelectionChange={(k) => setResponseId(String([...k][0] ?? ""))}
-        isRequired
-      >
-        {consultations.map((c) => (
-          <SelectItem key={c.id}>{c.label}</SelectItem>
-        ))}
-      </Select>
-      <Textarea
+      <textarea
         name="response"
-        label="回答（相談者に表示されます。個人が特定される書き方は避けてください）"
-        minRows={4}
-        placeholder="例: ご連絡ありがとうございます。個人を特定しない形で、朝礼にて全体に周知しました。"
+        rows={3}
+        aria-label="回答"
+        title="相談者に表示されます。個人が特定される書き方は避けてください"
+        placeholder="回答（相談者に表示されます）"
+        className="ui-field w-full resize-y"
       />
-      <div className="flex flex-wrap items-center gap-3">
-        <Button
-          type="submit"
-          color="primary"
-          isLoading={pending && mode === "respond"}
-          onPress={() => setMode("respond")}
-        >
+      <div className="flex flex-wrap items-center gap-2">
+        <button type="submit" name="mode" value="respond" className="ui-btn-primary" disabled={pending}>
           回答する
-        </Button>
-        <Button
-          type="submit"
-          variant="bordered"
-          isDisabled={!selected?.canReceive}
-          isLoading={pending && mode === "receive"}
-          onPress={() => setMode("receive")}
-        >
-          受け付けたことだけ知らせる
-        </Button>
-        {state.message ? (
-          <p className={state.ok ? "text-sm font-semibold" : "text-sm text-danger"}>
-            {state.ok ? "✓ " : "✕ "}
-            {state.message}
-          </p>
+        </button>
+        {canReceive ? (
+          <button type="submit" name="mode" value="receive" className="ui-btn-ghost" disabled={pending}>
+            受け付けたことだけ知らせる
+          </button>
         ) : null}
+        {state.message ? <span className="text-sm text-danger">✕ {state.message}</span> : null}
       </div>
     </form>
   );

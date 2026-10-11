@@ -37,7 +37,7 @@ export function EvaluationForm({
   items,
   crewOptions,
   evaluatorOptions,
-  correctable,
+  initial,
   defaultEvaluatedBy,
   defaultPeriodFrom,
   defaultPeriodTo,
@@ -45,41 +45,26 @@ export function EvaluationForm({
   items: readonly string[];
   crewOptions: PersonOption[];
   evaluatorOptions: PersonOption[];
-  correctable: CorrectableEvaluation[];
+  /** 直すときの元の評価（レビュー EVAL-04: 記入と訂正をタブで分ける） */
+  initial?: CorrectableEvaluation;
   defaultEvaluatedBy: string;
   defaultPeriodFrom: string;
   defaultPeriodTo: string;
 }) {
   const [state, formAction, pending] = useActionState(saveEvaluationAction, INITIAL);
-  const [supersedesId, setSupersedesId] = useState("");
-  const [crewMemberId, setCrewMemberId] = useState(crewOptions[0]?.id ?? "");
-  const [evaluatedBy, setEvaluatedBy] = useState(defaultEvaluatedBy);
-  const [periodFrom, setPeriodFrom] = useState(defaultPeriodFrom);
-  const [periodTo, setPeriodTo] = useState(defaultPeriodTo);
+  const supersedesId = initial?.id ?? "";
+  const [crewMemberId, setCrewMemberId] = useState(initial?.crewMemberId ?? crewOptions[0]?.id ?? "");
+  const [evaluatedBy, setEvaluatedBy] = useState(initial?.evaluatedBy ?? defaultEvaluatedBy);
+  const [periodFrom, setPeriodFrom] = useState(initial?.periodFrom ?? defaultPeriodFrom);
+  const [periodTo, setPeriodTo] = useState(initial?.periodTo ?? defaultPeriodTo);
   const [scores, setScores] = useState<Record<string, string>>(
-    Object.fromEntries(items.map((k) => [k, "3"])),
+    Object.fromEntries(items.map((k) => [k, String(initial?.scores[k] ?? 3)])),
   );
-  const [comment, setComment] = useState("");
-  const [disclosed, setDisclosed] = useState(true);
-
-  /** 訂正対象を選ぶと、その内容を読み込んで書き換えられるようにする */
-  function loadForCorrection(id: string) {
-    setSupersedesId(id);
-    const found = correctable.find((c) => c.id === id);
-    if (!found) return;
-    setCrewMemberId(found.crewMemberId);
-    setEvaluatedBy(found.evaluatedBy);
-    setPeriodFrom(found.periodFrom);
-    setPeriodTo(found.periodTo);
-    setScores(Object.fromEntries(items.map((k) => [k, String(found.scores[k] ?? 3)])));
-    setComment(found.comment);
-    setDisclosed(found.disclosedToCrew);
-  }
+  const [comment, setComment] = useState(initial?.comment ?? "");
+  const [disclosed, setDisclosed] = useState(initial?.disclosedToCrew ?? true);
 
   return (
     <form action={formAction} className="ui-card flex flex-col gap-4 p-4">
-      <h2 className="font-bold">{supersedesId ? "評価を訂正する" : "評価を記入する"}</h2>
-
       <input type="hidden" name="supersedesId" value={supersedesId} />
       <input type="hidden" name="crewMemberId" value={crewMemberId} />
       <input type="hidden" name="evaluatedBy" value={evaluatedBy} />
@@ -127,10 +112,6 @@ export function EvaluationForm({
       </div>
 
       <div className="flex flex-col gap-2">
-        <p className="text-sm text-foreground-500">
-          5つの項目を同じものさし（1〜5）で選びます。全員に同じ項目・同じ段階を使うことで、
-          評価者による偏りを減らします。
-        </p>
         {items.map((key) => (
           <div key={key} className="ui-inset flex flex-wrap items-center gap-3 p-3">
             <span className="w-56 shrink-0 text-sm font-semibold">{t.evaluationItem[key] ?? key}</span>
@@ -159,7 +140,7 @@ export function EvaluationForm({
 
       <Textarea
         name="comment"
-        label="所見（本人開示する場合は本人が読みます）"
+        label="所見"
         minRows={3}
         value={comment}
         onValueChange={setComment}
@@ -168,30 +149,12 @@ export function EvaluationForm({
       <Checkbox name="disclosedToCrew" isSelected={disclosed} onValueChange={setDisclosed}>
         この評価を本人に開示する
       </Checkbox>
-      <p className="text-xs text-foreground-600">
-        開示すると本人が所見と点数を読めます。開示しない場合でも、評価は残り、閲覧できるのは
-        権限のある担当者だけです。
-      </p>
-
-      <Select
-        label="訂正する評価を選ぶ（新しく書くときは空のまま）"
-        selectedKeys={supersedesId ? [supersedesId] : []}
-        onSelectionChange={(k) => loadForCorrection(String([...k][0] ?? ""))}
-      >
-        {correctable.map((o) => (
-          <SelectItem key={o.id}>{o.label}</SelectItem>
-        ))}
-      </Select>
 
       <div className="flex flex-wrap items-center gap-3">
         <Button type="submit" color="primary" isLoading={pending}>
           {supersedesId ? "訂正して保存する" : "保存する"}
         </Button>
-        {supersedesId ? (
-          <Button variant="bordered" onPress={() => setSupersedesId("")}>
-            訂正をやめる
-          </Button>
-        ) : null}
+
         {state.message ? (
           <p className={state.ok ? "text-sm font-semibold" : "text-sm text-danger"}>
             {state.ok ? "✓ " : "✕ "}
