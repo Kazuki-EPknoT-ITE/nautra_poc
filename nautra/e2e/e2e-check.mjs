@@ -26,6 +26,8 @@ const SHORE = [
   "/shore/crew/crew-terada/print",
   "/shore/fleet/vessel-001/edit",
   "/shore/dispatch",
+  "/shore/dispatch?tab=log",
+  "/shore/dispatch?tab=compare",
   "/shore/safety",
   "/shore/wellbeing",
   "/shore/evaluations",

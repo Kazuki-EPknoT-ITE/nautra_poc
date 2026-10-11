@@ -79,8 +79,16 @@ function mbase(id: string, occurredAt: string, vesselId: string = DEMO_VESSEL.id
 
 /** ローカル日 YYYY-MM-DD の 09:00 を ISO 文字列で返す（決定的） */
 function at9(ymd: string): string {
+  return atHour(ymd, 9);
+}
+
+/**
+ * その日のローカル時刻（時）の ISO。以前は atHour(..., 12) と書いていたが、
+ * toISOString は UTC なので日本時間では "T00" になり、置き換えが効かず全部 9時になっていた。
+ */
+function atHour(ymd: string, hour: number): string {
   const [y, m, d] = ymd.split("-").map(Number);
-  return new Date(y, m - 1, d, 9, 0, 0, 0).toISOString();
+  return new Date(y, m - 1, d, hour, 0, 0, 0).toISOString();
 }
 
 /* ═══════════════ 3.1.1 船員マスタ ═══════════════ */
@@ -1470,10 +1478,10 @@ function dispatchSeed(today: string): SyncEvent[] {
   // 航跡（横浜 → 名古屋 → 現在地）。無償 AIS を模した観測点
   const track: [string, number, number, number, string][] = [
     [at9(addDays(today, -2)), 35.45, 139.68, 0, "moored"],
-    [at9(addDays(today, -2)).replace("T09", "T12"), 34.58, 138.83, 11.5, "underway"],
-    [at9(addDays(today, -2)).replace("T09", "T18"), 35.05, 136.85, 6.2, "underway"],
+    [atHour(addDays(today, -2), 12), 34.58, 138.83, 11.5, "underway"],
+    [atHour(addDays(today, -2), 18), 35.05, 136.85, 6.2, "underway"],
     [at9(addDays(today, -1)), 35.05, 136.86, 0, "anchored"],
-    [at9(addDays(today, -1)).replace("T09", "T13"), 35.05, 136.87, 0, "cargo_ops"],
+    [atHour(addDays(today, -1), 13), 35.05, 136.87, 0, "cargo_ops"],
     [at9(today), 35.05, 136.87, 0, "moored"],
   ];
   track.forEach(([observedAt, lat, lon, speedKnots, navStatus], i) => {
@@ -1487,7 +1495,7 @@ function dispatchSeed(today: string): SyncEvent[] {
       courseDeg: speedKnots > 0 ? 265 : undefined,
       navStatus: navStatus as VesselPositionPayload["navStatus"],
       destination: "名古屋港（金城埠頭）",
-      eta: at9(addDays(today, -2)).replace("T09", "T18"),
+      eta: atHour(addDays(today, -2), 18),
       observedAt,
     };
     events.push(makeRecordEvent("vessel_position", p, SEED_DEVICE));
@@ -1515,8 +1523,8 @@ function dispatchSeed(today: string): SyncEvent[] {
       voyageNo: "V-2026-041",
       departurePort: "横浜港（大黒埠頭）",
       arrivalPort: "名古屋港（金城埠頭）",
-      departureAt: at9(addDays(today, -2)).replace("T09", "T06"),
-      arrivalAt: at9(addDays(today, -2)).replace("T09", "T18"),
+      departureAt: atHour(addDays(today, -2), 6),
+      arrivalAt: atHour(addDays(today, -2), 18),
       cargoKind: "鋼材コイル",
       quantity: "1,200 t",
       counterparty: "瀬戸内海運株式会社",
@@ -1528,8 +1536,8 @@ function dispatchSeed(today: string): SyncEvent[] {
       voyageNo: "V-2026-042",
       departurePort: "名古屋港（金城埠頭）",
       arrivalPort: "阪神港（大阪）",
-      departureAt: at9(today).replace("T09", "T16"),
-      arrivalAt: at9(addDays(today, 1)).replace("T09", "T08"),
+      departureAt: atHour(today, 16),
+      arrivalAt: atHour(addDays(today, 1), 8),
       cargoKind: "鋼材コイル",
       quantity: "900 t",
       counterparty: "瀬戸内海運株式会社",
@@ -1542,8 +1550,8 @@ function dispatchSeed(today: string): SyncEvent[] {
       voyageNo: "V-2026-043",
       departurePort: "阪神港（大阪）",
       arrivalPort: "水島港",
-      departureAt: at9(addDays(today, 1)).replace("T09", "T14"),
-      arrivalAt: at9(addDays(today, 2)).replace("T09", "T06"),
+      departureAt: atHour(addDays(today, 1), 14),
+      arrivalAt: atHour(addDays(today, 2), 6),
       cargoKind: "石材",
       quantity: "1,100 t",
       counterparty: "瀬戸内海運株式会社",
@@ -1556,8 +1564,8 @@ function dispatchSeed(today: string): SyncEvent[] {
       voyageNo: "V2-2026-018",
       departurePort: "松山港",
       arrivalPort: "阪神港（神戸）",
-      departureAt: at9(addDays(today, -1)).replace("T09", "T20"),
-      arrivalAt: at9(addDays(today, 1)).replace("T09", "T06"),
+      departureAt: atHour(addDays(today, -1), 20),
+      arrivalAt: atHour(addDays(today, 1), 6),
       cargoKind: "紙製品",
       quantity: "700 t",
       counterparty: "西日本フェリー物流",

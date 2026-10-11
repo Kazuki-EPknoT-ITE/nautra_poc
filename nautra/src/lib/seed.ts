@@ -44,7 +44,7 @@ import type {
  */
 
 /** デモデータ版。上げるとストアが作り直される（PoC の .data/store.json のみ） */
-export const SEED_VERSION = 14;
+export const SEED_VERSION = 15;
 
 const SEED_DEVICE = "seed-shore-device";
 

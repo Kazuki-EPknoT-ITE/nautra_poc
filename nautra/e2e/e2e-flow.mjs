@@ -282,6 +282,17 @@ check("陸上: 船員カルテにその船員の手続き・期限が出る", (a
 await s.goto(`${BASE}/shore/fleet/vessel-001`, { waitUntil: "networkidle" });
 check("陸上: 船の管理ページにその船の手続き・期限が出る", (await s.getByRole("region", { name: "この船の手続き・期限" }).count()) > 0);
 
+// 配船・位置情報（レビュー POS-02/03）: リアルタイムと記録（航跡ログ）を分け、計画と実績を船ごとに突き合わせる
+await s.goto(`${BASE}/shore/dispatch`, { waitUntil: "networkidle" });
+const liveText = await s.locator("main").innerText();
+check("陸上: いまの位置は自動で更新されるリアルタイムの表示", /秒ごとに更新/.test(liveText) && !/この画面の位置は「参考情報」です/.test(liveText));
+await s.goto(`${BASE}/shore/dispatch?tab=log&vessel=vessel-001`, { waitUntil: "networkidle" });
+const logRows = await s.getByRole("region", { name: "航跡の記録" }).locator("tbody tr").count();
+check("陸上: 航跡ログで船ごとの観測の記録を期間で確かめられる", logRows > 0 && (await s.getByLabel("いつから").count()) > 0, `${logRows}件`);
+await s.goto(`${BASE}/shore/dispatch?tab=compare&vessel=vessel-001`, { waitUntil: "networkidle" });
+const cmpText = await s.getByRole("region", { name: "計画と実績" }).innerText();
+check("陸上: 配船の計画と航跡の実績を船ごとに比べられる（出港・入港の遅れ）", /V-2026-041/.test(cmpText) && /遅れ/.test(cmpText) && /実績（航跡で確認）/.test(cmpText));
+
 // 訓練: 未修了の警告
 await s.goto(`${BASE}/shore/training`, { waitUntil: "networkidle" });
 const trainText = await s.locator("main").innerText();
