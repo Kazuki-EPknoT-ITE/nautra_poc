@@ -21,6 +21,7 @@ import { Button, Card, CardBody, Chip, Input, Modal, ModalBody, ModalContent, Mo
 import { CrewPicker } from "../_components/crew-picker";
 import { GroupHeader } from "../_components/group-header";
 import { RecordTile } from "../_components/record-tile";
+import type { LineIconName } from "@/ui";
 import {
   PastEmpty,
   PastFilterBar,
@@ -210,7 +211,7 @@ export default function WorkPage() {
       {canSwitch ? <CrewPicker selected={crew} onSelect={selectCrew} /> : null}
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         {WORK_REPORT_TYPES.map((type) => (
-          <RecordTile key={type} label={t.workReportType[type]} onPress={() => open(type)} />
+          <RecordTile key={type} label={t.workReportType[type]} icon={type as LineIconName} onPress={() => open(type)} />
         ))}
       </div>
       </>

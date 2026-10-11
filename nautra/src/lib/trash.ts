@@ -14,3 +14,15 @@ export function trashedIdsOf(entries: readonly TrashEntryPayload[], kind?: strin
   }
   return ids;
 }
+
+/**
+ * 版の鎖の最新だけを残し、外されたものを除く。**順番が大事**: 先に外したものを除いてから最新を選ぶと、
+ * 変更した版（最新）を外したときに、置き換えられていた元の版が「最新」として生き返ってしまう
+ * （船内の当直に、陸上で外したはずの 22:00–23:00 が何本も残っていた）。陸上の配置表と同じ順にする。
+ */
+export function latestExcludingTrashed<T extends { id: string; supersedesId?: string }>(
+  rows: readonly T[],
+  removed: ReadonlySet<string>,
+): T[] {
+  return latestBySupersedes([...rows]).filter((r) => !removed.has(r.id));
+}

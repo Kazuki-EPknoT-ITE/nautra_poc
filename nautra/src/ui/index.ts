@@ -26,3 +26,4 @@ export { PunchButton } from "./punch-button";
 export { TriStateToggle } from "./tri-state-toggle";
 export { MODAL_CLASSNAMES } from "./modal-style";
 export { Whiteboard, WhiteboardFrame } from "./whiteboard";
+export { LineIcon, type LineIconName } from "./line-icon";

@@ -143,9 +143,20 @@ check(
   punchedText.match(/直前の打刻：[^\n]{0,40}/)?.[0] ?? "",
 );
 
+// 打刻の画面（レビュー PUNCH-01）: 作業のタイルに絵が付き、ふつうの打刻には「即時打刻」の札を付けない
+{
+  const icons = await v.getByRole("region", { name: "作業を打刻する" }).locator("svg").count();
+  const todayList = await v.getByRole("region", { name: "本日の打刻" }).innerText();
+  check("船内: 打刻のタイルに絵が付き、本日の打刻は札で埋めない", icons >= 6 && !/即時打刻/.test(todayList), `絵 ${icons}`);
+}
+// 作業記録（レビュー TASKREC-02）: 記録の入口は絵が主役の大きなタイル
+await v.goto(`${BASE}/vessel/work`, { waitUntil: "networkidle" });
+check("船内: 作業記録の入口は絵のタイル（4つ）", (await v.locator("main button svg").count()) >= 4);
+
 // 相談を匿名で送る
 await v.goto(`${BASE}/vessel/wellbeing`, { waitUntil: "networkidle" });
 const wellbeingText0 = await v.locator("main").innerText();
+check("船内: 相談の画面に匿名の長い説明を置かない（レビュー CONS-02。札のホバーで説明）", /匿名で送れます/.test(wellbeingText0) && !/端末IDから個人を特定/.test(wellbeingText0));
 check("船内: 相談・アンケートの入口が3種ある", /体調|アンケート/.test(wellbeingText0) && /相談/.test(wellbeingText0));
 // 匿名の相談を1件送る（陸上の「相談に答える」で、カードの中から答えられることを後で確かめる。レビュー HEALTH-04）
 const consultWord = `E2E相談${Date.now() % 100000}`;
@@ -163,6 +174,12 @@ check(
   /4週/.test(ledgerText) && !/PoC対象外/.test(ledgerText),
   ledgerText.match(/この4週間[^\n]{0,40}/)?.[0] ?? "",
 );
+{
+  // 労働（レビュー WORK-03/04/06）: 判定を大きな見出しに、残り時間の帯をその下（いちばん上の段）に
+  const h = ledgerText.indexOf("働いた時間");
+  const k = ledgerText.indexOf("作業種別ごとの内訳");
+  check("船内: 労働は判定の見出しのすぐ下に残り時間の帯を置く", (await v.locator("main h2").first().innerText()).length > 0 && h >= 0 && (k < 0 || h < k));
+}
 check("船内: 作業ごとの時間の下に合計が出る（説明の文は置かない。レビュー WORK-05）", /合計/.test(ledgerText) && !/名前を押すと/.test(ledgerText));
 
 // 航海日誌: 「日誌を記録する」で書き、「過去の日誌」でキーワードと期間で探せる（レビュー LOG-02/03）
@@ -667,7 +684,14 @@ check(
   await v.waitForTimeout(2500);
   await v.goto(`${BASE}/vessel/shift`, { waitUntil: "networkidle" });
   await v.waitForTimeout(800);
-  check("船内: 陸上で外した当直は船内の当直にも出ない", !/02:00–03:00/.test(await v.locator("main").innerText()));
+  {
+    const shiftText = await v.locator("main").innerText();
+    check("船内: 陸上で外した当直は船内の当直にも出ない（変更してから外した当直の元の版も生き返らない）", !/02:00–03:00/.test(shiftText) && !/22:00–23:00/.test(shiftText));
+    // 配置表（レビュー ROSTER-02/03）: 今週の当直は24時間の帯、船内の配置は縦に船員・横に場面の1枚の表
+    const bars = await v.getByRole("list", { name: "今週の当直" }).getByRole("listitem").count();
+    const head = await v.locator("main thead").last().innerText();
+    check("船内: 今週の当直は7日分の帯、配置は場面を横に並べた1枚の表", bars === 7 && /出入港/.test(head) && /荷役/.test(head) && /非常/.test(head), `${bars}日`);
+  }
 
   // 船長以外には出さない（中原 = 航海士）
   await v.goto(`${BASE}/vessel/shift`, { waitUntil: "networkidle" });

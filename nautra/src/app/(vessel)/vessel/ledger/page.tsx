@@ -215,119 +215,36 @@ export default function LedgerPage() {
               </Chip>
             ) : null}
           </div>
-          <p className="text-balance text-3xl font-bold">
-            <span aria-hidden="true" className="mr-2">
+          <h2
+            className={cn(
+              "m-0 text-balance text-5xl font-bold leading-tight",
+              overall === "violation" ? "text-danger" : overall === "caution" ? "text-warning-700" : "text-foreground-900",
+            )}
+            title={plain.summary}
+          >
+            <span aria-hidden="true" className="mr-3">
               {plain.icon}
             </span>
             {plain.title}
-          </p>
-          <p className="text-pretty text-foreground-600">{plain.summary}</p>
+          </h2>
 
           {attentionChecks.length > 0 ? (
-            <ul className="flex flex-col gap-1">
+            <div className="flex flex-wrap gap-2" role="list" aria-label="気をつけること">
               {attentionChecks.map((c) => (
-                <li key={c.key} className="text-pretty">
-                  <span aria-hidden="true" className="mr-1">
-                    {LEVEL_PLAIN[c.level].icon}
-                  </span>
-                  <span className="font-semibold">{checkPlainLabelFor(locale, c.key)}</span>:{" "}
-                  {describeCheck(c)}
-                </li>
+                <span key={c.key} role="listitem">
+                  <StatusChip level={c.level} size="lg" label={checkPlainLabelFor(locale, c.key)} hint={describeCheck(c)} />
+                </span>
               ))}
-            </ul>
-          ) : null}
+            </div>
+          ) : (
+            <p className="m-0 text-lg text-foreground-600">{plain.summary}</p>
+          )}
         </CardBody>
       </SurfaceCard>
 
-      {/*
-        3つの数字（デザイン正本 V-03 の KPI）。
-        「働いた」「休んだ」「休みが何回に分かれたか」は船員が毎日いちばん気にする3つで、
-        言い換えの文よりも**数字そのもの**を先に大きく出す。判定の色は上限に触れたときだけ。
-      */}
-      <section aria-label="本日の数字" className="grid gap-3 sm:grid-cols-3">
-        {laborKpis.map((k) => (
-          <div key={k.caption} className="ui-card px-[18px] py-4">
-            <p className="m-0 text-base text-foreground-500">{k.caption}</p>
-            <p className="m-0 mt-2 flex items-baseline gap-2">
-              <span
-                className={cn(
-                  "font-mono text-5xl font-semibold leading-none tabular-nums",
-                  k.level === "violation"
-                    ? "text-danger"
-                    : k.level === "caution"
-                      ? "text-warning-700"
-                      : "text-foreground-900",
-                )}
-              >
-                {k.value}
-              </span>
-              <span className="font-mono text-lg text-foreground-400">{k.unit}</span>
-            </p>
-            <p className="m-0 mt-2 text-base leading-relaxed text-foreground-700">{k.note}</p>
-          </div>
-        ))}
-      </section>
-
-      {/* 作業種別ごとの内訳（デザイン正本 V-03 の横棒）。並列打刻ぶんは重複を含む */}
-      {categoryBars.length > 0 ? (
-        <section aria-label="作業種別ごとの内訳" className="ui-card">
-          <div className="flex items-baseline justify-between gap-3 border-b border-[var(--ui-hairline-strong)] px-4 py-3">
-            <h2 className="m-0 text-xl font-bold text-foreground-900">作業種別ごとの内訳（今日）</h2>
-            <span className="text-base text-foreground-400">
-              縦線 = 上限 {fmtMinutes(ruleSet.values.dailyMaxMinutes)}
-            </span>
-          </div>
-          <div className="px-4 pb-3 pt-1.5">
-            {categoryBars.map((b) => (
-              <div key={b.category} className="flex items-center gap-3.5 py-2">
-                <span className="flex-none basis-32 text-lg text-foreground-700">
-                  {tr("workCategory", b.category)}
-                </span>
-                <span className="relative block flex-1">
-                  <span className="block h-5 overflow-hidden rounded-[2px] bg-[#DFE1E0]">
-                    <span
-                      className="block h-full bg-foreground-700"
-                      style={{ width: `${Math.min(100, (b.minutes / barScale) * 100)}%` }}
-                    />
-                  </span>
-                </span>
-                <span className="flex-none basis-[66px] text-right font-mono text-xl tabular-nums text-foreground-800">
-                  {fmtMinutes(b.minutes)}
-                </span>
-              </div>
-            ))}
-            {/* 合計は重なりを1回だけ数える。内訳の合計との差（同時に進めた時間）は札で示す */}
-            <div className="mt-1 flex items-center gap-3.5 border-t border-[var(--ui-hairline)] pt-3">
-              <span className="flex-none basis-32 text-lg font-bold text-foreground-900">合計</span>
-              <span className="relative block flex-1">
-                <span className="block h-5 overflow-hidden rounded-[2px] bg-[#DFE1E0]">
-                  <span
-                    className="block h-full bg-primary"
-                    style={{ width: `${Math.min(100, (daily.workedMinutes / barScale) * 100)}%` }}
-                  />
-                </span>
-              </span>
-              <span className="flex-none basis-[66px] text-right font-mono text-xl font-bold tabular-nums text-foreground-900">
-                {fmtMinutes(daily.workedMinutes)}
-              </span>
-            </div>
-            {overlapMinutes > 0 ? (
-              <p className="m-0 mt-2 flex justify-end">
-                <StatusChip
-                  level="none"
-                  size="sm"
-                  label={`⧉ 同時に進めた時間 ${fmtMinutes(overlapMinutes)}`}
-                  hint="同じ時間に2つの作業を進めた分は、合計では1回だけ数えます"
-                />
-              </p>
-            ) : null}
-          </div>
-        </section>
-      ) : null}
-
       {/* 労働時間: 残り時間を数字と帯で示す */}
       <SurfaceCard>
-        <CardHeader className="px-5 pb-2 pt-5 text-base font-bold">働いた時間</CardHeader>
+        <CardHeader className="px-5 pb-2 pt-5"><span className="border-l-4 border-primary pl-3 text-xl font-bold text-foreground-900">働いた時間</span></CardHeader>
         <CardBody className="flex flex-col gap-5 px-5 pb-5">
           <TimeBar
             title="今日"
@@ -353,9 +270,94 @@ export default function LedgerPage() {
         </CardBody>
       </SurfaceCard>
 
+      {/*
+        3つの数字（デザイン正本 V-03 の KPI）。
+        「働いた」「休んだ」「休みが何回に分かれたか」は船員が毎日いちばん気にする3つで、
+        言い換えの文よりも**数字そのもの**を先に大きく出す。判定の色は上限に触れたときだけ。
+      */}
+      <section aria-label="本日の数字" className="grid gap-3 sm:grid-cols-3">
+        {laborKpis.map((k) => (
+          <div key={k.caption} className="ui-card cursor-help px-[18px] py-4" title={k.note}>
+            <p className="m-0 text-base text-foreground-500">{k.caption}</p>
+            <p className="m-0 mt-2 flex items-baseline gap-2">
+              <span
+                className={cn(
+                  "font-mono text-5xl font-semibold leading-none tabular-nums",
+                  k.level === "violation"
+                    ? "text-danger"
+                    : k.level === "caution"
+                      ? "text-warning-700"
+                      : "text-foreground-900",
+                )}
+              >
+                {k.value}
+              </span>
+              <span className="font-mono text-lg text-foreground-400">{k.unit}</span>
+            </p>
+          </div>
+        ))}
+      </section>
+
+      {/* 作業種別ごとの内訳（デザイン正本 V-03 の横棒）。並列打刻ぶんは重複を含む */}
+      {categoryBars.length > 0 ? (
+        <section aria-label="作業種別ごとの内訳" className="ui-card">
+          <div className="flex items-baseline justify-between gap-3 border-b border-[var(--ui-hairline-strong)] px-4 py-3">
+            <h2 className="m-0 border-l-4 border-primary pl-3 text-xl font-bold text-foreground-900">作業種別ごとの内訳（今日）</h2>
+            <span className="text-base text-foreground-400">
+              縦線 = 上限 {fmtMinutes(ruleSet.values.dailyMaxMinutes)}
+            </span>
+          </div>
+          <div className="px-4 pb-3 pt-1.5">
+            {categoryBars.map((b) => (
+              <div key={b.category} className="flex items-center gap-3.5 py-2">
+                <span className="flex-none basis-32 text-lg text-foreground-700">
+                  {tr("workCategory", b.category)}
+                </span>
+                <span className="relative block flex-1">
+                  <span className="block h-5 overflow-hidden rounded-[2px] bg-[#DFE1E0]">
+                    <span
+                      className="block h-full bg-foreground-700"
+                      style={{ width: `${Math.min(100, (b.minutes / barScale) * 100)}%` }}
+                    />
+                  </span>
+                </span>
+                <span className="flex-none basis-[104px] whitespace-nowrap text-right font-mono text-xl tabular-nums text-foreground-800">
+                  {fmtMinutes(b.minutes)}
+                </span>
+              </div>
+            ))}
+            {/* 合計は重なりを1回だけ数える。内訳の合計との差（同時に進めた時間）は札で示す */}
+            <div className="mt-1 flex items-center gap-3.5 border-t border-[var(--ui-hairline)] pt-3">
+              <span className="flex-none basis-32 text-lg font-bold text-foreground-900">合計</span>
+              <span className="relative block flex-1">
+                <span className="block h-5 overflow-hidden rounded-[2px] bg-[#DFE1E0]">
+                  <span
+                    className="block h-full bg-primary"
+                    style={{ width: `${Math.min(100, (daily.workedMinutes / barScale) * 100)}%` }}
+                  />
+                </span>
+              </span>
+              <span className="flex-none basis-[104px] whitespace-nowrap text-right font-mono text-xl font-bold tabular-nums text-foreground-900">
+                {fmtMinutes(daily.workedMinutes)}
+              </span>
+            </div>
+            {overlapMinutes > 0 ? (
+              <p className="m-0 mt-2 flex justify-end">
+                <StatusChip
+                  level="none"
+                  size="sm"
+                  label={`⧉ 同時に進めた時間 ${fmtMinutes(overlapMinutes)}`}
+                  hint="同じ時間に2つの作業を進めた分は、合計では1回だけ数えます"
+                />
+              </p>
+            ) : null}
+          </div>
+        </section>
+      ) : null}
+
       {/* まとめて見る（4週間・今月）。日単位・週単位に続く自動集計。要件定義書 3.2.1 */}
       <SurfaceCard>
-        <CardHeader className="px-5 pb-2 pt-5 text-base font-bold">まとめて見る</CardHeader>
+        <CardHeader className="px-5 pb-2 pt-5"><span className="border-l-4 border-primary pl-3 text-xl font-bold text-foreground-900">まとめて見る</span></CardHeader>
         <CardBody className="flex flex-col gap-3 px-5 pb-5">
           <PeriodBlock
             title="この4週間"
@@ -382,7 +384,7 @@ export default function LedgerPage() {
 
       {/* 承認状況（本人向けに何をすればよいかまで書く） */}
       <SurfaceCard>
-        <CardHeader className="px-5 pb-2 pt-5 text-base font-bold">船長の承認</CardHeader>
+        <CardHeader className="px-5 pb-2 pt-5"><span className="border-l-4 border-primary pl-3 text-xl font-bold text-foreground-900">船長の承認</span></CardHeader>
         <CardBody className="flex flex-col gap-2 px-5 pb-5">
           {approvalDays.map(({ date, summary, approval }) => (
             <ApprovalRow

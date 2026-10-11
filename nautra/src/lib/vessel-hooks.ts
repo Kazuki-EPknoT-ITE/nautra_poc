@@ -1,6 +1,6 @@
 "use client";
 
-import { trashedIdsOf } from "@/lib/trash";
+import { latestExcludingTrashed, trashedIdsOf } from "@/lib/trash";
 import { useEffect, useMemo, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import type { TimeRecord } from "@/domain/labor-law/types";
@@ -132,8 +132,9 @@ export function useShiftPlans() {
     const rejectedIds = new Set<string>(rejectedRaw ? (JSON.parse(rejectedRaw) as string[]) : []);
     const rejected = recorded.filter((p) => rejectedIds.has(p.id));
     const removed = trashedIdsOf(trash, "当直シフト");
-    const all = recorded.filter((p) => !rejectedIds.has(p.id) && !removed.has(p.id));
-    const effective = latestBySupersedes(all) as (ShiftPlanPayload & { kind: "shift_plan" })[];
+    const accepted = recorded.filter((p) => !rejectedIds.has(p.id));
+    const effective = latestExcludingTrashed(accepted, removed) as (ShiftPlanPayload & { kind: "shift_plan" })[];
+    const all = accepted.filter((p) => !removed.has(p.id));
     const watches = effective.filter((p) => p.planType === "watch");
     const stations = effective.filter((p) => p.planType === "station");
     // 変更通知 = 既存計画を置き換えた配信。確認日時（端末状態）より新しいものを未読とする

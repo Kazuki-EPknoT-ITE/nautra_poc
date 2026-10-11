@@ -98,9 +98,24 @@ export default function VesselHistoryPage() {
   // 訂正された打刻・差戻し中の打刻は古くても隠さない（確かめるべきものなので）
   const [expandedDate, setExpandedDate] = useState<string | null>(null);
   const hiddenCount = expandedDate === date ? 0 : Math.max(0, rows.length - DAY_LIMIT);
+  // 古くても出すのは「まだ直していない差戻し」と「直近に直した3件」だけ（訂正が重なっても一覧が伸び続けないように）
+  const recentCorrected = useMemo(() => {
+    const replacedAt = new Map<string, string>();
+    // 直した版の ID は端末採番の ULID（作った順に並ぶ）なので、それで「いつ直したか」の順を取る
+    for (const x of records) if (x.supersedesId) replacedAt.set(x.supersedesId, x.id);
+    return new Set(
+      [...replacedAt.entries()]
+        .sort((a, b) => b[1].localeCompare(a[1]))
+        .slice(0, 3)
+        .map(([id]) => id),
+    );
+  }, [records]);
   const visibleRows =
     hiddenCount > 0
-      ? rows.filter((r, i) => i >= hiddenCount || supersededIds.has(r.id) || remandByRecordId.has(r.id))
+      ? rows.filter(
+          (r, i) =>
+            i >= hiddenCount || recentCorrected.has(r.id) || (remandByRecordId.has(r.id) && !supersededIds.has(r.id)),
+        )
       : rows;
 
   /**
@@ -376,7 +391,9 @@ export default function VesselHistoryPage() {
                     {superseded ? <StatusChip level="none" label="訂正済（原本は保持）" /> : null}
                     {remand ? <StatusChip level="violation" label="差戻し" /> : null}
                   </div>
-                  {r.note ? <p className="m-0 text-base text-foreground-500">理由: {r.note}</p> : null}
+                  {r.note ? (
+                    <p className="m-0 text-base text-foreground-500">{r.entryType === "realtime" ? "メモ" : "理由"}: {r.note}</p>
+                  ) : null}
                   {remand ? (
                     <div className="flex flex-col items-start gap-2">
                       <p className="m-0 text-base text-danger">{remand}</p>

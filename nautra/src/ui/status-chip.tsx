@@ -62,7 +62,7 @@ export function StatusChip({
     <span
       className={cn(
         "inline-flex items-center gap-1 whitespace-nowrap rounded-small font-semibold",
-        size === "sm" ? "px-1.5 py-px text-xs" : "px-2 py-[3px] text-xs",
+        size === "sm" ? "px-1.5 py-px text-xs" : size === "lg" ? "px-2.5 py-1 text-base" : "px-2 py-[3px] text-xs",
         LEVEL_CLASS[level],
         tip && "cursor-help",
         className,

@@ -17,7 +17,7 @@ import { useLocale } from "@/lib/use-locale";
 import { advanceWorkTask, recordPunch } from "@/lib/vessel-actions";
 import { useCrewRecords, useMyTasks, useNowTick, useSessionCrew, useShiftPlans } from "@/lib/vessel-hooks";
 import type { WorkTaskPayload } from "@/sync-protocol/masters";
-import { Eyebrow, FlashToast, StatusChip } from "@/ui";
+import { Eyebrow, FlashToast, StatusChip, LineIcon, type LineIconName } from "@/ui";
 import { GroupHeader } from "../_components/group-header";
 
 const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"];
@@ -176,7 +176,7 @@ export default function PunchPage() {
               ? fmtElapsedClock(now.getTime() - running.startAt.getTime())
               : `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}:${String(now.getSeconds()).padStart(2, "0")}`}
           </p>
-          <p className="m-0 mt-1.5 text-lg text-[#99877D]">{running ? "経過" : "現在時刻"}</p>
+          {running ? <p className="m-0 mt-1.5 text-lg text-[#99877D]">経過</p> : null}
         </div>
       </div>
 
@@ -206,7 +206,10 @@ export default function PunchPage() {
                     running ? "border-primary" : overdue ? "border-danger" : "border-transparent",
                   )}
                 >
-                  <span className="text-xl font-bold leading-snug text-foreground-900">{task.title}</span>
+                  <span className="flex items-center gap-3">
+                    <LineIcon name={CATEGORY_ICON[category]} size={32} className="text-primary" />
+                    <span className="text-xl font-bold leading-snug text-foreground-900">{task.title}</span>
+                  </span>
                   <span className="flex flex-wrap items-center gap-2">
                     <StatusChip
                       level={running ? "caution" : "none"}
@@ -266,7 +269,7 @@ export default function PunchPage() {
               : "まだありません"}
           </p>
         </div>
-        {todayRecords.slice(0, 8).map((r) => (
+        {todayRecords.slice(0, 5).map((r) => (
           <div
             key={r.id}
             className="flex items-center gap-3.5 border-b border-[var(--ui-hairline)] px-4 py-2.5"
@@ -274,17 +277,19 @@ export default function PunchPage() {
             <span className="flex-none basis-[104px] font-mono text-lg tabular-nums text-foreground-800">
               {fmtTimeSec(r.occurredAt)}
             </span>
+            <LineIcon name={CATEGORY_ICON[r.workCategory as WorkCategory] ?? "other"} size={22} className="text-foreground-500" />
             <span className="flex-1 text-lg text-foreground-700">
               {tr("workCategory", r.workCategory)}
             </span>
-            <span className="flex-none basis-20 text-base text-foreground-500">
+            <span className="flex-none basis-24 text-base text-foreground-600">
+              <span aria-hidden="true">{r.action === "start" ? "▶ " : "■ "}</span>
               {tr("action", r.action)}
             </span>
             {r.exceptionKind ? (
               <StatusChip level="caution" size="sm" label={`別枠 ${tr("exceptionalWork", r.exceptionKind)}`} />
-            ) : (
+            ) : r.entryType !== "realtime" ? (
               <StatusChip level="none" size="sm" label={tr("entryType", r.entryType)} />
-            )}
+            ) : null}
           </div>
         ))}
         <p className="m-0 px-4 py-3 text-base">
@@ -411,6 +416,16 @@ const CATEGORY_NOTE: Record<string, string> = {
   rest: "労働時間から除外",
 };
 
+/** 作業種別 → 絵（打刻・作業記録・履歴で同じ絵を使う） */
+const CATEGORY_ICON: Record<WorkCategory, LineIconName> = {
+  navigation_watch: "watch",
+  cargo: "cargo",
+  standby: "standby",
+  maintenance: "maintenance",
+  other: "other",
+  rest: "rest",
+};
+
 function WorkTile({
   category,
   assignment,
@@ -432,7 +447,7 @@ function WorkTile({
       aria-pressed={active}
       onClick={onSelect}
       className={cn(
-        "ui-card flex min-h-24 flex-col items-center justify-center gap-1 p-3.5 text-center",
+        "ui-card flex min-h-[148px] flex-col items-center justify-center gap-1 p-3.5 text-center",
         active
           ? // globals.css の材質クラスは utilities より後に定義されるため、
             // 塗りつぶしは important 付きで指定しないと .ui-card の背景に負けて
@@ -441,6 +456,7 @@ function WorkTile({
           : "border-[var(--ui-hairline-strong)] hover:bg-content2",
       )}
     >
+      <LineIcon name={CATEGORY_ICON[category]} size={40} className={active ? "" : "text-primary"} />
       <span className="text-2xl font-bold leading-tight">{tr("workCategory", category)}</span>
       <span className={cn("text-base", active ? "opacity-90" : "text-foreground-500")}>
         {active ? "押すと終了します" : (CATEGORY_NOTE[category] ?? "")}

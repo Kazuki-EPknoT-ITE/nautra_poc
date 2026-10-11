@@ -29,6 +29,7 @@ import { Button, Card, CardBody, CardHeader, Chip, Divider } from "@/ui/heroui";
 import { CrewWatchTable } from "../_components/crew-watch-table";
 import { CaptainShiftEditor } from "../_components/captain-shift-editor";
 import { GroupHeader } from "../_components/group-header";
+import { StationMatrix, WeekTimeline } from "./_components/week-timeline";
 
 /**
  * V-08 シフト・配置表。当直シフト・通常配置表の参照（編集は陸上 S-10）と変更通知。
@@ -166,7 +167,7 @@ export default function ShiftPage() {
 
       {/* 本日の予定と打刻 */}
       <Card shadow="none" className="ui-card">
-        <CardHeader className="font-bold">本日の当直（あなたの分）</CardHeader>
+        <CardHeader className="border-l-4 border-primary pl-3 text-xl font-bold">本日の当直（あなたの分）</CardHeader>
         <Divider />
         <CardBody className="flex flex-col gap-2">
           {withActual.length === 0 ? (
@@ -219,16 +220,13 @@ export default function ShiftPage() {
               </div>
             ))
           )}
-          <p className="text-xs text-foreground-600">
-            予定は陸上が決めた計画、実績はあなたの打刻（01）です。計画を実績で上書きしません。
-          </p>
         </CardBody>
       </Card>
 
       {/* 変更通知 */}
       <Card shadow="none" className={cn("ui-card", myUnread.length > 0 && "border-2 border-warning")}>
         <CardHeader className="flex flex-wrap items-center justify-between gap-2">
-          <span className="font-bold">陸上からのお知らせ（予定の変更）</span>
+          <span className="border-l-4 border-primary pl-3 text-xl font-bold">陸上からのお知らせ（予定の変更）</span>
           {myUnread.length > 0 ? (
             <Button
               size="sm"
@@ -287,7 +285,7 @@ export default function ShiftPage() {
 
       {/* 通常配置表: あなたの持ち場 */}
       <Card shadow="none" className="ui-card">
-        <CardHeader className="font-bold">あなたの持ち場（通常配置表）</CardHeader>
+        <CardHeader className="border-l-4 border-primary pl-3 text-xl font-bold">あなたの持ち場（通常配置表）</CardHeader>
         <Divider />
         <CardBody className="flex flex-col gap-2">
           {STATION_SCENARIOS.map((sc) => {
@@ -310,19 +308,17 @@ export default function ShiftPage() {
 
       {/* 通常配置表: 船内全員 */}
       <Card shadow="none" className="ui-card">
-        <CardHeader className="font-bold">船内の配置（全員）</CardHeader>
+        <CardHeader className="border-l-4 border-primary pl-3 text-xl font-bold">船内の配置（全員）</CardHeader>
         <Divider />
-        <CardBody className="flex flex-col gap-4">
-          {STATION_SCENARIOS.map((sc) => (
-            <div key={sc} className="flex flex-col gap-1">
-              <h3 className="font-bold text-foreground-600">{tr("stationScenario", sc)}</h3>
-              <StationRows
-                rows={stations.filter((s) => s.scenario === sc)}
-                selfId={selfId}
-                changedIds={changedIds}
-              />
-            </div>
-          ))}
+        <CardBody className="p-0">
+          <StationMatrix
+            stations={stations}
+            scenarios={STATION_SCENARIOS}
+            scenarioLabel={(sc) => tr("stationScenario", sc)}
+            crewName={personName}
+            selfId={selfId}
+            changedIds={changedIds}
+          />
         </CardBody>
       </Card>
 
@@ -336,7 +332,7 @@ export default function ShiftPage() {
       {/* 今週の当直（本人。船長は全員表示に切替可） */}
       <Card shadow="none" className="ui-card">
         <CardHeader className="flex flex-wrap items-center justify-between gap-2">
-          <span className="font-bold">今週の当直{canViewAll && showAll ? "（全員）" : "（あなたの分）"}</span>
+          <span className="border-l-4 border-primary pl-3 text-xl font-bold">今週の当直{canViewAll && showAll ? "（全員）" : "（あなたの分）"}</span>
           {canViewAll ? (
             <Button
               size="sm"
@@ -353,78 +349,17 @@ export default function ShiftPage() {
           {canViewAll && showAll ? (
             <CrewWatchTable watches={watches} today={today} changedIds={changedIds} conflictIds={conflictIds} selfId={selfId} />
           ) : (
-            <div className="flex flex-col gap-1">
-              {myWeek.map(({ date, plans }) => (
-                <div
-                  key={date}
-                  className={cn(
-                    "flex flex-wrap items-center gap-3 rounded-medium px-3 py-2",
-                    date === today && "ui-inset font-semibold",
-                  )}
-                >
-                  <span className="w-28 shrink-0 tabular-nums">
-                    {fmtDateLabel(date)}
-                    {date === today ? "（本日）" : ""}
-                  </span>
-                  {plans.length === 0 ? (
-                    <span className="text-foreground-600">当直なし</span>
-                  ) : (
-                    plans.map((p) => (
-                      <span key={p.id} className="tabular-nums">
-                        {p.shiftType ? tr("shiftType", p.shiftType) : ""} {p.from}–{p.to}
-                        {changedIds.has(p.id) ? (
-                          <span className="ml-1 text-warning-700">✎ 変更</span>
-                        ) : null}
-                      </span>
-                    ))
-                  )}
-                </div>
-              ))}
-            </div>
+            <WeekTimeline
+              days={myWeek}
+              today={today}
+              nowMinutes={now.getHours() * 60 + now.getMinutes()}
+              changedIds={changedIds}
+              label={(p) => (p.shiftType ? tr("shiftType", p.shiftType) : "当直")}
+            />
           )}
         </CardBody>
       </Card>
 
     </div>
-  );
-}
-
-/** 場面ごとの配置一覧（自分の行は「あなた」と明示する） */
-function StationRows({
-  rows,
-  selfId,
-  changedIds,
-}: {
-  rows: ShiftPlanPayload[];
-  selfId: string;
-  changedIds: Set<string>;
-}) {
-  if (rows.length === 0) return <p className="text-sm text-foreground-600">配置の登録がありません。</p>;
-  return (
-    <table className="w-full text-sm">
-      <tbody>
-        {rows.map((s) => (
-          <tr
-            key={s.id}
-            className={cn(
-              "border-b border-[var(--ui-hairline)] last:border-b-0",
-              s.crewMemberId === selfId && "bg-content2/60",
-            )}
-          >
-            <td className="px-2 py-2 font-semibold">
-              {personName(s.crewMemberId)}
-              {s.crewMemberId === selfId ? (
-                <span className="ml-1 text-xs text-foreground-600">（あなた）</span>
-              ) : null}
-            </td>
-            <td className="px-2 py-2">{s.station}</td>
-            <td className="px-2 py-2 text-foreground-600">{s.duty}</td>
-            <td className="px-2 py-2 text-right">
-              {changedIds.has(s.id) ? <span className="text-warning-700">✎ 変更</span> : null}
-            </td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
   );
 }
