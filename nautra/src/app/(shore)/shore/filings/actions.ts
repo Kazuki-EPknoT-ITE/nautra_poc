@@ -63,7 +63,7 @@ export async function createFilingAction(
     return {
       ok: true,
       filingId: filing.id,
-      message: `届出の下書きを作りました（対象 ${filing.targets.length}名）。次に添付要件を確認してください。`,
+      message: `下書きを作りました（${filing.targets.length}名）`,
     };
   } catch (e) {
     return { ok: false, message: e instanceof Error ? e.message : String(e) };

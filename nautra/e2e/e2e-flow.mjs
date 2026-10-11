@@ -267,6 +267,15 @@ check(
 await s.goto(`${BASE}/shore/filings`, { waitUntil: "networkidle" });
 const filingText = await s.locator("main").innerText();
 check("陸上: 届出の一覧が出る", /届出/.test(filingText));
+// 作成中の届出は「次へ」の1手だけを出す（レビュー FILING-02）
+await s.goto(`${BASE}/shore/filings?tab=progress`, { waitUntil: "networkidle" });
+{
+  const cards = s.getByRole("region", { name: "作成中の届出" }).locator(":scope > div.ui-card");
+  const n = await cards.count();
+  let oneEach = n > 0;
+  for (let i = 0; i < n; i++) oneEach &&= (await cards.nth(i).getByRole("button", { name: /^次へ:/ }).count()) === 1;
+  check("陸上: 作成中の届出は、カードごとに次の1手だけを出す", oneEach, `${n}件`);
+}
 
 // 手続き・期限（レビュー DEADLINE-01/02）: 独立した画面は無く、届出の「手続き・期限」と船員カルテ・船の管理ページに出る
 await s.goto(`${BASE}/shore/procedures`, { waitUntil: "networkidle" });

@@ -10,7 +10,8 @@ import { cn } from "@/lib/cn";
 export interface Step {
   no: number;
   title: string;
-  note: string;
+  /** 補足の一言（任意） */
+  note?: string;
 }
 
 export function StepBar({
@@ -56,7 +57,7 @@ export function StepBar({
               >
                 {s.title}
               </span>
-              <span className="truncate text-xs font-normal text-foreground-400">{s.note}</span>
+              {s.note ? <span className="truncate text-xs font-normal text-foreground-400">{s.note}</span> : null}
             </span>
           </div>
         );

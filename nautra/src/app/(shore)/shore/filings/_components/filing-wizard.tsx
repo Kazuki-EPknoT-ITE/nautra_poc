@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState, useMemo, useState } from "react";
 import { t } from "@/i18n/ja";
 import type { FilingCandidate } from "@/server/filing-service";
@@ -80,15 +81,13 @@ export function FilingWizard({
 
   return (
     <form action={formAction} className="ui-card flex flex-col gap-4 p-4">
-      <h2 className="font-bold">新しい届出を作る</h2>
-
       <input type="hidden" name="filingType" value={filingType} />
       <input type="hidden" name="method" value={method} />
       <input type="hidden" name="targets" value={JSON.stringify(targets)} />
 
       {/* 手順① 種別・方式 */}
       <div className="ui-inset flex flex-col gap-3 p-3">
-        <h3 className="text-sm font-bold">手順1 どの届出をどの方式で出すか</h3>
+        <h3 className="m-0 text-base font-bold">① 種別・方式</h3>
         <RadioGroup
           orientation="horizontal"
           label="届出の種別"
@@ -112,17 +111,14 @@ export function FilingWizard({
             </Radio>
           ))}
         </RadioGroup>
-        <p className="text-xs text-foreground-500">
-          電子届出・一括届出（登録届出）を選ぶと、窓口へ持参する書類に加えて電子届出用の様式も作ります。
-        </p>
       </div>
 
       {/* 手順② 対象の選択（複数船員・複数船舶） */}
       <div className="ui-inset flex flex-col gap-3 p-3">
-        <h3 className="text-sm font-bold">手順2 対象をまとめて選ぶ（複数の船員・複数の船をまとめて出せます）</h3>
+        <h3 className="m-0 text-base font-bold">② 対象（複数可）</h3>
 
         {candidates.length === 0 ? (
-          <p className="text-sm text-foreground-500">配乗計画に未提出の乗下船予定はありません。</p>
+          <p className="text-sm text-foreground-500">配乗計画からの候補はありません</p>
         ) : (
           <ul className="flex flex-col gap-1">
             {candidates.map((c) => (
@@ -142,7 +138,7 @@ export function FilingWizard({
                 </span>
                 {c.duty ? <span className="text-foreground-600">{c.duty}</span> : null}
                 {c.alreadyFiled ? (
-                  <span className="text-foreground-500">（提出済みの届出にも載っています）</span>
+                  <span className="text-foreground-500">（提出済み）</span>
                 ) : null}
                 {c.blockNoteAtPlanning ? (
                   <span className="text-warning-700">⚠ {c.blockNoteAtPlanning}</span>
@@ -205,21 +201,22 @@ export function FilingWizard({
           </Button>
         </div>
 
-        <p className="text-sm">
-          いま選んでいる対象:{" "}
-          <span className="tabular-nums font-semibold">{targets.length}名</span>
-        </p>
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
         <Button type="submit" color="primary" isLoading={pending} isDisabled={targets.length === 0}>
-          下書きを作る
+          下書きを作る（{targets.length}名）
         </Button>
         {state.message ? (
           <p className={state.ok ? "text-sm font-semibold" : "text-sm text-danger"}>
             {state.ok ? "✓ " : "✕ "}
             {state.message}
           </p>
+        ) : null}
+        {state.ok ? (
+          <Link href="/shore/filings?tab=progress" className="ui-btn-ghost">
+            作成中で続ける →
+          </Link>
         ) : null}
       </div>
     </form>

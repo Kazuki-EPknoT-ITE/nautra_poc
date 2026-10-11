@@ -15,6 +15,8 @@ import { t } from "@/i18n/ja";
 export interface DocumentFormState {
   ok: boolean;
   message: string;
+  /** 作った書類。結果の横から、そのまま印刷へ進めるようにする（レビュー FORM-06） */
+  documentId?: string;
 }
 
 const DENIED: DocumentFormState = {
@@ -66,7 +68,8 @@ export async function createOpinionStatementAction(
     revalidatePath("/shore/documents");
     return {
       ok: true,
-      message: `作成しました: ${published.title}（一覧の「印刷する」から出力できます）`,
+      message: `作成しました: ${published.title}`,
+      documentId: published.id,
     };
   } catch (e) {
     return { ok: false, message: e instanceof Error ? e.message : String(e) };
@@ -89,7 +92,8 @@ export async function createOperationReportAction(
     revalidatePath("/shore/documents");
     return {
       ok: true,
-      message: `作成しました: ${published.title}（一覧の「印刷する」から出力できます）`,
+      message: `作成しました: ${published.title}`,
+      documentId: published.id,
     };
   } catch (e) {
     return { ok: false, message: e instanceof Error ? e.message : String(e) };
@@ -115,7 +119,8 @@ export async function createCrewRegisterAction(
     revalidatePath("/shore/documents");
     return {
       ok: true,
-      message: `作成しました: ${published.title}（一覧の「印刷する」から出力できます）`,
+      message: `作成しました: ${published.title}`,
+      documentId: published.id,
     };
   } catch (e) {
     return { ok: false, message: e instanceof Error ? e.message : String(e) };
@@ -143,7 +148,8 @@ export async function createBulkPermitAction(
     revalidatePath("/shore/documents");
     return {
       ok: true,
-      message: `作成しました: ${published.title}（一覧の「印刷する」から出力できます）`,
+      message: `作成しました: ${published.title}`,
+      documentId: published.id,
     };
   } catch (e) {
     return { ok: false, message: e instanceof Error ? e.message : String(e) };
@@ -171,7 +177,8 @@ export async function createDrillRecordDocAction(
     revalidatePath("/shore/documents");
     return {
       ok: true,
-      message: `作成しました: ${published.title}（一覧の「印刷する」から出力できます）`,
+      message: `作成しました: ${published.title}`,
+      documentId: published.id,
     };
   } catch (e) {
     return { ok: false, message: e instanceof Error ? e.message : String(e) };

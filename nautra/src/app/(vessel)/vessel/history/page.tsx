@@ -55,6 +55,9 @@ function shiftDays(date: string, days: number): string {
  *   直接の修正は誰にもできない（訂正は差戻し → 本人の再入力。ガードレール②）
  * - 事後入力は**理由が必須**。履歴には「事後入力」と残り、後から経緯を追える
  */
+/** 1日の打刻を最初に出す件数 */
+const DAY_LIMIT = 12;
+
 export default function VesselHistoryPage() {
   const session = useSessionCrew();
   const canAfterEntry = usePermission("punch_after_entry");
@@ -91,6 +94,14 @@ export default function VesselHistoryPage() {
         .sort((a, b) => a.occurredAt.localeCompare(b.occurredAt)),
     [records, date],
   );
+  // 1日の打刻は既定で新しい DAY_LIMIT 件だけ（一覧を全件出さない。それより前は「もっと見る」で広げる）。
+  // 訂正された打刻・差戻し中の打刻は古くても隠さない（確かめるべきものなので）
+  const [expandedDate, setExpandedDate] = useState<string | null>(null);
+  const hiddenCount = expandedDate === date ? 0 : Math.max(0, rows.length - DAY_LIMIT);
+  const visibleRows =
+    hiddenCount > 0
+      ? rows.filter((r, i) => i >= hiddenCount || supersededIds.has(r.id) || remandByRecordId.has(r.id))
+      : rows;
 
   /**
    * 陸上からの修正の依頼（レビュー LABOR-06。修正案つきの差戻し）。
@@ -322,7 +333,16 @@ export default function VesselHistoryPage() {
           </p>
         ) : (
           <div>
-            {rows.map((r) => {
+            {visibleRows.length < rows.length ? (
+              <button
+                type="button"
+                className="ui-btn-quiet m-3"
+                onClick={() => setExpandedDate(date)}
+              >
+                前の打刻をもっと見る（{rows.length - visibleRows.length}件）
+              </button>
+            ) : null}
+            {visibleRows.map((r) => {
               const superseded = supersededIds.has(r.id);
               const remand = !superseded ? remandByRecordId.get(r.id) : undefined;
               return (

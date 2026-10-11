@@ -60,7 +60,7 @@ function RequirementTable({ result }: { result: CrewRequirementResult }) {
         </Link>
       </div>
       <ul className="flex flex-col gap-1 text-sm">
-        {result.items.map((item) => {
+        {result.items.filter((item) => item.state !== "ok").map((item) => {
           const style = REQUIREMENT_STYLE[item.state];
           return (
             <li key={item.key} className="flex flex-wrap gap-2">
@@ -72,6 +72,9 @@ function RequirementTable({ result }: { result: CrewRequirementResult }) {
             </li>
           );
         })}
+        {result.items.some((item) => item.state === "ok") ? (
+          <li className="text-foreground-500">✓ ほか {result.items.filter((item) => item.state === "ok").length}項目は満たしています</li>
+        ) : null}
       </ul>
     </div>
   );
@@ -83,11 +86,11 @@ function RequirementTable({ result }: { result: CrewRequirementResult }) {
  * （作ってから不備に気づくと、生成物ごと作り直しになるため。3.8.3⑥）。
  */
 const FILING_STEPS: Step[] = [
-  { no: 1, title: "種別・方式", note: "何をどう出すか" },
-  { no: 2, title: "対象の選択", note: "複数船員・複数船舶" },
-  { no: 3, title: "添付要件チェック", note: "受理保留を先に潰す" },
-  { no: 4, title: "書類の生成", note: "スナップショット保存" },
-  { no: 5, title: "提出の記録", note: "手帳の記帳もここで" },
+  { no: 1, title: "種別・方式" },
+  { no: 2, title: "対象" },
+  { no: 3, title: "添付要件" },
+  { no: 4, title: "書類" },
+  { no: 5, title: "提出" },
 ];
 
 function FilingCard({ row, today }: { row: FilingRow; today: string }) {
@@ -139,39 +142,34 @@ function FilingCard({ row, today }: { row: FilingRow; today: string }) {
 
       {/* 手順③ 添付要件チェッカー（3.8.3⑥）*/}
       <div className="flex flex-col gap-2">
-        <h4 className="text-sm font-bold">
-          添付要件の確認
-          <span className="ml-2 font-normal text-foreground-600">
-            不適合 <span className="tabular-nums">{check.ngCount}</span>件 / 要再確認{" "}
-            <span className="tabular-nums">{check.recheckCount}</span>件
-          </span>
-        </h4>
-        {check.ngCount > 0 ? (
-          <p className="text-sm font-semibold text-danger">
-            ✕ このままでは届出が受理保留になる可能性があります。船員カルテで不足している証書・保険を
-            登録してから提出してください。
-          </p>
-        ) : check.recheckCount > 0 ? (
-          <p className="text-sm font-semibold text-warning-700">
-            ⚠ 要再確認が残っています。期限切れ（不適合）ではありませんが、原本を確認して確認日を
-            更新しておくと安心です。
-          </p>
-        ) : (
-          <p className="text-sm font-semibold text-success">
-            ✓ 添付要件はすべて満たしています。そのまま届け出られます。
-          </p>
-        )}
-        {check.results.map((r) => (
-          <RequirementTable key={r.crewMemberId} result={r} />
-        ))}
+        <div className="flex flex-wrap items-center gap-2">
+          <h4 className="m-0 text-sm font-bold">添付要件</h4>
+          {check.ngCount > 0 ? (
+            <StatusChip
+              level="violation"
+              label={`不適合 ${check.ngCount}件`}
+              hint="このままでは届出が受理保留になるおそれがあります。船員カルテで不足している証書・保険を登録してから提出してください（3.8.3⑥）"
+            />
+          ) : null}
+          {check.recheckCount > 0 ? (
+            <StatusChip
+              level="caution"
+              label={`要再確認 ${check.recheckCount}件`}
+              hint="期限切れではありませんが、原本を確認して確認日を更新しておくと安心です（12.4）"
+            />
+          ) : null}
+          {check.ngCount === 0 && check.recheckCount === 0 ? <StatusChip level="ok" label="すべて満たしています" hint={false} /> : null}
+        </div>
+        {check.results
+          .filter((r) => r.level !== "ok")
+          .map((r) => (
+            <RequirementTable key={r.crewMemberId} result={r} />
+          ))}
       </div>
 
       {/* 手順④ 生成した書類 */}
       <div>
-        <h4 className="text-sm font-bold">生成した書類</h4>
-        {documents.length === 0 ? (
-          <p className="text-sm text-foreground-500">まだ書類を作っていません。</p>
-        ) : (
+        {documents.length === 0 ? null : (
           <ul className="flex flex-col gap-1 text-sm">
             {documents.map((d) => (
               <li key={d.id} className="flex flex-wrap gap-2">
@@ -186,11 +184,8 @@ function FilingCard({ row, today }: { row: FilingRow; today: string }) {
           </ul>
         )}
         {documents.length > 0 ? (
-          <Link
-            href={`/shore/filings/${filing.id}/print`}
-            className="mt-2 inline-block rounded-medium border border-[var(--ui-hairline)] px-3 py-1.5 text-sm"
-          >
-            書類の中身を見る（印刷用）
+          <Link href={`/shore/filings/${filing.id}/print`} className="ui-btn-ghost mt-2 inline-flex">
+            書類を印刷する
           </Link>
         ) : null}
       </div>
@@ -198,7 +193,7 @@ function FilingCard({ row, today }: { row: FilingRow; today: string }) {
       {/* 手順⑤ 提出の記録・船員手帳の記帳 */}
       {isDone ? (
         <div className="ui-inset p-3 text-sm">
-          <p className="font-semibold">船員手帳の記帳情報（電子記録）</p>
+          <p className="font-semibold">船員手帳の記帳</p>
           {(filing.seamanBookEntries ?? []).length === 0 ? (
             <p className="text-foreground-500">記帳情報はありません。</p>
           ) : (
