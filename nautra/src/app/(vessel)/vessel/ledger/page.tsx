@@ -162,6 +162,8 @@ export default function LedgerPage() {
     .filter((b) => b.minutes > 0)
     .sort((a, b) => b.minutes - a.minutes);
   const barScale = Math.max(ruleSet.values.dailyMaxMinutes, ...categoryBars.map((b) => b.minutes));
+  /** 同時に進めた時間（内訳の合計 − 働いた時間）。説明の文の代わりに、帯と札で見せる（WORK-05） */
+  const overlapMinutes = Math.max(0, categoryBars.reduce((n, b) => n + b.minutes, 0) - daily.workedMinutes);
 
   return (
     <div className="flex flex-col gap-4">
@@ -294,6 +296,31 @@ export default function LedgerPage() {
                 </span>
               </div>
             ))}
+            {/* 合計は重なりを1回だけ数える。内訳の合計との差（同時に進めた時間）は札で示す */}
+            <div className="mt-1 flex items-center gap-3.5 border-t border-[var(--ui-hairline)] pt-3">
+              <span className="flex-none basis-32 text-lg font-bold text-foreground-900">合計</span>
+              <span className="relative block flex-1">
+                <span className="block h-5 overflow-hidden rounded-[2px] bg-[#DFE1E0]">
+                  <span
+                    className="block h-full bg-primary"
+                    style={{ width: `${Math.min(100, (daily.workedMinutes / barScale) * 100)}%` }}
+                  />
+                </span>
+              </span>
+              <span className="flex-none basis-[66px] text-right font-mono text-xl font-bold tabular-nums text-foreground-900">
+                {fmtMinutes(daily.workedMinutes)}
+              </span>
+            </div>
+            {overlapMinutes > 0 ? (
+              <p className="m-0 mt-2 flex justify-end">
+                <StatusChip
+                  level="none"
+                  size="sm"
+                  label={`⧉ 同時に進めた時間 ${fmtMinutes(overlapMinutes)}`}
+                  hint="同じ時間に2つの作業を進めた分は、合計では1回だけ数えます"
+                />
+              </p>
+            ) : null}
           </div>
         </section>
       ) : null}
@@ -605,9 +632,6 @@ function CrewOverview({
             </button>
           );
         })}
-        <p className="text-xs text-foreground-600">
-          名前を押すと、その船員の内訳を上に表示します。打刻の修正は本人への差戻しで依頼します。
-        </p>
       </CardBody>
     </SurfaceCard>
   );

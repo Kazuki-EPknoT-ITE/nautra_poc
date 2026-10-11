@@ -15,6 +15,8 @@ import {
   type SyncEvent,
 } from "@/sync-protocol/events";
 import type { RecordKind, RecordPayloadByKind } from "@/sync-protocol/records";
+import { carryOverFields } from "./master-fields";
+import type { WorkTaskPayload } from "@/sync-protocol/masters";
 import { ulid } from "./ids";
 import { getMeta, setMeta, toRecordRow, vesselDb } from "./vessel-db";
 import { isOfflineSim, syncNow } from "./vessel-sync";
@@ -242,4 +244,30 @@ export async function getSelectedCrewId(): Promise<string | undefined> {
 
 export async function setSelectedCrewId(id: string): Promise<void> {
   await setMeta("selectedCrewId", id);
+}
+
+/**
+ * 割り当てられた作業の状態を進める（船内から。追記で表し、前の版は残る。レビュー PUNCH-05）。
+ * 作業指示は陸上・船長が起票し、船内が状態を進める（レジストリの origin: both）。
+ */
+export async function advanceWorkTask(
+  task: WorkTaskPayload,
+  next: WorkTaskPayload["state"],
+  actor: string,
+  doneNote?: string,
+): Promise<WorkTaskPayload> {
+  const now = new Date();
+  const base = await newRecordBase(actor, now, task.id);
+  // 端末の行は種別（kind）を足して持っているので、記録の中身には持ち込まない
+  const { kind: _kind, ...fields } = carryOverFields(task as unknown as Record<string, unknown>);
+  void _kind;
+  const payload = {
+    ...fields,
+    ...base,
+    publishedAt: now.toISOString(),
+    publishedBy: actor,
+    state: next,
+    doneNote: doneNote ?? task.doneNote,
+  } as WorkTaskPayload;
+  return appendRecord("work_task", payload);
 }

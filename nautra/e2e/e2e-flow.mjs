@@ -157,6 +157,7 @@ check(
   /4週/.test(ledgerText) && !/PoC対象外/.test(ledgerText),
   ledgerText.match(/この4週間[^\n]{0,40}/)?.[0] ?? "",
 );
+check("船内: 作業ごとの時間の下に合計が出る（説明の文は置かない。レビュー WORK-05）", /合計/.test(ledgerText) && !/名前を押すと/.test(ledgerText));
 
 // 航海日誌: 「日誌を記録する」で書き、「過去の日誌」でキーワードと期間で探せる（レビュー LOG-02/03）
 await v.goto(`${BASE}/vessel/logbook`, { waitUntil: "networkidle" });
@@ -500,6 +501,34 @@ check(
   await mp.waitForTimeout(1500);
   const note = tb.getByRole("button", { name: new RegExp(`^${title}`) });
   check("陸上: 作業指示のボードで、船員の列の「＋」から作業を作れる", (await note.count()) > 0);
+  // 船内: 割り当てた作業が本人の打刻画面にカードで出て、押して始めると「着手中」になる（レビュー PUNCH-05）
+  {
+    await v.goto(`${BASE}/vessel/sync`, { waitUntil: "networkidle" });
+    await v.getByRole("button", { name: "いま同期する" }).click();
+    await v.waitForTimeout(2500);
+    await v.goto(`${BASE}/vessel/punch`, { waitUntil: "networkidle" });
+    await v.waitForTimeout(800);
+    const assigned = v.getByRole("region", { name: "割り当てられた作業" });
+    const card = assigned.getByRole("button", { name: new RegExp(title) });
+    check("船内: 割り当てられた作業が打刻画面にカードで出る", (await card.count()) > 0);
+    if (await card.count()) {
+      await card.click();
+      await v.getByRole("button", { name: /^はい、/ }).click();
+      await v.waitForTimeout(1200);
+      check("船内: 作業のカードから始めると「進行中」になる", /進行中/.test(await card.innerText()));
+      // 片付け: 同じカードで終える（完了にはしない）
+      await card.click();
+      await v.getByRole("button", { name: /^はい、/ }).click();
+      await v.waitForTimeout(1200);
+      await v.goto(`${BASE}/vessel/sync`, { waitUntil: "networkidle" });
+      await v.getByRole("button", { name: "いま同期する" }).click();
+      await v.waitForTimeout(2500);
+      const syncText = await v.locator("main").innerText();
+      check("船内: 同期の画面は日常語で、仕組みの言葉を出さない（レビュー SYNC-02/03）", /すべて送りました|送っていない記録/.test(syncText) && !/カーソル|IndexedDB|イベント|キュー/.test(syncText));
+      await mp.goto(`${BASE}/shore/tasks`, { waitUntil: "networkidle" });
+      check("陸上: 船内で始めた作業はボードで「着手中」になる", /着手中/.test((await tb.getByRole("button", { name: new RegExp(`^${title}`) }).getAttribute("aria-label")) ?? ""));
+    }
+  }
   // 同じ船の「未割当」の列（各船の最初の列）へ動かす
   await note.dragTo(tb.locator('[role="group"]').first());
   await mp.waitForTimeout(1500);

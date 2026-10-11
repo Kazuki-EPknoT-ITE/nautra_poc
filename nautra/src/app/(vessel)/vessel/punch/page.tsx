@@ -10,12 +10,13 @@ import {
   type ExceptionalWorkKind,
   type WorkCategory,
 } from "@/domain/labor-law/types";
-import { assignedWorkFor } from "@/lib/assigned-work";
+import { assignedWorkFor, workCategoryForTask } from "@/lib/assigned-work";
 import { cn } from "@/lib/cn";
 import { fmtElapsedClock, fmtTimeSec } from "@/lib/format";
 import { useLocale } from "@/lib/use-locale";
-import { recordPunch } from "@/lib/vessel-actions";
-import { useCrewRecords, useNowTick, useSessionCrew, useShiftPlans } from "@/lib/vessel-hooks";
+import { advanceWorkTask, recordPunch } from "@/lib/vessel-actions";
+import { useCrewRecords, useMyTasks, useNowTick, useSessionCrew, useShiftPlans } from "@/lib/vessel-hooks";
+import type { WorkTaskPayload } from "@/sync-protocol/masters";
 import { Eyebrow, FlashToast, StatusChip } from "@/ui";
 import { GroupHeader } from "../_components/group-header";
 
@@ -49,9 +50,14 @@ export default function PunchPage() {
    * 2段階操作の2段目。作業をタップすると、確認のための問いかけを開く
    * （デザインの `punchConfirmOpen`）。ここで初めて記録が確定する。
    */
-  const [pending, setPending] = useState<{ category: WorkCategory; action: "start" | "end" } | null>(
-    null,
-  );
+  const [pending, setPending] = useState<{
+    category: WorkCategory;
+    action: "start" | "end";
+    /** 割り当てられた作業から打刻するとき、その作業（PUNCH-05） */
+    task?: WorkTaskPayload;
+  } | null>(null);
+  /** 作業から打刻して終えるとき、その作業を完了にするか */
+  const [completeTask, setCompleteTask] = useState(false);
 
   /**
    * 安全臨時労働・緊急作業の別枠（要件定義書 3.2.5⑥）。
@@ -63,6 +69,7 @@ export default function PunchPage() {
 
   function closeConfirm() {
     setPending(null);
+    setCompleteTask(false);
     setIsExceptional(false);
     setExceptionKind("safety_emergency");
     setExceptionNote("");
@@ -77,6 +84,8 @@ export default function PunchPage() {
   );
 
   const myRecords = useCrewRecords(myId);
+  // 陸上・船長から割り当てられた作業（PUNCH-05）。打刻のカードとして並べる
+  const myTasks = useMyTasks(myId);
 
   const openIntervals = useMemo(
     () => buildIntervals(myRecords).filter((iv) => iv.endAt === null),
@@ -106,13 +115,22 @@ export default function PunchPage() {
       return;
     }
     try {
+      const taskNote = pending.task ? `作業: ${pending.task.title}` : undefined;
       const rec = await recordPunch({
         crewMemberId: session.id,
         workCategory: pending.category,
         action: pending.action,
         exceptionKind: useException ? exceptionKind : undefined,
-        note: useException ? exceptionNote.trim() : undefined,
+        note: useException ? exceptionNote.trim() : taskNote,
       });
+      // 作業から始めたら「着手中」、終えて完了を選んだら「完了」にする（追記。陸上の作業指示に届く）
+      if (pending.task) {
+        if (pending.action === "start" && pending.task.state === "todo") {
+          await advanceWorkTask(pending.task, "doing", session.id);
+        } else if (pending.action === "end" && completeTask) {
+          await advanceWorkTask(pending.task, "done", session.id);
+        }
+      }
       setFlash(
         `${tr("workCategory", pending.category)} を${tr("action", pending.action)}しました（${fmtTimeSec(rec.occurredAt)}）` +
           (useException ? `／${tr("exceptionalWork", exceptionKind)}として上限の計算から外します` : ""),
@@ -166,6 +184,45 @@ export default function PunchPage() {
         <p className="m-0 rounded-small bg-warning-100 px-4 py-3 text-lg text-warning-700">
           ⚠ {LONG_OPEN_HOURS}時間以上 進行中です。終了打刻の忘れがないか確認してください。
         </p>
+      ) : null}
+
+      {/* 割り当てられた作業（PUNCH-05）。押すと、その作業として打刻を始める・終える */}
+      {myTasks.length > 0 ? (
+        <section aria-label="割り当てられた作業" className="flex flex-col gap-2">
+          <h2 className="m-0 text-xl font-bold text-foreground-900">割り当てられた作業</h2>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {myTasks.slice(0, 6).map((task) => {
+              const category = workCategoryForTask(task.title);
+              const running = openCategories.has(category) && task.state === "doing";
+              const due = task.dueAt ? task.dueAt.slice(0, 10) : null;
+              const overdue = due !== null && due < today;
+              return (
+                <button
+                  key={task.id}
+                  type="button"
+                  onClick={() => setPending({ category, action: running ? "end" : "start", task })}
+                  className={cn(
+                    "ui-card flex min-h-[120px] flex-col items-start gap-2 border-2 p-4 text-left",
+                    running ? "border-primary" : overdue ? "border-danger" : "border-transparent",
+                  )}
+                >
+                  <span className="text-xl font-bold leading-snug text-foreground-900">{task.title}</span>
+                  <span className="flex flex-wrap items-center gap-2">
+                    <StatusChip
+                      level={running ? "caution" : "none"}
+                      size="sm"
+                      label={running ? "進行中" : task.state === "doing" ? "着手中" : "未着手"}
+                    />
+                    {due ? (
+                      <StatusChip level={overdue ? "violation" : "none"} size="sm" label={`期限 ${due.slice(5).replace("-", "/")}`} />
+                    ) : null}
+                    <span className="text-base text-foreground-600">{tr("workCategory", category)}</span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </section>
       ) : null}
 
       {/* 作業のタイル（デザイン正本の `punchButtons`）。押すと確認の問いかけが開く（2段階の1段目）。
@@ -230,10 +287,8 @@ export default function PunchPage() {
             )}
           </div>
         ))}
-        <p className="m-0 px-4 py-3 text-base leading-relaxed text-foreground-500">
-          打刻はまず端末内に保存され、通信が戻ったときに自動で送られます。押した記録はあとから
-          書き換えられません。
-          <Link href="/vessel/history" className="ml-2 text-primary underline underline-offset-2">
+        <p className="m-0 px-4 py-3 text-base">
+          <Link href="/vessel/history" className="text-primary underline underline-offset-2">
             履歴・事後入力を見る →
           </Link>
         </p>
@@ -248,7 +303,15 @@ export default function PunchPage() {
               <h2 className="m-0 mt-2 text-4xl font-bold leading-snug text-foreground-900">
                 {tr("workCategory", pending.category)} を{tr("action", pending.action)}します
               </h2>
+              {pending.task ? <p className="m-0 mt-2 text-xl text-foreground-700">作業: {pending.task.title}</p> : null}
             </div>
+
+            {pending.task && pending.action === "end" ? (
+              <label className="flex cursor-pointer items-center gap-3 border-b border-[var(--ui-hairline)] px-7 py-4">
+                <input type="checkbox" checked={completeTask} onChange={(e) => setCompleteTask(e.target.checked)} className="h-6 w-6" />
+                <span className="text-lg text-foreground-800">この作業を完了にする</span>
+              </label>
+            ) : null}
 
             {/* 3.2.5⑥ 安全臨時労働・緊急作業の別枠。既定はオフ（誤って常用させない） */}
             {pending.action === "start" ? (

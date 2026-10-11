@@ -238,3 +238,18 @@ export function useCrewPhotos(): Map<string, string> {
     return map;
   }, [rows]);
 }
+
+/**
+ * 自分に割り当てられた、まだ終わっていない作業（作業指示。レビュー PUNCH-05）。
+ * 陸上・船長が割り当てたものが同期で届く。外された作業（ゴミ箱）は出さない。期限の早い順。
+ */
+export function useMyTasks(crewMemberId: string) {
+  const tasks = useRecords("work_task");
+  const trash = useRecords("trash_entry");
+  return useMemo(() => {
+    const removed = trashedIdsOf(trash, "作業タスク");
+    return latestBySupersedes(tasks)
+      .filter((t) => t.assigneeCrewId === crewMemberId && t.state !== "done" && !removed.has(t.id))
+      .sort((a, b) => (a.dueAt ?? "9999").localeCompare(b.dueAt ?? "9999"));
+  }, [tasks, trash, crewMemberId]);
+}
