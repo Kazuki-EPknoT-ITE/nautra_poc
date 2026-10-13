@@ -156,27 +156,28 @@ export default function PunchPage() {
         進行中の作業（暗い帯）。**いま何をしているか**と**どれだけ経ったか**だけを、
         離れて立っていても読める大きさで出す。進行中が無いときは現在時刻を主役にする。
       */}
-      <div className="ui-dark flex flex-wrap items-center justify-between gap-4 px-6 py-5">
+      <div className="ui-dark flex flex-wrap items-center justify-between gap-6 border-l-[6px] border-primary px-7 py-6">
         <div className="min-w-0">
-          <Eyebrow tone="muted" className="text-[#99877D]">
+          <p className="m-0 flex items-center gap-2 text-xl font-bold tracking-[0.08em] text-[#99877D]">
+            <span aria-hidden="true" className={running ? "text-primary" : undefined}>●</span>
             {running ? "進行中の作業" : "現在時刻"}
-          </Eyebrow>
-          <p className="m-0 mt-1.5 text-4xl font-bold text-white">
+          </p>
+          <p className="m-0 mt-2 text-5xl font-bold leading-tight text-white">
             {running ? tr("workCategory", running.workCategory) : `${now.getMonth() + 1}/${now.getDate()}（${WEEKDAYS[now.getDay()]}）`}
           </p>
           {running ? (
-            <p className="m-0 mt-1.5 text-lg text-[#DFE1E0]">
+            <p className="m-0 mt-2 font-mono text-xl font-semibold tabular-nums text-[#DFE1E0]">
               {`開始 ${fmtTimeSec(running.startAt.toISOString())}${openIntervals.length > 1 ? ` ／ ほかに${openIntervals.length - 1}件 進行中` : ""}`}
             </p>
           ) : null}
         </div>
         <div className="flex-none text-right">
-          <p className="m-0 font-mono text-6xl font-semibold leading-none tracking-[0.01em] tabular-nums text-white">
+          <p className="m-0 font-mono text-7xl font-bold leading-none tracking-[0.02em] tabular-nums text-white">
             {running
               ? fmtElapsedClock(now.getTime() - running.startAt.getTime())
               : `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}:${String(now.getSeconds()).padStart(2, "0")}`}
           </p>
-          {running ? <p className="m-0 mt-1.5 text-lg text-[#99877D]">経過</p> : null}
+          {running ? <p className="m-0 mt-2 text-lg font-bold text-[#99877D]">経過</p> : null}
         </div>
       </div>
 
