@@ -31,12 +31,9 @@ function parseLocal(dateStr: string, timeStr: string): Date {
   return d;
 }
 
-function dayLabel(date: string, today: string): string {
+/** 日付は「10/13（火）」の形だけで出す（今日・昨日・一昨日の言い換えはしない） */
+function dayLabel(date: string): string {
   const d = startOfLocalDay(date);
-  const diff = Math.round((startOfLocalDay(today).getTime() - d.getTime()) / 86_400_000);
-  if (diff === 0) return "今日";
-  if (diff === 1) return "昨日";
-  if (diff === 2) return "一昨日";
   return `${d.getMonth() + 1}/${d.getDate()}（${WEEKDAYS[d.getDay()]}）`;
 }
 
@@ -282,7 +279,7 @@ export default function VesselHistoryPage() {
             return (
               <div key={a.id} className="flex flex-col gap-2 border-b border-[var(--ui-hairline)] px-4 py-3 last:border-b-0">
                 <p className="m-0 flex flex-wrap items-baseline gap-2.5 text-lg">
-                  <span className="font-mono text-base text-foreground-500">{dayLabel(a.date, today)}</span>
+                  <span className="font-mono text-base text-foreground-500">{dayLabel(a.date)}</span>
                   {target ? (
                     <>
                       <span className="font-mono tabular-nums text-foreground-500 line-through">
@@ -320,7 +317,7 @@ export default function VesselHistoryPage() {
       ) : null}
 
       <Section
-        title={`${dayLabel(date, today)} の打刻`}
+        title={`${dayLabel(date)} の打刻`}
         note={isViewingOther ? `${personName(viewCrewId)} の記録` : undefined}
         bodyClassName="p-0"
       >

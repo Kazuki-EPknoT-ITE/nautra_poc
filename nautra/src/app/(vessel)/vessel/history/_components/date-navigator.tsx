@@ -19,14 +19,10 @@ const longLabel = (ymd: string) => {
   const d = startOfLocalDay(ymd);
   return `${d.getMonth() + 1}月${d.getDate()}日（${WEEKDAYS[d.getDay()]}）`;
 };
-const relativeLabel = (ymd: string, today: string) => {
-  const diff = Math.round((startOfLocalDay(today).getTime() - startOfLocalDay(ymd).getTime()) / 86_400_000);
-  return diff === 0 ? "今日" : diff === 1 ? "昨日" : diff === 2 ? "一昨日" : null;
-};
 const markLabel = (m?: DayMark) => (m === "remand" ? "・差戻しあり" : m === "records" ? "・打刻あり" : "");
 
 /**
- * 日付の選び方（一般的なカレンダーアプリの形）。いちばん上に選んだ日を大きく出し、
+ * 日付の選び方（一般的なカレンダーアプリの形）。いちばん上に選んだ日を大きく出し（今日・昨日などの言い換えは付けない）、
  * 下に**その週の7日の帯**（‹ › で週を送る）、「カレンダー」で**月の暦**を開く。
  * 打刻がある日は点、まだ直していない差戻しがある日はレンガの点で示す（文字を読まずに探せるように）。
  * 未来の日は選べない。
@@ -53,14 +49,12 @@ export function DateNavigator({
 
   const weekStart = addDays(value, -startOfLocalDay(value).getDay());
   const week = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
-  const rel = relativeLabel(value, today);
 
   return (
     <section aria-label="日付を選ぶ" className="ui-card flex flex-col gap-3 px-4 py-3">
       <div className="flex flex-wrap items-center gap-3">
-        <p className="m-0 flex items-baseline gap-3" aria-live="polite">
-          <span className="text-3xl font-bold text-foreground-900">{longLabel(value)}</span>
-          {rel ? <span className="text-lg font-bold text-primary">{rel}</span> : null}
+        <p className="m-0 text-3xl font-bold text-foreground-900" aria-live="polite">
+          {longLabel(value)}
         </p>
         <span className="ml-auto flex gap-2">
           <button
