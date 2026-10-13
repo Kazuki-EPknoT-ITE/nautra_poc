@@ -20,6 +20,7 @@ import {
 import { Section, StatusChip } from "@/ui";
 import { Select, SelectItem } from "@/ui/heroui";
 import { GroupHeader } from "../_components/group-header";
+import { DateNavigator, type DayMark } from "./_components/date-navigator";
 
 const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"];
 
@@ -37,12 +38,6 @@ function dayLabel(date: string, today: string): string {
   if (diff === 1) return "昨日";
   if (diff === 2) return "一昨日";
   return `${d.getMonth() + 1}/${d.getDate()}（${WEEKDAYS[d.getDay()]}）`;
-}
-
-function shiftDays(date: string, days: number): string {
-  const d = startOfLocalDay(date);
-  d.setDate(d.getDate() + days);
-  return ymdLocal(d);
 }
 
 /**
@@ -110,6 +105,17 @@ export default function VesselHistoryPage() {
         .map(([id]) => id),
     );
   }, [records]);
+  /** 打刻のある日（点）と、まだ直していない差戻しのある日（レンガの点）。日付の帯と暦に出す */
+  const dayMarks = useMemo(() => {
+    const map = new Map<string, DayMark>();
+    for (const r of records) {
+      const d = ymdLocal(new Date(r.occurredAt));
+      if (remandByRecordId.has(r.id) && !supersededIds.has(r.id)) map.set(d, "remand");
+      else if (!map.has(d)) map.set(d, "records");
+    }
+    return map;
+  }, [records, remandByRecordId, supersededIds]);
+
   const visibleRows =
     hiddenCount > 0
       ? rows.filter(
@@ -235,35 +241,11 @@ export default function VesselHistoryPage() {
 
   if (!session) return null;
 
-  const quickDays = [today, shiftDays(today, -1), shiftDays(today, -2)];
-
   return (
     <div className="flex flex-col gap-4">
       <GroupHeader group="01" subtitle="打刻の履歴と事後入力" />
 
-      <div className="flex flex-wrap items-center gap-2.5">
-        {quickDays.map((d) => (
-          <button
-            key={d}
-            type="button"
-            onClick={() => setDate(d)}
-            aria-pressed={date === d}
-            className={cn("ui-btn-ghost min-h-[52px] text-lg", date === d && "ui-btn-selected")}
-          >
-            {dayLabel(d, today)}
-          </button>
-        ))}
-        <label className="ml-auto inline-flex min-h-[52px] cursor-pointer items-center gap-2.5 rounded-small border border-[var(--ui-hairline-strong)] bg-content1 px-3.5">
-          <span className="text-lg text-foreground-500">日付を指定</span>
-          <input
-            type="date"
-            value={date}
-            max={today}
-            onChange={(e) => setDate(e.target.value)}
-            className="cursor-pointer border-none bg-transparent font-mono text-xl text-foreground-800"
-          />
-        </label>
-      </div>
+      <DateNavigator value={date} today={today} onChange={setDate} marks={dayMarks} />
 
       {canAdjustCrew ? (
         <Section

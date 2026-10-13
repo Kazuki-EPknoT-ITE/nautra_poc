@@ -149,6 +149,33 @@ check(
   const todayList = await v.getByRole("region", { name: "本日の打刻" }).innerText();
   check("船内: 打刻のタイルに絵が付き、本日の打刻は札で埋めない", icons >= 6 && !/即時打刻/.test(todayList), `絵 ${icons}`);
 }
+// 打刻の履歴: 日付は一般的なアプリの形で選ぶ（選んだ日を大きく・週の7日の帯・月のカレンダー。打刻のある日は点）
+await v.goto(`${BASE}/vessel/history`, { waitUntil: "networkidle" });
+await v.waitForTimeout(600);
+{
+  const nav = v.getByRole("region", { name: "日付を選ぶ" });
+  const heading = async () => (await nav.locator("p").first().innerText()).trim();
+  const todayHead = await heading();
+  const weekCells = await nav.getByRole("group", { name: "この週の日付" }).getByRole("button").count();
+  const hasMark = (await nav.getByRole("button", { name: /打刻あり|差戻しあり/ }).count()) > 0;
+  await nav.getByRole("button", { name: "前の週" }).click();
+  const prevHead = await heading();
+  await nav.getByRole("button", { name: "カレンダー" }).click();
+  const cal = v.getByRole("dialog", { name: "月のカレンダー" });
+  const calOpen = (await cal.count()) > 0;
+  const firstDay = cal.getByRole("button", { name: /^\d+月1日/ });
+  await firstDay.click();
+  const pickedHead = await heading();
+  const calClosed = (await cal.count()) === 0;
+  await nav.getByRole("button", { name: "今日", exact: true }).click();
+  const backHead = await heading();
+  check(
+    "船内: 履歴の日付は週の帯・前後の週・月のカレンダー・今日で選べ、打刻のある日に点が付く",
+    weekCells === 7 && hasMark && prevHead !== todayHead && calOpen && /月1日/.test(pickedHead) && calClosed && backHead === todayHead,
+    `${todayHead} → ${prevHead} → ${pickedHead} → ${backHead}`,
+  );
+}
+
 // 作業記録（レビュー TASKREC-02）: 記録の入口は絵が主役の大きなタイル
 await v.goto(`${BASE}/vessel/work`, { waitUntil: "networkidle" });
 check("船内: 作業記録の入口は絵のタイル（4つ）", (await v.locator("main button svg").count()) >= 4);

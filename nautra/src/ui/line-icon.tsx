@@ -14,7 +14,8 @@ export type LineIconName =
   | "other"
   | "rest"
   | "fuel"
-  | "handover";
+  | "handover"
+  | "calendar";
 
 const PATHS: Record<LineIconName, React.ReactNode> = {
   // 舵輪（航海当直）
@@ -65,6 +66,14 @@ const PATHS: Record<LineIconName, React.ReactNode> = {
   handover: (
     <>
       <path d="M4 8h14l-3-3M20 16H6l3 3" />
+    </>
+  ),
+  // 暦（日付を選ぶ）
+  calendar: (
+    <>
+      <rect x="3.5" y="5" width="17" height="15.5" rx="1" />
+      <path d="M3.5 10h17M8 3v4M16 3v4" />
+      <path d="M8 14h2M14 14h2M8 17.5h2" />
     </>
   ),
 };
