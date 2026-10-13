@@ -22,6 +22,16 @@ export function makeIdempotencyKey(deviceId: string, eventId: string): string {
   return `${deviceId}:${eventId}`;
 }
 
+/**
+ * 配信範囲（8.1 差分配信）。既定は `all`（船内端末にも配る）。
+ *
+ * `shore_only` は**船内へ配らない**エンティティ。陸上の事務アカウントのように
+ * 船内端末が一度も読まないものまで配ると、細い回線を無駄に使ううえ、
+ * 共用端末に置く理由のない情報が端末に残るため（10.1 / 10.3）。
+ * 判定は `isVesselDistributable` だけを通し、配信側に条件を散らさない。
+ */
+export type Distribution = "all" | "shore_only";
+
 /** 競合ポリシー種別（8.3 の分類を列挙型で保持し、エンティティごとに宣言する） */
 export type ConflictPolicy =
   | "append_only" // 打刻・一次記録: 追記のみ。競合は構造的に発生しない
@@ -35,6 +45,8 @@ const workCategorySchema = z.enum([
   "standby",
   "maintenance",
   "other",
+  // 休息は労働時間に数えないが、打刻としては積む（domain/labor-law/types.ts の countsAsWork）
+  "rest",
 ]);
 
 export const timeRecordPayloadSchema = z
@@ -51,6 +63,8 @@ export const timeRecordPayloadSchema = z
     recordedBy: z.string(),
     deviceId: z.string(),
     note: z.string().optional(),
+    /** 陸上の修正案（差戻しに添えたもの）に本人が同意して入れた打刻なら、その差戻しの ID（LABOR-06） */
+    proposalId: z.string().optional(),
   })
   .passthrough(); // 未知フィールドは破棄せず往復保全（8.6）
 
@@ -66,6 +80,19 @@ export const approvalPayloadSchema = z
     /** 差戻し時の対象レコードID */
     targetRecordId: z.string().optional(),
     reason: z.string().optional(),
+    /**
+     * 修正案（レビュー LABOR-06）。陸上の労務管理責任者が「正しくはこう」と添える。
+     * `change` は targetRecordId の打刻を直す案、`add` は押し忘れた打刻を足す案。
+     * 打刻を入れるのは本人（船内で「この内容で直す」を押す）で、陸上は打刻を書かない。
+     */
+    proposal: z
+      .object({
+        kind: z.enum(["change", "add"]),
+        workCategory: workCategorySchema,
+        action: z.enum(["start", "end"]),
+        occurredAt: z.string(),
+      })
+      .optional(),
     approvedBy: z.string(),
     approverRole: z.enum(["captain", "labor_manager"]),
     decidedAt: z.string(),
@@ -107,10 +134,14 @@ export const SYNC_ENTITY_REGISTRY = {
     policy: "append_only",
     origin: "vessel",
   },
+  // 当直・配置の計画は陸上が正本。ただし**船長だけ**は船内でも作成・変更できる（レビュー SHIFT-04。利用者の判断）。
+  // 船内端末から届いた計画は、記録者が船長でなければ隔離する（checkVesselAuthorPolicy）。
+  // 陸上と船長が同じ計画を別々に変えた場合は双方を残し「競合（要確認）」として示す（自動では解決しない）
   shift_plan: {
     payload: RECORD_PAYLOAD_SCHEMAS.shift_plan,
     policy: "plan_actual_split",
-    origin: "shore",
+    origin: "both",
+    vesselAuthorRole: "captain",
   },
   // 船内へのお知らせ・速報: 陸上が正本（船内は参照のみ）
   notice: {
@@ -129,11 +160,27 @@ export const SYNC_ENTITY_REGISTRY = {
      船内での変更は「変更依頼」として起票し、陸上の承認を経て反映する。
      船内端末から直接 Push された場合は checkOriginPolicy で隔離される（破棄しない）。 */
   crew_master: { payload: RECORD_PAYLOAD_SCHEMAS.crew_master, policy: "shore_priority", origin: "shore" },
+  // 顔写真（マスタとは別に持つ。差し替えでマスタの版を増やさない）
+  crew_photo: { payload: RECORD_PAYLOAD_SCHEMAS.crew_photo, policy: "shore_priority", origin: "shore" },
+  // 船員マスタの追加項目の定義（CREWEDIT-04）。入力は陸上の S-04 だけなので船内へは配らない
+  crew_field_def: {
+    payload: RECORD_PAYLOAD_SCHEMAS.crew_field_def,
+    policy: "shore_priority",
+    origin: "shore",
+    distribution: "shore_only",
+  },
   credential: { payload: RECORD_PAYLOAD_SCHEMAS.credential, policy: "shore_priority", origin: "shore" },
   vessel_master: {
     payload: RECORD_PAYLOAD_SCHEMAS.vessel_master,
     policy: "shore_priority",
     origin: "shore",
+  },
+  // 船の写真（VESSEL-03）。陸上の画面でだけ使うので船内へは配らない（回線を写真で埋めない）
+  vessel_photo: {
+    payload: RECORD_PAYLOAD_SCHEMAS.vessel_photo,
+    policy: "shore_priority",
+    origin: "shore",
+    distribution: "shore_only",
   },
   // 乗下船・配乗計画は「計画は陸上・実績は船内の別レコード」（12.5 計画/実績分離）
   embarkation: {
@@ -210,15 +257,79 @@ export const SYNC_ENTITY_REGISTRY = {
     policy: "append_only",
     origin: "both",
   },
+  // 作業指示（S-16）: 陸上・船長が起票し、船内が状態を進める。付け替えは supersedesId
+  work_task: {
+    payload: RECORD_PAYLOAD_SCHEMAS.work_task,
+    policy: "shore_priority",
+    origin: "both",
+  },
+  // 削除・アーカイブの記録（S-18）: 陸上の操作だけが積む
+  trash_entry: {
+    payload: RECORD_PAYLOAD_SCHEMAS.trash_entry,
+    policy: "shore_priority",
+    origin: "shore",
+  },
+  // 陸上アプリのユーザーアカウント（10.3）: 船内端末では使わないので配らない
+  shore_user: {
+    payload: RECORD_PAYLOAD_SCHEMAS.shore_user,
+    policy: "shore_priority",
+    origin: "shore",
+    distribution: "shore_only",
+  },
   // 監査証跡（12.6）: 陸上・船内・外部連携のいずれからも積まれる追記専用ログ
   audit_log: { payload: RECORD_PAYLOAD_SCHEMAS.audit_log, policy: "append_only", origin: "both" },
 } as const satisfies Record<
   string,
-  { payload: z.ZodTypeAny; policy: ConflictPolicy; origin: "vessel" | "shore" | "both" }
+  {
+    payload: z.ZodTypeAny;
+    policy: ConflictPolicy;
+    origin: "vessel" | "shore" | "both";
+    distribution?: Distribution;
+    /** 船内端末から積めるのはこのロールの記録者だけ（origin が both の種別に限って使う） */
+    vesselAuthorRole?: string;
+  }
 >;
 
 export type SyncKind = keyof typeof SYNC_ENTITY_REGISTRY;
+
+/**
+ * 船内端末へ配ってよい種別か（差分配信の絞り込み）。
+ * 未知の種別は「配る」に倒す——船内で未知種別は破棄されず隔離され、
+ * アプリ更新後の再処理で拾えるため（ガードレール⑧）、落とすより残すほうが安全。
+ */
+export function isVesselDistributable(kind: string): boolean {
+  const def = (SYNC_ENTITY_REGISTRY as Record<string, { distribution?: Distribution }>)[kind];
+  return def?.distribution !== "shore_only";
+}
 export const SYNC_KINDS = Object.keys(SYNC_ENTITY_REGISTRY) as SyncKind[];
+
+/**
+ * 船内端末から積める記録者のロールを確かめる（レビュー SHIFT-04: シフトは船長だけが船内で作成できる）。
+ * `roleOf` は記録者（船員ID）の**記録した時点の**ロールを船員マスタから引く関数（オフラインで作った記録が、
+ * あとで降格されたせいで弾かれないように）。違反の理由を返し、問題なければ null。
+ * 陸上端末からの記録は対象外（陸上の権限は陸上の画面・API が確かめる）。
+ *
+ * PoC の限界: `recordedBy` は端末が送る値で、Push に船員の認証が無いため自己申告の確認にとどまる。
+ * 本番は認証済みの船内セッション（sync_devices と船員のトークン）と突き合わせる。
+ */
+export const AUTHOR_POLICY_PREFIX = "author policy:";
+
+export function checkVesselAuthorPolicy(
+  kind: string,
+  deviceId: string,
+  payload: unknown,
+  roleOf: (crewMemberId: string, at: string | undefined) => string | undefined,
+): string | null {
+  const def = (SYNC_ENTITY_REGISTRY as Record<string, { vesselAuthorRole?: string }>)[kind];
+  if (!def?.vesselAuthorRole || isShoreDevice(deviceId)) return null;
+  const p = payload as { recordedBy?: unknown; recordedAt?: unknown; occurredAt?: unknown };
+  const at = typeof p.recordedAt === "string" ? p.recordedAt : typeof p.occurredAt === "string" ? p.occurredAt : undefined;
+  const role = typeof p.recordedBy === "string" ? roleOf(p.recordedBy, at) : undefined;
+  if (role !== def.vesselAuthorRole) {
+    return `${AUTHOR_POLICY_PREFIX} ${kind} from a vessel device must be recorded by ${def.vesselAuthorRole} (got ${role ?? "unknown"})`;
+  }
+  return null;
+}
 
 /**
  * 陸上側の端末ID規約（PoC）。本番は sync_devices の role（vessel/shore）で判定する。

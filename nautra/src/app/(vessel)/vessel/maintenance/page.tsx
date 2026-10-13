@@ -23,26 +23,20 @@ import {
   type MaintenanceRecordPayload,
   type MaintenanceRecordType,
 } from "@/sync-protocol/records";
-import {
-  Button,
-  Card,
-  CardBody,
-  Chip,
-  Input,
-  Modal,
-  ModalBody,
-  ModalContent,
-  ModalFooter,
-  ModalHeader,
-  Radio,
-  RadioGroup,
-  Textarea,
-  useDisclosure,
-  useModalProps,
-} from "@/ui";
+import { useModalProps } from "@/ui";
+import { Button, Card, CardBody, Chip, Input, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, Radio, RadioGroup, Textarea, useDisclosure } from "@/ui/heroui";
 import { ChecklistResultRow, ChecklistSection } from "../_components/checklist-section";
 import { GroupHeader } from "../_components/group-header";
 import { ReadOnlyNote } from "../_components/permission-gate";
+import {
+  PastEmpty,
+  PastFilterBar,
+  RecordModeTabs,
+  ShowMoreButton,
+  usePastList,
+  type RecordMode,
+} from "../_components/record-mode";
+import { isFilterActive } from "@/lib/record-filter";
 
 type Condition = MaintenanceRecordPayload["condition"];
 
@@ -84,8 +78,32 @@ export default function MaintenancePage() {
       ...checklists.map((r) => ({ kind: "checklist" as const, at: r.occurredAt, r })),
       ...records.map((r) => ({ kind: "maintenance" as const, at: r.occurredAt, r })),
     ];
-    return items.sort((a, b) => b.at.localeCompare(a.at)).slice(0, 60);
+    return items.sort((a, b) => b.at.localeCompare(a.at));
   }, [checklists, records]);
+  const [mode, setMode] = useState<RecordMode>("record");
+  // 過去の点検は期間とキーワードで探す（レビュー INSP-03）
+  const past = usePastList(
+    history,
+    (h) => h.at,
+    (h) =>
+      h.kind === "checklist"
+        ? [
+            "点検表",
+            templateName(h.r.templateId),
+            personName(h.r.recordedBy),
+            ...h.r.items.map((it) => `${it.label} ${t.checkResult[it.result]} ${it.value ?? ""}`),
+          ].join(" ")
+        : [
+            tr("equipment", h.r.equipment),
+            tr("maintenanceRecordType", h.r.recordType),
+            tr("condition", h.r.condition),
+            h.r.action,
+            h.r.remarks,
+            personName(h.r.crewMemberId),
+          ]
+            .filter(Boolean)
+            .join(" "),
+  );
   const modal = useDisclosure();
   const modalProps = useModalProps();
   const [equipment, setEquipment] = useState<EquipmentKind>("main_engine");
@@ -156,10 +174,17 @@ export default function MaintenancePage() {
           ) : null
         }
       />
-      <p className="text-sm text-foreground-600">
-        点検者: {session ? `${session.name}（${session.position}）` : "—"}
-      </p>
 
+      <RecordModeTabs mode={mode} onChange={setMode} recordLabel="点検を記録する" pastLabel="過去の点検" />
+
+      {done ? (
+        <Chip variant="flat" radius="sm" className="h-auto whitespace-normal py-1">
+          ✓ {done}
+        </Chip>
+      ) : null}
+
+      {mode === "record" ? (
+      <>
       {/* 船の点検表（出港前点検・安全パトロール）。項目は上司・陸上から配信される */}
       <ChecklistSection onDone={setDone} />
 
@@ -201,23 +226,17 @@ export default function MaintenancePage() {
           );
         })}
       </section>
-
-      {done ? (
-        <Chip variant="flat" radius="sm" className="h-auto whitespace-normal py-1">
-          ✓ {done}
-        </Chip>
-      ) : null}
-
+      </>
+      ) : (
       <section aria-label="点検・保守の履歴" className="flex flex-col gap-2">
-        <h2 className="text-base font-bold text-foreground-600">履歴（新しい順）</h2>
-        {history.length === 0 ? (
-          <Card shadow="none" className="ui-card">
-            <CardBody>
-              <p className="text-foreground-600">記録がありません。</p>
-            </CardBody>
-          </Card>
-        ) : null}
-        {history.map((h) =>
+        <PastFilterBar
+          value={past.filter}
+          onChange={past.setFilter}
+          count={past.matched.length}
+          placeholder="機器・点検表・処置などで探す"
+        />
+        {past.shown.length === 0 ? <PastEmpty filtered={isFilterActive(past.filter)} /> : null}
+        {past.shown.map((h) =>
           h.kind === "checklist" ? (
             <Card key={h.r.id} shadow="none" className="ui-card">
               <CardBody>
@@ -228,10 +247,9 @@ export default function MaintenancePage() {
             <MaintenanceRow key={h.r.id} r={h.r} />
           ),
         )}
+        {past.hasMore ? <ShowMoreButton onPress={past.showMore} /> : null}
       </section>
-      <p className="text-xs text-foreground-600">
-        定期保守計画・部品在庫・入渠対応の管理は陸上アプリ（S-11）で行います。船内は点検結果と保守実績を一次記録として残します。
-      </p>
+      )}
 
       <Modal {...modalProps} isOpen={modal.isOpen} onOpenChange={modal.onOpenChange} placement="center" scrollBehavior="inside">
         <ModalContent>

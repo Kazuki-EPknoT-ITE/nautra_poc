@@ -114,7 +114,7 @@ describe("労使協定が判定閾値に反映される（要件定義書 6.5）
 
 describe("休日・有給・補償休日の残日数は導出値（要件定義書 3.2.4 / 12.3）", () => {
   it("付与から取得を引いた残りを算出する", () => {
-    const balance = leave.buildLeaveBalance("crew-kato");
+    const balance = leave.buildLeaveBalance("crew-takamatsu");
     const paid = balance.kinds.find((k) => k.kind === "paid_leave");
     expect(paid).toMatchObject({ granted: 20, taken: 5, remaining: 15 });
     expect(balance.paidRemaining).toBe(15);
@@ -126,21 +126,21 @@ describe("休日・有給・補償休日の残日数は導出値（要件定義�
   it("全船員ぶんの残日数を一覧にできる", () => {
     const board = leave.buildLeaveBoard();
     expect(board.length).toBeGreaterThanOrEqual(4);
-    const tanaka = board.find((b) => b.crewMemberId === "crew-tanaka");
+    const tanaka = board.find((b) => b.crewMemberId === "crew-oshiro");
     expect(tanaka?.paidRemaining).toBe(12 - 3);
   });
 
   it("休日に数えるのは「取得した日」と「法定休日・補償休日を与えた日」だけ", () => {
-    const dates = leave.leaveDatesOf("crew-kato");
+    const dates = leave.leaveDatesOf("crew-takamatsu");
     expect(dates.has(addDays(TODAY, -20))).toBe(true); // 補償休日の付与日
     expect(dates.has(addDays(TODAY, -45))).toBe(true); // 有給の取得日
     expect(dates.has(addDays(TODAY, -200))).toBe(false); // 有給の年次付与日は休みではない
   });
 
   it("付与を登録すると残日数が増える（記録は追記のみ）", () => {
-    const before = leave.buildLeaveBalance("crew-sato").paidRemaining;
+    const before = leave.buildLeaveBalance("crew-nakahara").paidRemaining;
     leave.publishLeaveRecord({
-      crewMemberId: "crew-sato",
+      crewMemberId: "crew-nakahara",
       kind: "paid_leave",
       action: "grant",
       date: TODAY,
@@ -149,13 +149,13 @@ describe("休日・有給・補償休日の残日数は導出値（要件定義�
       reason: "追加付与",
       actor: ACTOR,
     });
-    expect(leave.buildLeaveBalance("crew-sato").paidRemaining).toBe(before + 2);
+    expect(leave.buildLeaveBalance("crew-nakahara").paidRemaining).toBe(before + 2);
   });
 
   it("時効を過ぎた付与は残日数に数えない", () => {
-    const before = leave.buildLeaveBalance("crew-suzuki");
+    const before = leave.buildLeaveBalance("crew-terada");
     leave.publishLeaveRecord({
-      crewMemberId: "crew-suzuki",
+      crewMemberId: "crew-terada",
       kind: "paid_leave",
       action: "grant",
       date: addDays(TODAY, -400),
@@ -163,7 +163,7 @@ describe("休日・有給・補償休日の残日数は導出値（要件定義�
       expiresOn: addDays(TODAY, -10),
       actor: ACTOR,
     });
-    const after = leave.buildLeaveBalance("crew-suzuki");
+    const after = leave.buildLeaveBalance("crew-terada");
     const paid = after.kinds.find((k) => k.kind === "paid_leave");
     expect(paid?.expired).toBe(5);
     expect(after.paidRemaining).toBe(before.paidRemaining);
@@ -172,7 +172,7 @@ describe("休日・有給・補償休日の残日数は導出値（要件定義�
   it("日数・日付が不正な登録は受け付けない", () => {
     expect(() =>
       leave.publishLeaveRecord({
-        crewMemberId: "crew-kato",
+        crewMemberId: "crew-takamatsu",
         kind: "paid_leave",
         action: "grant",
         date: "2026/04/01",
@@ -182,7 +182,7 @@ describe("休日・有給・補償休日の残日数は導出値（要件定義�
     ).toThrow(/YYYY-MM-DD/);
     expect(() =>
       leave.publishLeaveRecord({
-        crewMemberId: "crew-kato",
+        crewMemberId: "crew-takamatsu",
         kind: "paid_leave",
         action: "take",
         date: TODAY,
@@ -195,7 +195,7 @@ describe("休日・有給・補償休日の残日数は導出値（要件定義�
 
 describe("4週単位・月単位の自動集計（要件定義書 3.2.1 / 3.2.5③⑤）", () => {
   it("4週の窓は28日で、4週上限と週平均を判定する", () => {
-    const agg = ledger.buildLedgerAggregates("crew-kato", TODAY.slice(0, 7));
+    const agg = ledger.buildLedgerAggregates("crew-takamatsu", TODAY.slice(0, 7));
     expect(agg.fourWeek.days).toHaveLength(28);
     expect(agg.fourWeek.checks.map((c) => c.key)).toEqual(
       expect.arrayContaining(["four_week_max", "reference_period"]),
@@ -203,14 +203,14 @@ describe("4週単位・月単位の自動集計（要件定義書 3.2.1 / 3.2.5�
   });
 
   it("月の集計は時間外の上限（労使協定の値）で判定する", () => {
-    const agg = ledger.buildLedgerAggregates("crew-kato", TODAY.slice(0, 7));
+    const agg = ledger.buildLedgerAggregates("crew-takamatsu", TODAY.slice(0, 7));
     const overtime = agg.monthly.checks.find((c) => c.key === "monthly_overtime");
     // 直前のテストで日上限を上書きしているが、時間外上限は協定 2026.1 の 80時間のまま
     expect(overtime?.limit).toBe(80 * 60);
   });
 
   it("休日の判定には休暇記録の日付も数える（3.2.5⑤）", () => {
-    const agg = ledger.buildLedgerAggregates("crew-kato", TODAY.slice(0, 7));
+    const agg = ledger.buildLedgerAggregates("crew-takamatsu", TODAY.slice(0, 7));
     expect(agg.restDay.key).toBe("rest_day");
     expect(agg.leaveDates).toContain(addDays(TODAY, -20));
   });

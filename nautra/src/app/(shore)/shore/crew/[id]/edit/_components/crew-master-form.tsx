@@ -3,8 +3,12 @@
 import { useActionState } from "react";
 import { t } from "@/i18n/ja";
 import type { InsuranceKind } from "@/sync-protocol/records";
-import { Button, Input, Select, SelectItem, Textarea } from "@/ui";
-import { saveCrewMasterAction, type CrewMasterFormState } from "../actions";
+import { Button, Input, Select, SelectItem, Textarea } from "@/ui/heroui";
+import { StatusChip } from "@/ui";
+import { createCrewMasterAction, saveCrewMasterAction, type CrewMasterFormState } from "../actions";
+import type { CrewFieldView } from "@/lib/crew-fields";
+import { CustomFields } from "./custom-fields";
+import { PhotoField } from "./photo-field";
 
 export interface InsuranceFormValue {
   kind: InsuranceKind;
@@ -17,6 +21,10 @@ export interface InsuranceFormValue {
 export interface CrewMasterFormValues {
   crewMemberId: string;
   name: string;
+  /** 写真が無いときに出す頭文字 */
+  photo?: string;
+  /** 顔写真（縮小済みの data URL） */
+  photoDataUrl?: string;
   nameKana: string;
   birthDate: string;
   seamanBookNo: string;
@@ -34,6 +42,8 @@ export interface CrewMasterFormValues {
   medicalHistory?: string;
   medication?: string;
   insurances: InsuranceFormValue[];
+  /** 管理者が足した項目の値（項目キー → 値。CREWEDIT-04） */
+  customFields?: Record<string, string>;
 }
 
 const INITIAL: CrewMasterFormState = { ok: false, message: "", changed: [] };
@@ -41,9 +51,9 @@ const INITIAL: CrewMasterFormState = { ok: false, message: "", changed: [] };
 /** 保険の確認方法（insuranceEntrySchema の enum。原本確認は証書側の語彙なので含めない） */
 const INSURANCE_VERIFY_METHODS = ["document", "notice", "external_link"] as const;
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({ title, id, children }: { title: string; id?: string; children: React.ReactNode }) {
   return (
-    <section aria-label={title} className="ui-inset flex flex-col gap-3 p-4">
+    <section id={id} aria-label={title} className="ui-inset flex scroll-mt-24 flex-col gap-3 p-4">
       <h3 className="font-bold">{title}</h3>
       {children}
     </section>
@@ -61,25 +71,46 @@ export function CrewMasterForm({
   values,
   age,
   canEditSensitive,
+  /** "new" のときは同じフォームで新規登録を行う（12.3: 入力の経路を増やさない） */
+  mode = "edit",
+  fields = [],
+  canManageFields = false,
 }: {
   values: CrewMasterFormValues;
   age: number | null;
   canEditSensitive: boolean;
+  mode?: "edit" | "new";
+  /** 管理者が足した項目の定義（CREWEDIT-04） */
+  fields?: CrewFieldView[];
+  /** 「＋ 項目を追加」を出すか（管理者だけ） */
+  canManageFields?: boolean;
 }) {
-  const [state, formAction, pending] = useActionState(saveCrewMasterAction, INITIAL);
+  const custom = (category: "basic" | "emergency" | "health" | "insurance") => (
+    <CustomFields category={category} fields={fields} values={values.customFields ?? {}} canManage={canManageFields} />
+  );
+  const [state, formAction, pending] = useActionState(
+    mode === "new" ? createCrewMasterAction : saveCrewMasterAction,
+    INITIAL,
+  );
 
   return (
     <form action={formAction} className="ui-card flex flex-col gap-4 p-4">
       <input type="hidden" name="crewMemberId" value={values.crewMemberId} />
 
-      <Section title="基本情報">
+      <Section title="基本情報" id="basic">
+        <PhotoField
+          crewMemberId={values.crewMemberId}
+          name={values.name || "新しい船員"}
+          initial={values.photo}
+          defaultValue={values.photoDataUrl}
+        />
         <div className="grid gap-3 sm:grid-cols-2">
           <Input name="name" label={t.crewMasterField.name} defaultValue={values.name} isRequired />
           <Input
             name="nameKana"
             label={t.crewMasterField.nameKana}
             defaultValue={values.nameKana}
-            placeholder="例: カトウ ヤマト"
+            placeholder="例: タカマツ マコト"
           />
           <Input
             name="birthDate"
@@ -127,9 +158,10 @@ export function CrewMasterForm({
             defaultValue={values.hiredOn}
           />
         </div>
+        {custom("basic")}
       </Section>
 
-      <Section title="緊急連絡先・家族構成">
+      <Section title="緊急連絡先・家族構成" id="emergency">
         <div className="grid gap-3 sm:grid-cols-3">
           <Input
             name="emergencyContactName"
@@ -155,9 +187,10 @@ export function CrewMasterForm({
           defaultValue={values.familyNote}
           placeholder="例: 配偶者・子2人（緊急時は配偶者へ）"
         />
+        {custom("emergency")}
       </Section>
 
-      <Section title="健康に関する情報（要配慮個人情報）">
+      <Section title="健康に関する情報（要配慮個人情報）" id="health">
         {canEditSensitive ? (
           <>
             <Textarea
@@ -174,10 +207,7 @@ export function CrewMasterForm({
               defaultValue={values.medication ?? ""}
               placeholder="例: アムロジピン 5mg 朝1回"
             />
-            <p className="text-xs text-foreground-500">
-              この欄の内容は記録の中身を残しません。変更したことと項目名だけを履歴に残します
-              （要件定義書 10.3 / 12.6）。
-            </p>
+            {custom("health")}
           </>
         ) : (
           <p className="text-sm text-foreground-600">
@@ -186,10 +216,9 @@ export function CrewMasterForm({
         )}
       </Section>
 
-      <Section title="保険の加入状況（写し・最終確認日つき）">
-        <p className="text-xs text-foreground-500">
-          正本は日本年金機構・協会けんぽ・ハローワークにあります。ここは写しなので、
-          いつ・どうやって確認したかを必ず入れてください（要件定義書 12.2 / 12.4）。
+      <Section title="保険の加入状況（写し・最終確認日つき）" id="insurance">
+        <p className="m-0">
+          <StatusChip level="none" size="sm" label="写し" hint="正本は日本年金機構・協会けんぽ・ハローワークにあります。いつ・どうやって確認したかを必ず入れてください（要件定義書 12.2 / 12.4）" />
         </p>
         {values.insurances.map((ins) => (
           <div key={ins.kind} className="flex flex-col gap-2">
@@ -225,11 +254,17 @@ export function CrewMasterForm({
             </div>
           </div>
         ))}
+        {custom("insurance")}
       </Section>
 
       <div className="flex flex-wrap items-center gap-3">
-        <Button type="submit" color="primary" isLoading={pending}>
-          保存する
+        <Button
+          type="submit"
+          color="primary"
+          isLoading={pending}
+          title="保存すると前の内容を消さずに新しい版を追加します。誰がいつ何を変えたかは変更履歴に残ります（要件定義書 12.3 / 12.6）"
+        >
+          {mode === "new" ? "この内容で登録する" : "保存する"}
         </Button>
         {state.message ? (
           <p className={state.ok ? "text-sm font-semibold" : "text-sm text-danger"}>
@@ -239,10 +274,6 @@ export function CrewMasterForm({
           </p>
         ) : null}
       </div>
-      <p className="text-xs text-foreground-500">
-        保存すると、前の内容を消さずに「新しい版」を追加します。誰がいつ何を変えたかは下の変更履歴で
-        確認できます（要件定義書 12.3 / 12.6）。
-      </p>
     </form>
   );
 }

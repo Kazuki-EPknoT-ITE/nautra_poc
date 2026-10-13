@@ -15,29 +15,20 @@ import {
   type DrillRecordPayload,
   type DrillType,
 } from "@/sync-protocol/records";
-import {
-  Button,
-  Card,
-  CardBody,
-  Checkbox,
-  CheckboxGroup,
-  Chip,
-  Input,
-  Modal,
-  ModalBody,
-  ModalContent,
-  ModalFooter,
-  ModalHeader,
-  Radio,
-  RadioGroup,
-  Select,
-  SelectItem,
-  Textarea,
-  useDisclosure,
-  useModalProps,
-} from "@/ui";
+import { useModalProps } from "@/ui";
+import { Button, Card, CardBody, Checkbox, CheckboxGroup, Chip, Input, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, Radio, RadioGroup, Select, SelectItem, Textarea, useDisclosure } from "@/ui/heroui";
 import { GroupHeader } from "../_components/group-header";
+import { SAFETY_SUB_TABS, SubTabs } from "../_components/sub-tabs";
 import { RecordTile } from "../_components/record-tile";
+import {
+  PastEmpty,
+  PastFilterBar,
+  RecordModeTabs,
+  ShowMoreButton,
+  usePastList,
+  type RecordMode,
+} from "../_components/record-mode";
+import { isFilterActive } from "@/lib/record-filter";
 
 type HistoryItem =
   | { kind: "drill"; at: string; r: DrillRecordPayload }
@@ -146,20 +137,25 @@ export default function SafetyPage() {
       ...drills.map((r) => ({ kind: "drill" as const, at: r.occurredAt, r })),
       ...alcohols.map((r) => ({ kind: "alcohol" as const, at: r.occurredAt, r })),
     ];
-    return items.sort((a, b) => b.at.localeCompare(a.at)).slice(0, 60);
+    return items.sort((a, b) => b.at.localeCompare(a.at));
   }, [drills, alcohols]);
+  const [mode, setMode] = useState<RecordMode>("record");
+  // 過去の操練・検知は期間とキーワードで探す（レビュー SAFE-03）
+  const past = usePastList(
+    history,
+    (h) => h.at,
+    (h) =>
+      h.kind === "drill"
+        ? ["操練", tr("drillType", h.r.drillType), personName(h.r.leader), h.r.remarks].filter(Boolean).join(" ")
+        : ["アルコール検知", personName(h.r.crewMemberId), tr("alcoholResult", h.r.result), personName(h.r.checkedBy)].join(" "),
+  );
 
   return (
     <div className="flex flex-col gap-4">
       <GroupHeader group="05" subtitle="操練・検知" />
-      <p className="text-sm text-foreground-600">
-        記録者: {session ? `${session.name}（${session.position}）` : "—"}
-      </p>
+      <SubTabs label="安全の切り替え" items={SAFETY_SUB_TABS} />
 
-      <div className="grid grid-cols-2 gap-2">
-        <RecordTile label="操練（訓練）記録" onPress={openDrill} />
-        <RecordTile label="アルコール検知" onPress={openAlcohol} />
-      </div>
+      <RecordModeTabs mode={mode} onChange={setMode} recordLabel="記録する" pastLabel="過去の記録" />
 
       {done ? (
         <Chip variant="flat" radius="sm" className="h-auto whitespace-normal py-1">
@@ -167,16 +163,21 @@ export default function SafetyPage() {
         </Chip>
       ) : null}
 
+      {mode === "record" ? (
+        <div className="grid grid-cols-2 gap-2">
+          <RecordTile label="操練（訓練）記録" onPress={openDrill} />
+          <RecordTile label="アルコール検知" onPress={openAlcohol} />
+        </div>
+      ) : (
       <section aria-label="操練・検知の履歴" className="flex flex-col gap-2">
-        <h2 className="text-base font-bold text-foreground-600">履歴（新しい順）</h2>
-        {history.length === 0 ? (
-          <Card shadow="none" className="ui-card">
-            <CardBody>
-              <p className="text-foreground-600">記録がありません。</p>
-            </CardBody>
-          </Card>
-        ) : null}
-        {history.map((h) => (
+        <PastFilterBar
+          value={past.filter}
+          onChange={past.setFilter}
+          count={past.matched.length}
+          placeholder="操練の種類・氏名などで探す"
+        />
+        {past.shown.length === 0 ? <PastEmpty filtered={isFilterActive(past.filter)} /> : null}
+        {past.shown.map((h) => (
           <Card key={h.r.id} shadow="none" className="ui-card">
             <CardBody className="flex flex-col gap-2">
               {h.kind === "drill" ? (
@@ -210,7 +211,9 @@ export default function SafetyPage() {
             </CardBody>
           </Card>
         ))}
+        {past.hasMore ? <ShowMoreButton onPress={past.showMore} /> : null}
       </section>
+      )}
 
       {/* 操練 */}
       <Modal

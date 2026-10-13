@@ -32,19 +32,19 @@ import type {
  * 船員ごとに曜日をずらして**週1日の休日**を入れてある（3.2.5⑤ の判定が適合になる）。
  *
  * 意図した見どころ:
- * - 佐藤(航海士): 3日前 = 14.5h 労働・休息9.5h → 警告(赤)。船長が打刻誤りを差戻し済み。
+ * - 中原(航海士): 3日前 = 14.5h 労働・休息9.5h → 警告(赤)。船長が打刻誤りを差戻し済み。
  *                 前日 = 13h 労働 → 注意(黄)。週合計は 72h 上限の9割超 → 週次注意。
- * - 鈴木(機関長): 2日前 = 休息が4分割 → 分割回数超過の警告(赤)。
- * - 田中(甲板部員): スタンバイ待機の労働時間算入の例。全日適合。
- * - 加藤(船長): 当直2交代の標準パターン。全日適合。
+ * - 寺田(機関長): 2日前 = 休息が4分割 → 分割回数超過の警告(赤)。
+ * - 大城(甲板部員): スタンバイ待機の労働時間算入の例。全日適合。
+ * - 高松(船長): 当直2交代の標準パターン。全日適合。
  * - 航海: 2日前 横浜→名古屋（出港・定時・入港）、前日 名古屋で荷役待ち→揚荷。本日 出港予定。
  * - 点検: 2日前 出港前点検（合格）、前日 安全パトロール（通路に工具放置 → 不合格・是正済）。
  * - 保守: 前日の日常点検で 発電機=要注意、No.2ウインチ=不良（部品手配）。
- * - シフト: 本日の佐藤 荷役当直 12–18 → 13–19 に陸上が変更（変更通知の未読1件）。
+ * - シフト: 本日の中原 荷役当直 12–18 → 13–19 に陸上が変更（変更通知の未読1件）。
  */
 
 /** デモデータ版。上げるとストアが作り直される（PoC の .data/store.json のみ） */
-export const SEED_VERSION = 9;
+export const SEED_VERSION = 15;
 
 const SEED_DEVICE = "seed-shore-device";
 
@@ -75,8 +75,8 @@ const NORMAL_TANAKA: Shift[] = [
 ];
 
 function shiftsFor(crewId: string, offset: number): Shift[] {
-  if (crewId === "crew-kato") return NORMAL_KATO;
-  if (crewId === "crew-sato") {
+  if (crewId === "crew-takamatsu") return NORMAL_KATO;
+  if (crewId === "crew-nakahara") {
     if (offset === -3)
       return [
         ["navigation_watch", "00:00", "04:00"],
@@ -89,7 +89,7 @@ function shiftsFor(crewId: string, offset: number): Shift[] {
       ];
     return NORMAL_SATO;
   }
-  if (crewId === "crew-suzuki") {
+  if (crewId === "crew-terada") {
     if (offset === -2)
       return [
         ["maintenance", "06:00", "08:00"],
@@ -154,14 +154,14 @@ const LABOR_SEED_DAYS = 35;
  * 全員が同じ日に休むと船が動かないため、ずらすのは運用の再現でもある。
  */
 function isRestDay(crewId: string, offset: number): boolean {
-  const crewIndex = ["crew-kato", "crew-sato", "crew-suzuki", "crew-tanaka"].indexOf(crewId);
+  const crewIndex = ["crew-takamatsu", "crew-nakahara", "crew-terada", "crew-oshiro"].indexOf(crewId);
   // offset は負。7日周期で船員ごとに1日ずつずらす
   return ((-offset + crewIndex) % 7) === 0;
 }
 
 function laborSeed(today: string): SyncEvent[] {
   const events: SyncEvent[] = [];
-  const crewIds = ["crew-kato", "crew-sato", "crew-suzuki", "crew-tanaka"];
+  const crewIds = ["crew-takamatsu", "crew-nakahara", "crew-terada", "crew-oshiro"];
   let remandTargetId: string | null = null;
 
   for (let offset = -LABOR_SEED_DAYS; offset <= -1; offset++) {
@@ -190,7 +190,7 @@ function laborSeed(today: string): SyncEvent[] {
           occurredAt: atLocal(day, to),
         };
         events.push(timeRecordEvent(startRec), timeRecordEvent(endRec));
-        if (crewId === "crew-sato" && offset === -3 && i === 1) remandTargetId = endRec.id;
+        if (crewId === "crew-nakahara" && offset === -3 && i === 1) remandTargetId = endRec.id;
       });
     }
   }
@@ -209,7 +209,7 @@ function laborSeed(today: string): SyncEvent[] {
           crewMemberId: crewId,
           date: day,
           decision: "approved",
-          approvedBy: "crew-kato",
+          approvedBy: "crew-takamatsu",
           approverRole: "captain",
           decidedAt: atLocal(addDays(day, 1), "08:30"),
         }),
@@ -220,15 +220,15 @@ function laborSeed(today: string): SyncEvent[] {
     const day = addDays(today, -3);
     events.push(
       approvalEvent({
-        id: `sd-appr-crew-sato-${day}`,
+        id: `sd-appr-crew-nakahara-${day}`,
         tenantId: DEMO_TENANT_ID,
         vesselId: DEMO_VESSEL.id,
-        crewMemberId: "crew-sato",
+        crewMemberId: "crew-nakahara",
         date: day,
         decision: "remanded",
         targetRecordId: remandTargetId,
         reason: "荷役終了 22:30 は打刻誤りの疑い。実際の終了時刻で再入力してください。",
-        approvedBy: "crew-kato",
+        approvedBy: "crew-takamatsu",
         approverRole: "captain",
         decidedAt: atLocal(addDays(day, 1), "08:30"),
       }),
@@ -244,7 +244,7 @@ function voyageSeed(today: string): SyncEvent[] {
   const d1 = addDays(today, -1);
   const logs: VoyageLogPayload[] = [
     {
-      ...base("sd-vlog-1", atLocal(d2, "06:00"), "crew-sato"),
+      ...base("sd-vlog-1", atLocal(d2, "06:00"), "crew-nakahara"),
       logType: "departure",
       port: "横浜港（大黒埠頭）",
       route: "横浜 → 名古屋",
@@ -259,7 +259,7 @@ function voyageSeed(today: string): SyncEvent[] {
       remarks: "定刻出港。水先人なし。乗組員4名 異常なし。",
     },
     {
-      ...base("sd-vlog-2", atLocal(d2, "12:00"), "crew-kato"),
+      ...base("sd-vlog-2", atLocal(d2, "12:00"), "crew-takamatsu"),
       logType: "position",
       position: "34°35'N 138°50'E（御前崎沖）",
       courseDeg: 250,
@@ -274,7 +274,7 @@ function voyageSeed(today: string): SyncEvent[] {
       ],
     },
     {
-      ...base("sd-vlog-3", atLocal(d2, "18:30"), "crew-sato"),
+      ...base("sd-vlog-3", atLocal(d2, "18:30"), "crew-nakahara"),
       logType: "arrival",
       port: "名古屋港（金城埠頭）",
       route: "横浜 → 名古屋",
@@ -288,7 +288,7 @@ function voyageSeed(today: string): SyncEvent[] {
       remarks: "着岸。タグ1隻使用。荷役は翌日バース空き次第。",
     },
     {
-      ...base("sd-vlog-4", atLocal(d1, "15:20"), "crew-kato"),
+      ...base("sd-vlog-4", atLocal(d1, "15:20"), "crew-takamatsu"),
       logType: "remark",
       remarks:
         "揚荷中、主機 潤滑油圧力低下の警報（一過性）。機関長点検の結果 異常なし。日常点検記録に詳細。",
@@ -418,7 +418,7 @@ function inspectionSeed(today: string): SyncEvent[] {
 
   const pre = CHECKLIST_TEMPLATES.pre_departure;
   const preResult: ChecklistResultPayload = {
-    ...base("sd-chk-1", atLocal(d2, "05:30"), "crew-kato"),
+    ...base("sd-chk-1", atLocal(d2, "05:30"), "crew-takamatsu"),
     templateId: "pre_departure",
     templateVersion: pre.version,
     items: pre.items.map((it) => ({ key: it.key, label: it.label, group: it.group, result: "ok" })),
@@ -429,7 +429,7 @@ function inspectionSeed(today: string): SyncEvent[] {
 
   const patrol = CHECKLIST_TEMPLATES.safety_patrol;
   const patrolResult: ChecklistResultPayload = {
-    ...base("sd-chk-2", atLocal(d1, "10:00"), "crew-tanaka"),
+    ...base("sd-chk-2", atLocal(d1, "10:00"), "crew-oshiro"),
     templateId: "safety_patrol",
     templateVersion: patrol.version,
     items: patrol.items.map((it) =>
@@ -452,10 +452,10 @@ function inspectionSeed(today: string): SyncEvent[] {
     makeRecordEvent(
       "drill_record",
       {
-        ...base("sd-drill-1", atLocal(d5, "14:00"), "crew-kato"),
+        ...base("sd-drill-1", atLocal(d5, "14:00"), "crew-takamatsu"),
         drillType: "fire",
-        leader: "crew-kato",
-        participants: ["crew-kato", "crew-sato", "crew-suzuki", "crew-tanaka"],
+        leader: "crew-takamatsu",
+        participants: ["crew-takamatsu", "crew-nakahara", "crew-terada", "crew-oshiro"],
         durationMinutes: 45,
         remarks: "機関室火災想定。非常配置集合 3分20秒、消火ホース展張・放水。退船準備まで実施。",
       },
@@ -465,10 +465,10 @@ function inspectionSeed(today: string): SyncEvent[] {
 
   const limit = DEFAULT_SAFETY_RULE_SET.values.alcoholLimitMgPerL;
   const checks: [string, string][] = [
-    ["crew-kato", "crew-sato"],
-    ["crew-sato", "crew-kato"],
-    ["crew-suzuki", "crew-kato"],
-    ["crew-tanaka", "crew-kato"],
+    ["crew-takamatsu", "crew-nakahara"],
+    ["crew-nakahara", "crew-takamatsu"],
+    ["crew-terada", "crew-takamatsu"],
+    ["crew-oshiro", "crew-takamatsu"],
   ];
   checks.forEach(([crewMemberId, checkedBy], i) => {
     events.push(
@@ -500,26 +500,26 @@ function workSeed(today: string): SyncEvent[] {
   const d1 = addDays(today, -1);
   const reports: WorkReportPayload[] = [
     {
-      ...base("sd-work-1", atLocal(d1, "04:00"), "crew-sato"),
+      ...base("sd-work-1", atLocal(d1, "04:00"), "crew-nakahara"),
       reportType: "handover",
-      crewMemberId: "crew-sato",
+      crewMemberId: "crew-nakahara",
       startedAt: atLocal(d1, "04:00"),
-      handoverTo: "crew-kato",
+      handoverTo: "crew-takamatsu",
       handoverItems: "名古屋港 錨泊中。バース空き待ち（09:00 以降 着岸予定）。周辺船舶 2隻、気象変化なし。",
     },
     {
-      ...base("sd-work-2", atLocal(d1, "08:00"), "crew-tanaka"),
+      ...base("sd-work-2", atLocal(d1, "08:00"), "crew-oshiro"),
       reportType: "standby",
-      crewMemberId: "crew-tanaka",
+      crewMemberId: "crew-oshiro",
       startedAt: atLocal(d1, "08:00"),
       endedAt: atLocal(d1, "11:00"),
       standbyReason: "荷役待ち（バース空き待ちによる総員配置）",
       remarks: "荷主都合の待機 3時間。労働時間に算入（要件 3.3.3 待機時間の見える化）。",
     },
     {
-      ...base("sd-work-3", atLocal(d1, "09:30"), "crew-suzuki"),
+      ...base("sd-work-3", atLocal(d1, "09:30"), "crew-terada"),
       reportType: "fuel",
-      crewMemberId: "crew-suzuki",
+      crewMemberId: "crew-terada",
       startedAt: atLocal(d1, "09:30"),
       endedAt: atLocal(d1, "10:40"),
       fuelType: "A重油",
@@ -529,9 +529,9 @@ function workSeed(today: string): SyncEvent[] {
       remarks: "バンカー船より補給。油濁防止措置実施。",
     },
     {
-      ...base("sd-work-4", atLocal(d1, "13:00"), "crew-sato"),
+      ...base("sd-work-4", atLocal(d1, "13:00"), "crew-nakahara"),
       reportType: "cargo",
-      crewMemberId: "crew-sato",
+      crewMemberId: "crew-nakahara",
       startedAt: atLocal(d1, "13:00"),
       endedAt: atLocal(d1, "17:00"),
       port: "名古屋港（金城埠頭）",
@@ -543,45 +543,45 @@ function workSeed(today: string): SyncEvent[] {
   ];
   const maint: MaintenanceRecordPayload[] = [
     {
-      ...base("sd-maint-1", atLocal(d3, "10:00"), "crew-suzuki"),
+      ...base("sd-maint-1", atLocal(d3, "10:00"), "crew-terada"),
       equipment: "steering_gear",
       recordType: "maintenance",
-      crewMemberId: "crew-suzuki",
+      crewMemberId: "crew-terada",
       condition: "good",
       action: "作動油交換・リンク部給脂",
       nextDueDate: addDays(today, 87),
     },
     {
-      ...base("sd-maint-2", atLocal(d2, "07:00"), "crew-tanaka"),
+      ...base("sd-maint-2", atLocal(d2, "07:00"), "crew-oshiro"),
       equipment: "hull",
       recordType: "daily_inspection",
-      crewMemberId: "crew-tanaka",
+      crewMemberId: "crew-oshiro",
       condition: "good",
       remarks: "水密扉・ハッチ閉鎖確認。",
     },
     {
-      ...base("sd-maint-3", atLocal(d1, "09:00"), "crew-suzuki"),
+      ...base("sd-maint-3", atLocal(d1, "09:00"), "crew-terada"),
       equipment: "main_engine",
       recordType: "daily_inspection",
-      crewMemberId: "crew-suzuki",
+      crewMemberId: "crew-terada",
       condition: "good",
       runningHours: 12480,
       remarks: "潤滑油圧力警報（15:20 一過性）は圧力センサー配線の接触不良。増し締めで復旧。",
     },
     {
-      ...base("sd-maint-4", atLocal(d1, "09:10"), "crew-suzuki"),
+      ...base("sd-maint-4", atLocal(d1, "09:10"), "crew-terada"),
       equipment: "generator",
       recordType: "daily_inspection",
-      crewMemberId: "crew-suzuki",
+      crewMemberId: "crew-terada",
       condition: "attention",
       runningHours: 9870,
       action: "潤滑油量やや少 → 20L 補給。消費傾向を継続監視",
     },
     {
-      ...base("sd-maint-5", atLocal(d1, "11:30"), "crew-tanaka"),
+      ...base("sd-maint-5", atLocal(d1, "11:30"), "crew-oshiro"),
       equipment: "deck_machinery",
       recordType: "daily_inspection",
-      crewMemberId: "crew-tanaka",
+      crewMemberId: "crew-oshiro",
       condition: "defect",
       action: "No.2 ウインチ ブレーキの効きが甘い。使用制限のうえ陸上へ部品手配依頼済",
       nextDueDate: addDays(today, 7),
@@ -597,19 +597,19 @@ function workSeed(today: string): SyncEvent[] {
 
 type PlannedWatch = [ShiftType, string, string];
 const WATCH_PLAN: Record<string, PlannedWatch[]> = {
-  "crew-kato": [
+  "crew-takamatsu": [
     ["navigation_watch", "04:00", "08:00"],
     ["navigation_watch", "16:00", "20:00"],
   ],
-  "crew-sato": [
+  "crew-nakahara": [
     ["navigation_watch", "00:00", "04:00"],
     ["cargo_watch", "12:00", "18:00"],
   ],
-  "crew-suzuki": [
+  "crew-terada": [
     ["engine_watch", "08:00", "12:00"],
     ["engine_watch", "13:00", "17:00"],
   ],
-  "crew-tanaka": [
+  "crew-oshiro": [
     ["cargo_watch", "08:00", "11:00"],
     ["cargo_watch", "13:00", "17:00"],
   ],
@@ -617,22 +617,22 @@ const WATCH_PLAN: Record<string, PlannedWatch[]> = {
 
 const STATION_PLAN: Record<StationScenario, [string, string, string][]> = {
   arrival_departure: [
-    ["crew-kato", "船橋", "操船指揮・見張り・通信"],
-    ["crew-sato", "船首", "係船作業指揮・揚錨機操作"],
-    ["crew-suzuki", "機関室", "主機操作・スタンバイ"],
-    ["crew-tanaka", "船尾", "係船作業・舷梯"],
+    ["crew-takamatsu", "船橋", "操船指揮・見張り・通信"],
+    ["crew-nakahara", "船首", "係船作業指揮・揚錨機操作"],
+    ["crew-terada", "機関室", "主機操作・スタンバイ"],
+    ["crew-oshiro", "船尾", "係船作業・舷梯"],
   ],
   cargo: [
-    ["crew-kato", "船橋/事務室", "総括・荷役計画確認・代理店対応"],
-    ["crew-sato", "荷役監督（本船側）", "積付・バラスト指示・数量確認"],
-    ["crew-suzuki", "機関室", "カーゴポンプ・バラスト操作"],
-    ["crew-tanaka", "甲板", "荷役作業・ハッチ開閉・係船索調整"],
+    ["crew-takamatsu", "船橋/事務室", "総括・荷役計画確認・代理店対応"],
+    ["crew-nakahara", "荷役監督（本船側）", "積付・バラスト指示・数量確認"],
+    ["crew-terada", "機関室", "カーゴポンプ・バラスト操作"],
+    ["crew-oshiro", "甲板", "荷役作業・ハッチ開閉・係船索調整"],
   ],
   emergency: [
-    ["crew-kato", "船橋", "総指揮・遭難通報・退船命令"],
-    ["crew-sato", "救命艇甲板", "救命艇/いかだ降下指揮・人員点呼"],
-    ["crew-suzuki", "機関室", "主機停止・消火ポンプ起動・燃料遮断"],
-    ["crew-tanaka", "現場", "消火班・負傷者搬送・防水"],
+    ["crew-takamatsu", "船橋", "総指揮・遭難通報・退船命令"],
+    ["crew-nakahara", "救命艇甲板", "救命艇/いかだ降下指揮・人員点呼"],
+    ["crew-terada", "機関室", "主機停止・消火ポンプ起動・燃料遮断"],
+    ["crew-oshiro", "現場", "消火班・負傷者搬送・防水"],
   ],
 };
 
@@ -663,15 +663,15 @@ function shiftSeed(today: string): SyncEvent[] {
     }
   }
 
-  // 変更通知: 本日の佐藤 荷役当直 12–18 → 13–19（陸上が本日 07:00 に配信）
+  // 変更通知: 本日の中原 荷役当直 12–18 → 13–19（陸上が本日 07:00 に配信）
   const changed: ShiftPlanPayload = {
-    ...planBase(`sd-shift-change-crew-sato-${today}`, "crew-sato", atLocal(today, "13:00")),
+    ...planBase(`sd-shift-change-crew-nakahara-${today}`, "crew-nakahara", atLocal(today, "13:00")),
     planType: "watch",
     date: today,
     shiftType: "cargo_watch",
     from: "13:00",
     to: "19:00",
-    supersedesId: `sd-shift-crew-sato-${today}-1`,
+    supersedesId: `sd-shift-crew-nakahara-${today}-1`,
     publishedAt: atLocal(today, "07:00"),
     changeNote: "荷役開始の繰り下げ（荷主都合）のため、荷役当直を 1時間後ろ倒し。",
   };

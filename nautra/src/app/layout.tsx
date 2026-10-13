@@ -1,10 +1,16 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
-import { GeistMono } from "geist/font/mono";
-import { GeistSans } from "geist/font/sans";
 import { PRODUCT_NAME, t } from "@/i18n/ja";
-import { UIProvider } from "@/ui";
+import { FontLoader, UIProvider } from "@/ui";
 import { ServiceWorkerRegistrar } from "./_components/service-worker";
+
+/**
+ * 材質と書体（実体は globals.css の先頭で `@import` している）。
+ *
+ * **CSS の入口はこの1本だけにする**。レイアウトから CSS を何本も import すると、
+ * Next のビルドが分割したチャンク名と出力ファイル名がずれ、いちばん大きい
+ * （Tailwind の）束だけが読み込まれない、という壊れかたをする。
+ */
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -17,7 +23,8 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#ffffff",
+  // ページ背景と同じ暖かいグレー（デザインの Canvas）
+  themeColor: "#DFE1E0",
   width: "device-width",
   initialScale: 1,
   // 船内は手袋・揺れる環境での操作があるため、拡大を禁止しない（10.2 ユーザビリティ）
@@ -26,15 +33,11 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    /**
-     * 文字は Geist（DESIGN.md「Typography」）。
-     * `geist` パッケージはフォント実体を同梱しており、ビルド時に通信しないため
-     * 船内の閉じた環境でも同じ見た目になる。日本語は端末のゴシックへ落ちる
-     * （Geist は和文を持たないため。字面の差は tailwind.config.ts の型階層で吸収する）。
-     */
-    <html lang="ja" className={`${GeistSans.variable} ${GeistMono.variable}`}>
+    <html lang="ja">
       <body className="min-h-dvh font-sans antialiased">
         <UIProvider>{children}</UIProvider>
+        {/* 和文フォントは画面が落ち着いてから読む（最初の遷移を font の取得で待たせない） */}
+        <FontLoader />
         <ServiceWorkerRegistrar />
       </body>
     </html>

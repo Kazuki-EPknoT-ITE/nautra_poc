@@ -33,7 +33,7 @@ function revalidate() {
   // 修了の登録は届出の添付要件チェックと配乗可否に効く（3.9 主要機能②）
   revalidatePath("/shore/filings");
   revalidatePath("/shore/manning");
-  revalidatePath("/shore/procedures");
+  revalidatePath("/shore/filings");
 }
 
 /** 4.4② 未修了者に受講を手配する */

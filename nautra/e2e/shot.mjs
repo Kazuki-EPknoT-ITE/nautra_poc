@@ -4,16 +4,16 @@ import { chromium } from "playwright";
 const b = await chromium.launch({ headless: true });
 const c = await b.newContext({ viewport: { width: 1440, height: 1100 } });
 await c.addCookies([
-  { name: "nautra_shore_session", value: "shore-admin", url: "http://localhost:3100" },
+  { name: "nautra_shore_session", value: "shore-yamaguchi", url: "http://localhost:3100" },
 ]);
 const p = await c.newPage();
 const pages = [
   ["/shore", "shore-dashboard"],
   ["/shore/manning", "shore-manning"],
   ["/shore/crew", "shore-crew-list"],
-  ["/shore/crew/crew-sato", "shore-karte"],
+  ["/shore/crew/crew-nakahara", "shore-karte"],
   ["/shore/filings", "shore-filings"],
-  ["/shore/procedures", "shore-procedures"],
+  ["/shore/filings?tab=procedures", "shore-procedures"],
   ["/shore/dispatch", "shore-dispatch"],
   ["/shore/settings", "shore-settings"],
 ];

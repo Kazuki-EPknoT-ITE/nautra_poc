@@ -14,26 +14,8 @@ import type {
   RecordTemplatePayload,
   TemplateInputType,
 } from "@/sync-protocol/records";
-import {
-  Accordion,
-  AccordionItem,
-  Button,
-  Chip,
-  Input,
-  Modal,
-  ModalBody,
-  ModalContent,
-  ModalFooter,
-  ModalHeader,
-  Radio,
-  RadioGroup,
-  Select,
-  SelectItem,
-  Textarea,
-  TriStateToggle,
-  useDisclosure,
-  useModalProps,
-} from "@/ui";
+import { TriStateToggle, useModalProps } from "@/ui";
+import { Accordion, AccordionItem, Button, Chip, Input, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, Radio, RadioGroup, Select, SelectItem, Textarea, useDisclosure } from "@/ui/heroui";
 import type { TriState } from "@/ui/tri-state-toggle";
 import { RecordTile } from "./record-tile";
 

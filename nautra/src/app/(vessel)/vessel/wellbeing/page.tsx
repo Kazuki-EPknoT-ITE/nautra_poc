@@ -7,24 +7,8 @@ import { fmtDateTime } from "@/lib/format";
 import { useLocale } from "@/lib/use-locale";
 import { appendRecord, newRecordBase } from "@/lib/vessel-actions";
 import { useRecords, useSessionCrew } from "@/lib/vessel-hooks";
-import { WELLBEING_FORM_TYPES } from "@/sync-protocol/records";
-import {
-  Button,
-  Card,
-  CardBody,
-  Chip,
-  SurfaceCard,
-  Modal,
-  ModalBody,
-  ModalContent,
-  ModalFooter,
-  ModalHeader,
-  Radio,
-  RadioGroup,
-  Textarea,
-  useDisclosure,
-  useModalProps,
-} from "@/ui";
+import { SurfaceCard, useModalProps, StatusChip } from "@/ui";
+import { Button, Card, CardBody, Chip, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, Radio, RadioGroup, Textarea, useDisclosure } from "@/ui/heroui";
 import { GroupHeader } from "../_components/group-header";
 import { RecordTile } from "../_components/record-tile";
 
@@ -152,21 +136,14 @@ export default function WellbeingPage() {
     <div className="flex flex-col gap-4">
       <GroupHeader group="07" subtitle="相談・体調" />
 
-      <SurfaceCard>
-        <CardBody className="flex flex-col gap-2 p-5">
-          <p className="text-pretty text-lg font-bold">匿名で送れます</p>
-          <p className="text-pretty text-foreground-600">
-            匿名を選ぶと、<strong>誰が書いたかは陸上に分かりません</strong>。届くのは内容だけです。
-            氏名・船員IDは記録に載りません。ただし同期のしくみ上、
-            <strong>端末の番号（端末ID）だけは付きます</strong>。同じ端末を複数の船員が共用するため、
-            端末IDから個人を特定することは想定していません。
-          </p>
-          <p className="text-pretty text-foreground-600">
-            体調のことも、人間関係のことも、困っていることは早めに書いてください。
-            書いたことで不利益な扱いを受けることはありません。
-          </p>
-        </CardBody>
-      </SurfaceCard>
+      <p className="m-0">
+        <StatusChip
+          level="none"
+          size="lg"
+          label="匿名で送れます"
+          hint="匿名を選ぶと、誰が書いたかは陸上に分かりません（氏名・船員IDは記録に載りません。同期のしくみ上、共用端末の番号だけが付きます）。書いたことで不利益な扱いを受けることはありません"
+        />
+      </p>
 
       <div className="grid gap-2 sm:grid-cols-3">
         <RecordTile
@@ -194,16 +171,16 @@ export default function WellbeingPage() {
 
       <section aria-label="送信したもの" className="flex flex-col gap-2">
         <h2 className="text-base font-bold text-foreground-600">
-          あなたが氏名を伝えて送ったもの（新しい順）
+          氏名を伝えて送ったもの
         </h2>
         {mine.length === 0 ? (
           <Card shadow="none" className="ui-card">
             <CardBody>
-              <p className="text-foreground-600">
-                氏名を伝えて送ったものはありません。
-                {anonymousCount > 0
-                  ? `この端末からは匿名で ${anonymousCount}件 届いていますが、匿名分は本人と結びつけないため一覧には出しません。`
-                  : ""}
+              <p
+                className="text-foreground-600"
+                title={anonymousCount > 0 ? `この端末からは匿名で ${anonymousCount}件 届いています（匿名分は本人と結びつけないため一覧に出しません）` : undefined}
+              >
+                ありません
               </p>
             </CardBody>
           </Card>
@@ -357,10 +334,6 @@ export default function WellbeingPage() {
         </ModalContent>
       </Modal>
 
-      <p className="text-xs text-foreground-600">
-        送信した内容は端末に保存され、通信が回復したときに陸上へ送られます（オフラインでも送信できます）。
-        送信できる種別: {WELLBEING_FORM_TYPES.map((f) => t.wellbeingFormType[f]).join(" / ")}。
-      </p>
     </div>
   );
 }

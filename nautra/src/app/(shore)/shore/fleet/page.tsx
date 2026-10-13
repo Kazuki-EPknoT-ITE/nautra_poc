@@ -4,10 +4,12 @@ import { personName } from "@/lib/crew";
 import { findingLevel, nextOrderStatus } from "@/lib/fleet-plain";
 import { fmtDateLabel, fmtDateTime } from "@/lib/format";
 import { buildFleetBoard } from "@/server/fleet-service";
-import { listVessels } from "@/server/master-service";
+import { listVessels, vesselMasterOf } from "@/server/master-service";
 import { requireShore } from "@/server/shore-session";
+import { vesselPhotoMap } from "@/server/vessel-master-service";
 import { EQUIPMENT_KINDS } from "@/sync-protocol/records";
-import { StatusChip } from "@/ui";
+import { DataTable, Section, StatusChip } from "@/ui";
+import { ExportAction } from "../_components/export-action";
 import { ShoreGuardNotice } from "../_components/guard";
 import { FindingForm, type FindingOption } from "./_components/finding-form";
 import { PartStockControls } from "./_components/part-stock-controls";
@@ -36,49 +38,156 @@ const ORDER_LABEL: Record<string, string> = {
  * （要件定義書 3.4.1 / 3.4.2 / 3.5.3）。
  * 次回予定日・経過超過・在庫の不足はいずれも導出値で、保存していない（12.3）。
  */
+/**
+ * この画面の主題（タブ）。**1画面1主題**にして、目的の節まで延々とめくらずに済むようにする
+ * （デザイン正本 S-15 と同じやりかた。1枚が長くなりすぎない）。
+ */
+const TABS = [
+  { id: "vessel", label: "船の基本情報・環境" },
+  { id: "certs", label: "検査証書の期限" },
+  { id: "maintenance", label: "定期保守の計画" },
+  { id: "stock", label: "部品・消耗品の在庫" },
+  { id: "dock", label: "入渠・検査" },
+  { id: "equipment", label: "船内からの点検・保守" },
+];
+
 export default async function ShoreFleetPage({
   searchParams,
 }: {
-  searchParams: Promise<{ vessel?: string }>;
+  searchParams: Promise<{ vessel?: string; tab?: string }>;
 }) {
   const guard = await requireShore("manage_fleet");
   if (!guard.ok) return <ShoreGuardNotice guard={guard} screen="船舶・保守" />;
 
   const vessels = listVessels();
   const sp = await searchParams;
+  /** いま開いている主題。未指定なら先頭 */
+  const tab = TABS.some((x) => x.id === sp.tab) ? sp.tab! : TABS[0]!.id;
   const vesselId = vessels.find((v) => v.id === sp.vessel)?.id ?? vessels[0]?.id ?? "";
+  /** 一覧に出す諸元。判定はせず、マスタの値をそのまま並べる */
+  const photos = vesselPhotoMap();
+  const vesselRows = vessels.map((v) => ({ ...v, master: vesselMasterOf(v.id), photo: photos.get(v.id) }));
   const board = buildFleetBoard(vesselId);
   const latest = new Map(board.latestByEquipment);
   const master = board.master;
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-balance text-2xl font-bold">船舶・保守・検査</h1>
-        <p className="text-sm text-foreground-500">
-          期限の判定は証書ルール {board.credentialRuleVersion} で行っています
-        </p>
-      </div>
+    <div className="flex flex-col gap-[18px]">
+      {/*
+        船舶一覧（デザイン正本 S-11）。**選ぶ操作と一覧の確認を1つ**にする。
+        行を押すとこの画面の対象が切り替わり、右の「管理ページ」からは S-11D（船を軸に
+        乗組員・証書・作業をまとめた画面）へ入る。
+      */}
+      <Section
+        title="船舶一覧"
+        note={`${vessels.length}隻`}
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            <ExportAction set="vessel" label="船舶・証書期限を書き出す" />
+            {/* 船の登録はアプリ全体でここだけ（VESSEL-02） */}
+            <Link href="/shore/fleet/new" className="ui-btn-primary h-9">
+              ＋ 船を登録
+            </Link>
+          </div>
+        }
+        bodyClassName="p-0"
+      >
+        <DataTable
+          maxHeight={null}
+          head={
+            <>
+              <th aria-label="写真" />
+              <th>船名</th>
+              <th className="num">総トン数</th>
+              <th>船種</th>
+              <th>航行区域</th>
+              <th className="num">定員</th>
+              <th>状態</th>
+              <th className="num" />
+            </>
+          }
+        >
+          {vesselRows.map((v) => (
+            <tr key={v.id} className={v.id === vesselId ? "bg-warning-100" : undefined}>
+              <td className="w-[84px]">
+                <span className="flex h-[44px] w-[70px] items-center justify-center overflow-hidden rounded-[12px] border border-[var(--ui-hairline)] bg-content2">
+                  {v.photo ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={v.photo} alt={`${v.name}の写真`} className="h-full w-full object-cover" />
+                  ) : (
+                    <span className="font-mono text-2xs text-foreground-400">PHOTO</span>
+                  )}
+                </span>
+              </td>
+              <td>
+                <Link
+                  href={`/shore/fleet?vessel=${v.id}&tab=${tab}`}
+                  className="font-semibold text-foreground-800 underline-offset-2 hover:underline"
+                >
+                  {v.name}
+                </Link>
+                {v.id === vesselId ? (
+                  <span className="ml-1.5 text-xs text-foreground-400">（表示中）</span>
+                ) : null}
+              </td>
+              <td className="num">{v.master?.grossTonnage ?? "—"}</td>
+              <td>{v.master?.vesselType ?? "—"}</td>
+              <td>{v.master?.navigationArea ?? "—"}</td>
+              <td className="num">{v.master?.requiredCrew ?? "—"}</td>
+              <td>
+                <StatusChip
+                  level={v.master?.managedExternally ? "none" : v.master ? "ok" : "caution"}
+                  size="sm"
+                  label={
+                    v.master?.managedExternally
+                      ? "管理委託中"
+                      : v.master
+                        ? "自社運航"
+                        : "マスタ未登録"
+                  }
+                />
+              </td>
+              <td className="num">
+                <span className="inline-flex gap-1.5">
+                  <Link href={`/shore/fleet/${v.id}/edit`} className="ui-btn-quiet">
+                    編集
+                  </Link>
+                  <Link href={`/shore/fleet/${v.id}`} className="ui-btn-quiet">
+                    管理ページ
+                  </Link>
+                </span>
+              </td>
+            </tr>
+          ))}
+        </DataTable>
+      </Section>
 
-      {/* 船の切替（サーバ側で組み立てるためリンクで切り替える） */}
-      <section aria-label="船の切替" className="ui-card flex flex-wrap items-center gap-2 p-4">
-        <span className="text-sm text-foreground-500">船</span>
-        {vessels.map((v) => (
+      {/* 主題の切替（サーバ側で組み立てるためリンクで切り替える） */}
+      <nav aria-label="船舶・保守の主題" className="ui-card flex flex-wrap gap-2 p-3">
+        {TABS.map((x) => (
           <Link
-            key={v.id}
-            href={`/shore/fleet?vessel=${v.id}`}
-            className={`rounded-medium px-3 py-1.5 text-sm ${
-              v.id === vesselId ? "bg-primary text-primary-foreground" : "bg-default-100"
-            }`}
+            key={x.id}
+            href={`/shore/fleet?tab=${x.id}`}
+            aria-current={x.id === tab ? "page" : undefined}
+            className={`ui-btn-quiet ${x.id === tab ? "ui-btn-selected" : ""}`}
           >
-            {v.name}
+            {x.label}
           </Link>
         ))}
-      </section>
+      </nav>
 
+      {tab === "vessel" ? (
+        <>
       {/* ── 船舶マスタ ── */}
       <section aria-label="船舶の基本情報" className="ui-card p-4">
-        <h2 className="mb-2 font-bold">船舶の基本情報</h2>
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <h2 className="m-0 font-bold">船舶の基本情報</h2>
+          {vesselId ? (
+            <Link href={`/shore/fleet/${vesselId}/edit`} className="ui-btn-quiet">
+              編集する
+            </Link>
+          ) : null}
+        </div>
         {!master ? (
           <p className="text-sm text-foreground-500">この船の情報は登録されていません。</p>
         ) : (
@@ -148,7 +257,11 @@ export default async function ShoreFleetPage({
           </>
         )}
       </section>
+        </>
+      ) : null}
 
+      {tab === "certs" ? (
+        <>
       {/* ── 3.4.2 検査証書の期限 ── */}
       <section aria-label="検査証書の期限" className="ui-card p-4">
         <h2 className="mb-2 font-bold">
@@ -191,19 +304,20 @@ export default async function ShoreFleetPage({
           </ul>
         )}
       </section>
+        </>
+      ) : null}
 
+      {tab === "maintenance" ? (
+        <>
       {/* ── 3.4.1 定期保守計画 ── */}
       <section aria-label="定期保守の計画" className="ui-card overflow-x-auto">
         <div className="px-4 pt-4">
-          <h2 className="font-bold">
+          <h2 className="font-bold" title="次回の予定日は「前回の実施日 + 周期」で毎回計算しています（保存していません）。">
             定期保守の計画
             <span className="ml-2 tabular-nums text-sm font-normal text-foreground-500">
               予定日を過ぎているもの {board.plans.filter((p) => p.level === "violation").length}件
             </span>
           </h2>
-          <p className="text-sm text-foreground-500">
-            次回の予定日は「前回の実施日 + 周期」で毎回計算しています（保存していません）。
-          </p>
         </div>
         {board.plans.length === 0 ? (
           <p className="p-4 text-sm text-foreground-500">保守の計画は登録されていません。</p>
@@ -266,7 +380,11 @@ export default async function ShoreFleetPage({
           </table>
         )}
       </section>
+        </>
+      ) : null}
 
+      {tab === "stock" ? (
+        <>
       {/* ── 3.4.1 部品・消耗品の在庫 ── */}
       <section aria-label="部品・消耗品の在庫" className="ui-card p-4">
         <h2 className="mb-2 font-bold">
@@ -319,7 +437,11 @@ export default async function ShoreFleetPage({
           </ul>
         )}
       </section>
+        </>
+      ) : null}
 
+      {tab === "dock" ? (
+        <>
       {/* ── 3.4.2 入渠・検査対応 ── */}
       <section aria-label="入渠・検査" className="flex flex-col gap-4">
         <h2 className="font-bold">入渠・検査</h2>
@@ -422,7 +544,11 @@ export default async function ShoreFleetPage({
           })
         )}
       </section>
+        </>
+      ) : null}
 
+      {tab === "equipment" ? (
+        <>
       {/* ── 船内から届いた点検・保守の一次記録 ── */}
       <section aria-label="要対応の機器" className="ui-card p-4">
         <h2 className="mb-2 font-bold">
@@ -513,6 +639,8 @@ export default async function ShoreFleetPage({
           </ul>
         )}
       </section>
+        </>
+      ) : null}
     </div>
   );
 }

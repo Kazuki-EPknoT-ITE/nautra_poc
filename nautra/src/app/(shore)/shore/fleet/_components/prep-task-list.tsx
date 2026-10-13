@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Checkbox } from "@/ui";
+import { Checkbox } from "@/ui/heroui";
 import { setPrepTaskAction, type FleetFormState } from "../actions";
 
 export interface PrepTask {

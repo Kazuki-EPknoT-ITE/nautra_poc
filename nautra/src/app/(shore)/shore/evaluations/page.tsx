@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { canShore } from "@/domain/authz/shore-roles";
 import { addDaysYmd } from "@/domain/crew/freshness";
 import { t } from "@/i18n/ja";
@@ -7,7 +8,7 @@ import {
   personLabel,
 } from "@/server/evaluation-service";
 import { listCrewMasters, todayLocal } from "@/server/master-service";
-import { SHORE_STAFF_ACCOUNTS, requireShore } from "@/server/shore-session";
+import { listActiveShoreStaff, requireShore } from "@/server/shore-session";
 import { EVALUATION_ITEMS } from "@/sync-protocol/masters";
 import { ShoreGuardNotice } from "../_components/guard";
 import {
@@ -43,12 +44,29 @@ function ScoreBar({ score }: { score: number | undefined }) {
  * 2. 評価ごとに**本人開示の可否**を保持し、一覧・詳細の両方で明示する
  * 3. 画面の冒頭で「閲覧が限定されていること」を書き、記入・訂正は監査ログに残す
  */
-export default async function ShoreEvaluationsPage() {
+export default async function ShoreEvaluationsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ tab?: string; crew?: string; edit?: string }>;
+}) {
   const guard = await requireShore("view_evaluation");
   if (!guard.ok) return <ShoreGuardNotice guard={guard} screen="評価・人事考課" />;
 
   // 権限判定は shore-roles.ts の表が唯一の情報源。画面でロール名の分岐を書かない
   const canEdit = canShore(guard.staff.role, "edit_evaluation");
+  const sp = await searchParams;
+  // 閲覧（一覧・推移）と入力（記入・直す）をタブで分ける（レビュー EVAL-04）。入力のタブは権限がある人にだけ出す（0-8）
+  const TABS = [
+    { id: "list", label: "評価の一覧" },
+    { id: "trend", label: "船員ごとの推移" },
+    ...(canEdit
+      ? [
+          { id: "new", label: "＋ 評価を記入する" },
+          { id: "edit", label: "評価を直す" },
+        ]
+      : []),
+  ];
+  const tab = TABS.some((x) => x.id === sp.tab) ? sp.tab! : "list";
   const rows = listEvaluations();
   const byCrew = evaluationHistoryByCrew();
   const today = todayLocal();
@@ -62,7 +80,7 @@ export default async function ShoreEvaluationsPage() {
       id: c.crewMemberId,
       label: `${c.name}（${c.position ?? "職名未登録"}）`,
     })),
-    ...SHORE_STAFF_ACCOUNTS.map((s) => ({ id: s.id, label: `${s.name}（${s.title}）` })),
+    ...listActiveShoreStaff().map((s) => ({ id: s.id, label: `${s.name}（${s.title}）` })),
   ];
   const correctable: CorrectableEvaluation[] = rows.map((r) => ({
     id: r.record.id,
@@ -76,113 +94,107 @@ export default async function ShoreEvaluationsPage() {
     disclosedToCrew: r.record.disclosedToCrew,
   }));
 
+  const editing = tab === "edit" ? correctable.find((c) => c.id === sp.edit) : undefined;
+  const trendCrew = byCrew.find((c) => c.crewMemberId === sp.crew) ?? byCrew[0];
+
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-balance text-2xl font-bold">評価・人事考課</h1>
-        <p className="text-sm text-foreground-500">
-          下船時・定期の評価を同じ項目で記録し、育成計画に使います
-        </p>
-      </div>
+    <div className="flex flex-col gap-[18px]">
+      <nav aria-label="評価の主題" className="ui-card flex flex-wrap gap-2 p-3">
+        {TABS.map((x) => (
+          <Link
+            key={x.id}
+            href={`/shore/evaluations?tab=${x.id}`}
+            aria-current={x.id === tab ? "page" : undefined}
+            className={`ui-btn-quiet ${x.id === tab ? "ui-btn-selected" : ""}`}
+          >
+            {x.label}
+          </Link>
+        ))}
+      </nav>
 
-      <section aria-label="取り扱いの注意" className="ui-card border border-warning p-4">
-        <h2 className="font-bold">⚠ この画面は閲覧できる人を限定しています</h2>
-        <ul className="mt-2 flex list-disc flex-col gap-1 pl-5 text-sm text-foreground-600">
-          <li>
-            開けるのは <span className="font-semibold">{t.shoreRole.admin}</span>{" "}
-            だけです。船長・労務管理責任者・事務担当の画面には出しません。
-          </li>
-          <li>
-            評価は本人の処遇に関わる情報です。評価ごとに「本人に開示するか」を決めて記録し、
-            開示すると決めたものだけを本人に見せます。
-          </li>
-          <li>記入・訂正はすべて記録に残ります（誰がいつ書いたかを後から確認できます）。</li>
-          <li>訂正しても元の評価は消えません。新しい版で置き換わります。</li>
-        </ul>
-      </section>
-
-      {canEdit ? (
-        <EvaluationForm
-          items={EVALUATION_ITEMS}
-          crewOptions={crewOptions}
-          evaluatorOptions={evaluatorOptions}
-          correctable={correctable}
-          defaultEvaluatedBy={guard.staff.id}
-          defaultPeriodFrom={addDaysYmd(today, -180)}
-          defaultPeriodTo={today}
-        />
-      ) : (
-        <p className="ui-card p-4 text-sm text-foreground-600">
-          この役職では評価の記入はできません（参照のみ）。
-        </p>
-      )}
-
-      <section aria-label="評価の一覧" className="ui-card overflow-x-auto">
-        <h2 className="px-4 pt-4 font-bold">評価の一覧（新しい順）</h2>
-        {rows.length === 0 ? (
-          <p className="px-4 py-3 text-sm text-foreground-500">記録された評価はありません。</p>
-        ) : (
-          <table className="mt-3 w-full min-w-[900px] text-sm">
-            <thead>
-              <tr className="border-b border-[var(--ui-hairline)] text-left text-foreground-500">
-                <th className="px-4 py-2 font-medium">船員</th>
-                <th className="px-2 py-2 font-medium">対象期間</th>
-                <th className="px-2 py-2 font-medium">総合（5項目の平均）</th>
-                <th className="px-2 py-2 font-medium">評価者</th>
-                <th className="px-2 py-2 font-medium">本人開示</th>
-                <th className="px-2 py-2 font-medium">所見</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r) => (
-                <tr key={r.record.id} className="border-b border-[var(--ui-hairline)] last:border-b-0">
-                  <td className="px-4 py-2 font-semibold">{r.crewName}</td>
-                  <td className="px-2 py-2 tabular-nums">
-                    {r.record.periodFrom} 〜 {r.record.periodTo}
-                  </td>
-                  <td className="px-2 py-2">
-                    <ScoreBar score={r.average ?? undefined} />
-                    <span className="tabular-nums text-xs text-foreground-500">
-                      {r.average === null ? "—" : r.average.toFixed(1)} / 5.0
-                    </span>
-                  </td>
-                  <td className="px-2 py-2">{r.evaluatorName}</td>
-                  <td className="px-2 py-2">
-                    {r.record.disclosedToCrew ? (
-                      <span className="font-semibold">✓ 本人に開示する</span>
-                    ) : (
-                      <span className="text-foreground-600">✕ 本人に開示しない</span>
-                    )}
-                  </td>
-                  <td className="px-2 py-2 text-foreground-600">
-                    {r.record.comment ? (
-                      <span className="line-clamp-2 block max-w-md">{r.record.comment}</span>
-                    ) : (
-                      "—"
-                    )}
-                  </td>
+      {tab === "list" || (tab === "edit" && !editing) ? (
+        <section aria-label="評価の一覧" className="ui-card overflow-x-auto p-0">
+          {rows.length === 0 ? (
+            <p className="m-0 px-4 py-5 text-sm text-foreground-500">記録された評価はありません</p>
+          ) : (
+            <table className="ui-table min-w-[900px]">
+              <thead>
+                <tr>
+                  <th>船員</th>
+                  <th>対象期間</th>
+                  <th>総合</th>
+                  <th>評価者</th>
+                  <th>本人開示</th>
+                  <th>所見</th>
+                  <th />
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-        <p className="px-4 py-3 text-xs text-foreground-500">
-          総合は5項目の平均をその場で計算して表示しています（平均値は保存しません）。
-        </p>
-      </section>
+              </thead>
+              <tbody>
+                {rows.map((r) => (
+                  <tr key={r.record.id}>
+                    <td className="font-semibold">{r.crewName}</td>
+                    <td className="whitespace-nowrap tabular-nums">
+                      {r.record.periodFrom} 〜 {r.record.periodTo}
+                    </td>
+                    <td>
+                      <ScoreBar score={r.average ?? undefined} />
+                      <span className="tabular-nums text-xs text-foreground-500">
+                        {r.average === null ? "—" : r.average.toFixed(1)} / 5.0
+                      </span>
+                    </td>
+                    <td>{r.evaluatorName}</td>
+                    <td>
+                      {r.record.disclosedToCrew ? (
+                        <span className="font-semibold">✓ 開示</span>
+                      ) : (
+                        <span className="text-foreground-600">✕ 非開示</span>
+                      )}
+                    </td>
+                    <td className="text-foreground-600">
+                      {r.record.comment ? <span className="line-clamp-2 block max-w-md">{r.record.comment}</span> : "—"}
+                    </td>
+                    <td className="whitespace-nowrap text-right">
+                      <Link href={`/shore/evaluations?tab=trend&crew=${r.record.crewMemberId}`} className="ui-btn-quiet">
+                        推移
+                      </Link>
+                      {canEdit ? (
+                        <Link href={`/shore/evaluations?tab=edit&edit=${r.record.id}`} className="ui-btn-quiet ml-1">
+                          直す
+                        </Link>
+                      ) : null}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </section>
+      ) : null}
 
-      <section aria-label="船員ごとの推移" className="flex flex-col gap-4">
-        <h2 className="font-bold">船員ごとの推移（育成計画のために履歴を並べます）</h2>
-        {byCrew.length === 0 ? (
-          <p className="text-sm text-foreground-500">推移を出せる評価はまだありません。</p>
-        ) : (
-          byCrew.map((crew) => (
+      {tab === "trend" ? (
+        <section aria-label="船員ごとの推移" className="flex flex-col gap-3">
+          {byCrew.length === 0 ? (
+            <p className="ui-card m-0 px-4 py-5 text-sm text-foreground-500">推移を出せる評価はまだありません</p>
+          ) : (
+            <>
+              <div className="flex flex-wrap gap-1.5" role="group" aria-label="船員">
+                {byCrew.map((c) => (
+                  <Link
+                    key={c.crewMemberId}
+                    href={`/shore/evaluations?tab=trend&crew=${c.crewMemberId}`}
+                    aria-current={c.crewMemberId === trendCrew?.crewMemberId ? "true" : undefined}
+                    className={`ui-btn-quiet ${c.crewMemberId === trendCrew?.crewMemberId ? "ui-btn-selected" : ""}`}
+                  >
+                    {c.crewName}
+                  </Link>
+                ))}
+              </div>
+              {trendCrew
+                ? [trendCrew].map((crew) => (
             <div key={crew.crewMemberId} className="ui-card overflow-x-auto p-4">
               <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
                 <h3 className="font-bold">{crew.crewName}</h3>
-                <p className="text-xs text-foreground-500">
-                  {crew.rows.length}回の評価（古い順に左から）
-                </p>
+                <p className="m-0 text-xs text-foreground-500">{crew.rows.length}回</p>
               </div>
               <table className="w-full min-w-[640px] text-sm">
                 <thead>
@@ -218,16 +230,51 @@ export default async function ShoreEvaluationsPage() {
               </table>
               {crew.rows.map((r) =>
                 r.record.comment ? (
-                  <p key={`${r.record.id}-c`} className="mt-2 text-xs text-foreground-600">
+                  <p key={`${r.record.id}-c`} data-user-text className="mt-2 text-xs text-foreground-600">
                     <span className="tabular-nums font-semibold">{r.record.periodTo}</span> の所見（
                     {personLabel(r.record.evaluatedBy)}）: {r.record.comment}
                   </p>
                 ) : null,
               )}
             </div>
-          ))
-        )}
-      </section>
+                  ))
+                : null}
+            </>
+          )}
+        </section>
+      ) : null}
+
+      {tab === "new" && canEdit ? (
+        <EvaluationForm
+          items={EVALUATION_ITEMS}
+          crewOptions={crewOptions}
+          evaluatorOptions={evaluatorOptions}
+          defaultEvaluatedBy={guard.staff.id}
+          defaultPeriodFrom={addDaysYmd(today, -180)}
+          defaultPeriodTo={today}
+        />
+      ) : null}
+
+      {tab === "edit" && canEdit && editing ? (
+        <>
+          <p className="m-0 flex flex-wrap items-center gap-2 text-base">
+            <span className="font-bold">直す評価:</span> {editing.label}
+            <Link href="/shore/evaluations?tab=edit" className="ui-btn-quiet">
+              別の評価を選ぶ
+            </Link>
+          </p>
+          <EvaluationForm
+            key={editing.id}
+            items={EVALUATION_ITEMS}
+            crewOptions={crewOptions}
+            evaluatorOptions={evaluatorOptions}
+            initial={editing}
+            defaultEvaluatedBy={guard.staff.id}
+            defaultPeriodFrom={addDaysYmd(today, -180)}
+            defaultPeriodTo={today}
+          />
+        </>
+      ) : null}
     </div>
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { Button, Input, Radio, RadioGroup, Select, SelectItem, Textarea } from "@/ui";
+import { Button, Input, Radio, RadioGroup, Select, SelectItem, Textarea } from "@/ui/heroui";
 import { publishAgreementAction, type AgreementFormState } from "../actions";
 
 export interface OverrideField {

@@ -17,6 +17,7 @@ export const t = {
     standby: "スタンバイ（待機）",
     maintenance: "保守整備",
     other: "その他作業",
+    rest: "休息",
   } as Record<string, string>,
 
   action: {
@@ -68,6 +69,7 @@ export const t = {
     view_own_ledger: "自分の記録簿を見る",
     approve_labor: "船内承認（労務）",
     view_all_crew: "他船員の記録を見る",
+    manage_shift: "当直を作る・変える（船内）",
     write_logbook: "航海日誌を書く",
     write_checklist: "点検表を記録する",
     write_work_report: "作業記録を書く",
@@ -674,7 +676,7 @@ export const t = {
    * PoC のデモ事業者名もここに置く（画面に事業者名を直書きしない）。
    */
   tenant: {
-    demoName: "のーとら海運株式会社",
+    demoName: "昭運海運株式会社",
     id: "テナントID",
     name: "事業者名",
     vessels: "対象の船舶",
@@ -771,6 +773,13 @@ export const t = {
     voyage_schedule: "配船スケジュール",
     generated_document: "生成帳票",
     agreement: "労使協定・就業規則",
+    crew_photo: "顔写真",
+    vessel_photo: "船の写真",
+    crew_field_def: "船員の追加項目",
+    work_task: "作業指示・タスク",
+    trash_entry: "削除・アーカイブ",
+    shore_user: "陸上ユーザー",
+    shore_user_invite: "陸上ユーザーの招待",
     audit_log: "監査ログ",
   } as Record<string, string>,
 } as const;

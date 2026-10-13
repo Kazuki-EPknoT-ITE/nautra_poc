@@ -14,7 +14,7 @@ import {
 import type { LaborCheck } from "@/domain/labor-law/types";
 import { cn } from "@/lib/cn";
 import { CREW_MEMBERS, type CrewMember } from "@/lib/crew";
-import { fmtDateLabel, fmtMinutes, fmtTime } from "@/lib/format";
+import { fmtDateLabel, fmtMinutes } from "@/lib/format";
 import {
   checkPlainLabelFor,
   describeApproval,
@@ -22,7 +22,6 @@ import {
   describeExceptionalMinutes,
   describePeriodTotal,
   formatCheckActual,
-  formatCheckLimit,
   LEVEL_PLAIN,
 } from "@/lib/labor-plain";
 import { useLocale } from "@/lib/use-locale";
@@ -36,18 +35,8 @@ import {
 } from "@/lib/vessel-hooks";
 import { DEFAULT_LABOR_RULE_SET } from "@/rules/default-rule-set";
 import { resolveApproval, type ApprovalPayload } from "@/sync-protocol/events";
-import {
-  Button,
-  CardBody,
-  CardHeader,
-  Chip,
-  Divider,
-  SurfaceCard,
-  Progress,
-  Select,
-  SelectItem,
-  StatusChip,
-} from "@/ui";
+import { SurfaceCard, StatusChip } from "@/ui";
+import { Button, CardBody, CardHeader, Chip, Divider, Progress, Select, SelectItem } from "@/ui/heroui";
 import { GroupHeader } from "../_components/group-header";
 
 /**
@@ -116,7 +105,6 @@ export default function LedgerPage() {
   }, [crew.id, today, records, now, ruleSet]);
 
   const dailyMaxCheck = daily.checks.find((c) => c.key === "daily_max");
-  const restChecks = daily.checks.filter((c) => c.key.startsWith("rest_"));
   const attentionChecks = daily.checks.filter((c) => c.level !== "ok");
 
   // 直近3日の承認状況（本人向け。船長は選択中の船員の分）
@@ -137,6 +125,45 @@ export default function LedgerPage() {
   const overall = daily.hasRecords ? daily.level : "none";
   const plain = LEVEL_PLAIN[overall];
   const isSelf = crew.id === session.id;
+
+  /**
+   * 本日の3つの数字。判定（level）はドメイン関数の結果をそのまま使い、
+   * ここでは言い回しだけを決める（判定をこの画面で作らない）。
+   */
+  const restSplitCheck = daily.checks.find((c) => c.key === "rest_split");
+  const restTotalCheck = daily.checks.find((c) => c.key === "rest_total");
+  const laborKpis: { caption: string; value: string; unit: string; note: string; level: string }[] = [
+    {
+      caption: "労働時間",
+      value: fmtMinutes(daily.workedMinutes),
+      unit: `/ ${fmtMinutes(ruleSet.values.dailyMaxMinutes)}`,
+      note: dailyMaxCheck ? describeCheck(dailyMaxCheck) : "上限内です。",
+      level: dailyMaxCheck?.level ?? "ok",
+    },
+    {
+      caption: "休息時間",
+      value: fmtMinutes(daily.restTotalMinutes),
+      unit: `/ ${fmtMinutes(ruleSet.values.restMinDailyMinutes)} 以上`,
+      note: restTotalCheck ? describeCheck(restTotalCheck) : "休息は足りています。",
+      level: restTotalCheck?.level ?? "ok",
+    },
+    {
+      caption: "休息の分割",
+      value: String(restSplitCheck?.actual ?? daily.restPeriods.length),
+      unit: `回 / 上限 ${restSplitCheck?.limit ?? ruleSet.values.restSplitMax}回`,
+      note: restSplitCheck ? describeCheck(restSplitCheck) : "分割の回数は上限内です。",
+      level: restSplitCheck?.level ?? "ok",
+    },
+  ];
+
+  /** 作業種別ごとの内訳（多い順）。並列打刻ぶんは重複を含む */
+  const categoryBars = Object.entries(daily.workedByCategory)
+    .map(([category, minutes]) => ({ category, minutes: minutes ?? 0 }))
+    .filter((b) => b.minutes > 0)
+    .sort((a, b) => b.minutes - a.minutes);
+  const barScale = Math.max(ruleSet.values.dailyMaxMinutes, ...categoryBars.map((b) => b.minutes));
+  /** 同時に進めた時間（内訳の合計 − 働いた時間）。説明の文の代わりに、帯と札で見せる（WORK-05） */
+  const overlapMinutes = Math.max(0, categoryBars.reduce((n, b) => n + b.minutes, 0) - daily.workedMinutes);
 
   return (
     <div className="flex flex-col gap-4">
@@ -160,14 +187,33 @@ export default function LedgerPage() {
                 <SelectItem key={c.id}>{`${c.name}（${c.position}）`}</SelectItem>
               ))}
             </Select>
-            <p className="text-sm text-foreground-600">
-              一般の船員には自分の記録だけが表示されます。
-            </p>
           </CardBody>
         </SurfaceCard>
       ) : null}
 
       {/* いちばん大きく「今日はどうなのか」を出す */}
+      {/* まとめて見る（4週間・今月。要件定義書 3.2.1）。レビュー WORK-06 / photo_5: いちばん上に、見えやすく */}
+      <section aria-label="まとめて見る" className="grid gap-3 md:grid-cols-2">
+        <PeriodBlock
+          title="この4週間"
+          summary={fourWeeks}
+          locale={locale}
+          tr={tr}
+          sentence={describePeriodTotal(
+            "この4週間",
+            fourWeeks,
+            fourWeeks.checks.find((c) => c.key === "four_week_max"),
+          )}
+        />
+        <PeriodBlock
+          title="今月（今日まで）"
+          summary={thisMonth}
+          locale={locale}
+          tr={tr}
+          sentence={describePeriodTotal("今月", thisMonth, undefined)}
+        />
+      </section>
+
       <SurfaceCard
        
         className={cn(
@@ -191,33 +237,36 @@ export default function LedgerPage() {
               </Chip>
             ) : null}
           </div>
-          <p className="text-balance text-3xl font-bold">
-            <span aria-hidden="true" className="mr-2">
+          <h2
+            className={cn(
+              "m-0 text-balance text-5xl font-bold leading-tight",
+              overall === "violation" ? "text-danger" : overall === "caution" ? "text-warning-700" : "text-foreground-900",
+            )}
+            title={plain.summary}
+          >
+            <span aria-hidden="true" className="mr-3">
               {plain.icon}
             </span>
             {plain.title}
-          </p>
-          <p className="text-pretty text-foreground-600">{plain.summary}</p>
+          </h2>
 
           {attentionChecks.length > 0 ? (
-            <ul className="flex flex-col gap-1">
+            <div className="flex flex-wrap gap-2" role="list" aria-label="気をつけること">
               {attentionChecks.map((c) => (
-                <li key={c.key} className="text-pretty">
-                  <span aria-hidden="true" className="mr-1">
-                    {LEVEL_PLAIN[c.level].icon}
-                  </span>
-                  <span className="font-semibold">{checkPlainLabelFor(locale, c.key)}</span>:{" "}
-                  {describeCheck(c)}
-                </li>
+                <span key={c.key} role="listitem">
+                  <StatusChip level={c.level} size="lg" label={checkPlainLabelFor(locale, c.key)} hint={describeCheck(c)} />
+                </span>
               ))}
-            </ul>
-          ) : null}
+            </div>
+          ) : (
+            <p className="m-0 text-lg text-foreground-600">{plain.summary}</p>
+          )}
         </CardBody>
       </SurfaceCard>
 
       {/* 労働時間: 残り時間を数字と帯で示す */}
       <SurfaceCard>
-        <CardHeader className="px-5 pb-2 pt-5 text-base font-bold">働いた時間</CardHeader>
+        <CardHeader className="px-5 pb-2 pt-5"><span className="border-l-4 border-primary pl-3 text-xl font-bold text-foreground-900">働いた時間</span></CardHeader>
         <CardBody className="flex flex-col gap-5 px-5 pb-5">
           <TimeBar
             title="今日"
@@ -243,81 +292,94 @@ export default function LedgerPage() {
         </CardBody>
       </SurfaceCard>
 
-      {/* まとめて見る（4週間・今月）。日単位・週単位に続く自動集計。要件定義書 3.2.1 */}
-      <SurfaceCard>
-        <CardHeader className="px-5 pb-2 pt-5 text-base font-bold">まとめて見る</CardHeader>
-        <CardBody className="flex flex-col gap-3 px-5 pb-5">
-          <PeriodBlock
-            title="この4週間"
-            summary={fourWeeks}
-            locale={locale}
-            tr={tr}
-            sentence={describePeriodTotal(
-              "この4週間",
-              fourWeeks,
-              fourWeeks.checks.find((c) => c.key === "four_week_max"),
-            )}
-          />
-          <PeriodBlock
-            title="今月（今日まで）"
-            summary={thisMonth}
-            locale={locale}
-            tr={tr}
-            /* 今月の目安は「残業の上限」なので、合計時間の目安としては書かない
-               （目安は下のチェック行に「今月の残業した時間」として出る） */
-            sentence={describePeriodTotal("今月", thisMonth, undefined)}
-          />
-        </CardBody>
-      </SurfaceCard>
+      {/*
+        3つの数字（デザイン正本 V-03 の KPI）。
+        「働いた」「休んだ」「休みが何回に分かれたか」は船員が毎日いちばん気にする3つで、
+        言い換えの文よりも**数字そのもの**を先に大きく出す。判定の色は上限に触れたときだけ。
+      */}
+      <section aria-label="本日の数字" className="grid gap-3 sm:grid-cols-3">
+        {laborKpis.map((k) => (
+          <div key={k.caption} className="ui-card cursor-help px-[18px] py-4" title={k.note}>
+            <p className="m-0 border-l-4 border-primary pl-2.5 text-xl font-bold text-foreground-900">{k.caption}</p>
+            <p className="m-0 mt-2 flex items-baseline gap-2">
+              <span
+                className={cn(
+                  "font-mono text-5xl font-semibold leading-none tabular-nums",
+                  k.level === "violation"
+                    ? "text-danger"
+                    : k.level === "caution"
+                      ? "text-warning-700"
+                      : "text-foreground-900",
+                )}
+              >
+                {k.value}
+              </span>
+              <span className="font-mono text-lg text-foreground-400">{k.unit}</span>
+            </p>
+          </div>
+        ))}
+      </section>
 
-      {/* 休息 */}
-      <SurfaceCard>
-        <CardHeader className="px-5 pb-2 pt-5 text-base font-bold">休んだ時間</CardHeader>
-        <CardBody className="flex flex-col gap-3 px-5 pb-5">
-          {daily.hasRecords ? (
-            <>
-              {restChecks.map((c) => (
-                <div key={c.key} className="ui-inset flex flex-col gap-1 p-3">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <span className="font-semibold">{checkPlainLabelFor(locale, c.key)}</span>
-                    <div className="flex items-center gap-2">
-                      <span className="tabular-nums">
-                        {formatCheckActual(c)}
-                        <span className="ml-1 text-sm text-foreground-600">
-                          / 基準 {formatCheckLimit(c)}
-                        </span>
-                      </span>
-                      <StatusChip level={c.level} size="sm" label={tr("level", c.level)} />
-                    </div>
-                  </div>
-                  <p className="text-pretty text-sm text-foreground-600">{describeCheck(c)}</p>
-                </div>
-              ))}
-              <details>
-                <summary className="cursor-pointer text-sm text-foreground-600">
-                  休んだ時間帯を見る（{daily.restPeriods.length}件）
-                </summary>
-                <ul className="mt-2 flex flex-col gap-1 text-sm">
-                  {daily.restPeriods.map((p, i) => (
-                    <li key={i} className="tabular-nums">
-                      {fmtTime(p.startAt)}〜{fmtTime(p.endAt)}（{fmtMinutes(p.minutes)}）
-                    </li>
-                  ))}
-                </ul>
-                <p className="mt-2 text-xs text-foreground-600">
-                  分割回数と最長休息は、日をまたぐ休みをつなげて数えます。
-                </p>
-              </details>
-            </>
-          ) : (
-            <p className="text-foreground-600">今日の打刻がまだありません。</p>
-          )}
-        </CardBody>
-      </SurfaceCard>
+      {/* 作業種別ごとの内訳（デザイン正本 V-03 の横棒）。並列打刻ぶんは重複を含む */}
+      {categoryBars.length > 0 ? (
+        <section aria-label="作業種別ごとの内訳" className="ui-card">
+          <div className="flex items-baseline justify-between gap-3 border-b border-[var(--ui-hairline-strong)] px-4 py-3">
+            <h2 className="m-0 border-l-4 border-primary pl-3 text-xl font-bold text-foreground-900">作業種別ごとの内訳（今日）</h2>
+            <span className="text-base text-foreground-400">
+              縦線 = 上限 {fmtMinutes(ruleSet.values.dailyMaxMinutes)}
+            </span>
+          </div>
+          <div className="px-4 pb-3 pt-1.5">
+            {categoryBars.map((b) => (
+              <div key={b.category} className="flex items-center gap-3.5 py-2">
+                <span className="flex-none basis-32 text-lg text-foreground-700">
+                  {tr("workCategory", b.category)}
+                </span>
+                <span className="relative block flex-1">
+                  <span className="block h-5 overflow-hidden rounded-[2px] bg-[#DFE1E0]">
+                    <span
+                      className="block h-full bg-foreground-700"
+                      style={{ width: `${Math.min(100, (b.minutes / barScale) * 100)}%` }}
+                    />
+                  </span>
+                </span>
+                <span className="flex-none basis-[104px] whitespace-nowrap text-right font-mono text-xl tabular-nums text-foreground-800">
+                  {fmtMinutes(b.minutes)}
+                </span>
+              </div>
+            ))}
+            {/* 合計は重なりを1回だけ数える。内訳の合計との差（同時に進めた時間）は札で示す */}
+            <div className="mt-1 flex items-center gap-3.5 border-t border-[var(--ui-hairline)] pt-3">
+              <span className="flex-none basis-32 text-lg font-bold text-foreground-900">合計</span>
+              <span className="relative block flex-1">
+                <span className="block h-5 overflow-hidden rounded-[2px] bg-[#DFE1E0]">
+                  <span
+                    className="block h-full bg-primary"
+                    style={{ width: `${Math.min(100, (daily.workedMinutes / barScale) * 100)}%` }}
+                  />
+                </span>
+              </span>
+              <span className="flex-none basis-[104px] whitespace-nowrap text-right font-mono text-xl font-bold tabular-nums text-foreground-900">
+                {fmtMinutes(daily.workedMinutes)}
+              </span>
+            </div>
+            {overlapMinutes > 0 ? (
+              <p className="m-0 mt-2 flex justify-end">
+                <StatusChip
+                  level="none"
+                  size="sm"
+                  label={`⧉ 同時に進めた時間 ${fmtMinutes(overlapMinutes)}`}
+                  hint="同じ時間に2つの作業を進めた分は、合計では1回だけ数えます"
+                />
+              </p>
+            ) : null}
+          </div>
+        </section>
+      ) : null}
 
       {/* 承認状況（本人向けに何をすればよいかまで書く） */}
       <SurfaceCard>
-        <CardHeader className="px-5 pb-2 pt-5 text-base font-bold">船長の承認</CardHeader>
+        <CardHeader className="px-5 pb-2 pt-5"><span className="border-l-4 border-primary pl-3 text-xl font-bold text-foreground-900">船長の承認</span></CardHeader>
         <CardBody className="flex flex-col gap-2 px-5 pb-5">
           {approvalDays.map(({ date, summary, approval }) => (
             <ApprovalRow
@@ -334,10 +396,6 @@ export default function LedgerPage() {
       {/* 船長のみ: 乗組員全体の状況 */}
       {canViewAll ? <CrewOverview today={today} now={now} onPick={setPickedCrewId} /> : null}
 
-      <p className="text-xs text-foreground-600">
-        適用ルール版: {daily.appliedRuleVersion}（{ruleSet.source}）。
-        判定の基準は法令・労使協定の版管理データから読み込まれ、アプリ内に固定値を持ちません。
-      </p>
     </div>
   );
 }
@@ -405,25 +463,33 @@ function PeriodBlock({
 }) {
   const exceptional = describeExceptionalMinutes(summary.exceptionalMinutes);
   return (
-    <div className="ui-inset flex flex-col gap-2 p-3">
+    <div
+      className={cn(
+        "ui-card flex flex-col gap-3 border-2 px-5 py-4",
+        summary.level === "violation" ? "border-danger" : summary.level === "caution" ? "border-warning" : "border-transparent",
+      )}
+    >
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <span className="text-lg font-bold">{title}</span>
-        <StatusChip level={summary.level} size="sm" label={tr("level", summary.level)} />
+        <h2 className="m-0 border-l-4 border-primary pl-3 text-2xl font-bold text-foreground-900">{title}</h2>
+        <StatusChip level={summary.level} size="lg" label={tr("level", summary.level)} hint={false} />
       </div>
-      <p className="text-pretty">{sentence}</p>
+      <p className="m-0 flex items-baseline gap-2" title={sentence}>
+        <span className="font-mono text-5xl font-semibold tabular-nums text-foreground-900">{fmtMinutes(summary.workedMinutes)}</span>
+        <span className="text-base text-foreground-500">働いた時間</span>
+      </p>
       {exceptional ? (
-        <p className="text-pretty text-sm text-foreground-600">
-          <span aria-hidden="true">⚑ </span>
-          {exceptional}実績としては記録簿に残ります。
+        <p className="m-0 text-sm text-foreground-600" title={`${exceptional}実績としては記録簿に残ります。`}>
+          <span aria-hidden="true">⚑ </span>別枠あり
         </p>
       ) : null}
-      <ul className="flex flex-col gap-1">
+      <ul className="m-0 grid list-none gap-2 p-0 sm:grid-cols-2">
         {summary.checks.map((c) => (
-          <li key={c.key} className="flex flex-wrap items-center gap-2 text-sm">
-            <span aria-hidden="true">{LEVEL_PLAIN[c.level].icon}</span>
-            <span className="font-semibold">{checkPlainLabelFor(locale, c.key)}</span>
-            <span className="tabular-nums">{formatCheckActual(c)}</span>
-            <span className="text-foreground-600">{describeCheck(c)}</span>
+          <li key={c.key} className="ui-inset flex flex-col gap-1 px-3 py-2">
+            <span className="flex items-center justify-between gap-2">
+              <span className="text-base font-bold">{checkPlainLabelFor(locale, c.key)}</span>
+              <StatusChip level={c.level} size="sm" hint={describeCheck(c)} />
+            </span>
+            <span className="font-mono text-xl tabular-nums">{formatCheckActual(c)}</span>
           </li>
         ))}
       </ul>
@@ -571,9 +637,6 @@ function CrewOverview({
             </button>
           );
         })}
-        <p className="text-xs text-foreground-600">
-          名前を押すと、その船員の内訳を上に表示します。打刻の修正は本人への差戻しで依頼します。
-        </p>
       </CardBody>
     </SurfaceCard>
   );

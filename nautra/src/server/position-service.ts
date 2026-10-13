@@ -6,6 +6,7 @@ import {
 } from "@/lib/position-plain";
 import type { VesselPositionPayload, VoyageSchedulePayload } from "@/sync-protocol/masters";
 import { carryOverFields } from "@/lib/master-fields";
+import { deriveVoyageActual, type VoyageActual } from "@/domain/dispatch/voyage-actual";
 import { crewNameOf, effective, listVessels, publishMaster, writeAuditLog } from "./master-service";
 
 /**
@@ -64,6 +65,44 @@ export function buildPositionViews(now = new Date(), trackLimit = 12): VesselPos
       track,
     };
   });
+}
+
+/* ═══════════════ 航跡ログ（記録を確かめる。レビュー POS-03） ═══════════════ */
+
+export interface TrackLog {
+  vesselId: string;
+  vesselName: string;
+  /** 期間の観測（新しい順） */
+  rows: VesselPositionPayload[];
+  /** 海図に描く航跡（古い順） */
+  track: VesselPositionPayload[];
+}
+
+/** 船1隻の、期間（YYYY-MM-DD・両端を含む）の観測の記録 */
+export function buildTrackLog(vesselId: string, from?: string, to?: string): TrackLog {
+  const name = listVessels().find((v) => v.id === vesselId)?.name ?? vesselId;
+  const day = (iso: string) => ymdOf(iso) ?? "";
+  const rows = fetchPositions()
+    .filter((p) => p.targetVesselId === vesselId)
+    .filter((p) => (!from || day(p.observedAt) >= from) && (!to || day(p.observedAt) <= to))
+    .sort((a, b) => b.observedAt.localeCompare(a.observedAt));
+  return { vesselId, vesselName: name, rows, track: [...rows].reverse() };
+}
+
+/* ═══════════════ 計画と実績（配船計画 × 航跡。レビュー POS-02） ═══════════════ */
+
+export interface VoyageComparison {
+  schedule: VoyageSchedulePayload;
+  actual: VoyageActual;
+}
+
+/** 船1隻の配船計画を、出港の早い順に航跡と突き合わせる（取り消した計画は除く） */
+export function buildVoyageComparisons(vesselId: string): VoyageComparison[] {
+  const positions = fetchPositions().filter((p) => p.targetVesselId === vesselId);
+  return effective("voyage_schedule")
+    .filter((s) => s.targetVesselId === vesselId && s.status !== "canceled")
+    .sort((a, b) => a.departureAt.localeCompare(b.departureAt))
+    .map((schedule) => ({ schedule, actual: deriveVoyageActual(schedule.departureAt, schedule.arrivalAt, positions) }));
 }
 
 /* ═══════════════ 3.7.2 配船スケジュール ═══════════════ */

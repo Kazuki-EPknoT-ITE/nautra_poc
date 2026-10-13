@@ -103,7 +103,7 @@ describe("デモシナリオが意図どおり成立する", () => {
     });
 
   it("乗船中の4名は配乗の妨げになる不備を持たない（免状・健診・基本訓練・保険が揃う）", () => {
-    for (const id of ["crew-kato", "crew-sato", "crew-suzuki", "crew-tanaka"]) {
+    for (const id of ["crew-takamatsu", "crew-nakahara", "crew-terada", "crew-oshiro"]) {
       const r = eligibilityOf(id);
       expect(r.status, `${id} が blocked になっている: ${r.issues.map((i) => i.label).join(" / ")}`).not.toBe(
         "blocked",
@@ -111,28 +111,28 @@ describe("デモシナリオが意図どおり成立する", () => {
     }
   });
 
-  it("**森（予備船員）は雇用保険の加入が未確認で配乗できない**（3.1.2 ブロック条件）", () => {
-    const r = eligibilityOf("crew-mori");
+  it("**平良（予備船員）は雇用保険の加入が未確認で配乗できない**（3.1.2 ブロック条件）", () => {
+    const r = eligibilityOf("crew-taira");
     expect(r.status).toBe("blocked");
     expect(r.issues.some((i) => i.key === "insurance_missing_employment")).toBe(true);
   });
 
-  it("**石井（新規雇入予定）は基本訓練が未修了**で、2026-02-14 以降の乗船では配乗できない", () => {
-    const r = eligibilityOf("crew-ishii", { embarkOn: addDaysYmd(TODAY, 14) });
+  it("**岸本（新規雇入予定）は基本訓練が未修了**で、2026-02-14 以降の乗船では配乗できない", () => {
+    const r = eligibilityOf("crew-kishimoto", { embarkOn: addDaysYmd(TODAY, 14) });
     expect(r.status).toBe("blocked");
     expect(r.issues.some((i) => i.key === "missing_stcw_basic")).toBe(true);
   });
 
-  it("**鈴木の健康証明書は期限内だが『要再確認』**（12.4 鮮度切れ。不適合ではない）", () => {
-    const med = credentialsOf("crew-suzuki").find((c) => c.category === "medical")!;
+  it("**寺田の健康証明書は期限内だが『要再確認』**（12.4 鮮度切れ。不適合ではない）", () => {
+    const med = credentialsOf("crew-terada").find((c) => c.category === "medical")!;
     const s = evaluateCredential(med, TODAY, DEFAULT_CREDENTIAL_RULE_SET);
     expect(s.expiry).not.toBe("expired"); // 期限は切れていない
     expect(s.freshness).toBe("stale"); // 確認が古いだけ
     expect(s.level).toBe("caution");
   });
 
-  it("**佐藤の海技免状は更新の着手時期**（満了まで300日・リードタイム365日。6.6②）", () => {
-    const lic = credentialsOf("crew-sato").find((c) => c.category === "license")!;
+  it("**中原の海技免状は更新の着手時期**（満了まで300日・リードタイム365日。6.6②）", () => {
+    const lic = credentialsOf("crew-nakahara").find((c) => c.category === "license")!;
     const s = evaluateCredential(lic, TODAY, DEFAULT_CREDENTIAL_RULE_SET);
     expect(s.expiry).toBe("start_due");
     expect(s.daysToExpiry).toBe(300);
@@ -148,32 +148,32 @@ describe("デモシナリオが意図どおり成立する", () => {
     expect(s.expiry).toBe("start_due");
   });
 
-  it("**森・石井の雇入届出は添付要件で不適合**になる（3.8.3⑥ 受理保留リスク）", () => {
+  it("**平良・岸本の雇入届出は添付要件で不適合**になる（3.8.3⑥ 受理保留リスク）", () => {
     const masters = crewMasters();
     const r = checkFilingRequirements({
       filingType: "hire",
       targets: [
         {
-          crewMemberId: "crew-mori",
-          crewName: "森 波留",
+          crewMemberId: "crew-taira",
+          crewName: "平良 直人",
           effectiveOn: addDaysYmd(TODAY, 14),
-          master: masters.find((m) => m.crewMemberId === "crew-mori"),
-          credentials: credentialsOf("crew-mori"),
+          master: masters.find((m) => m.crewMemberId === "crew-taira"),
+          credentials: credentialsOf("crew-taira"),
         },
         {
-          crewMemberId: "crew-ishii",
-          crewName: "石井 新",
+          crewMemberId: "crew-kishimoto",
+          crewName: "岸本 洋一",
           effectiveOn: addDaysYmd(TODAY, 14),
-          master: masters.find((m) => m.crewMemberId === "crew-ishii"),
-          credentials: credentialsOf("crew-ishii"),
+          master: masters.find((m) => m.crewMemberId === "crew-kishimoto"),
+          credentials: credentialsOf("crew-kishimoto"),
         },
       ],
       today: TODAY,
       ruleSet: DEFAULT_CREDENTIAL_RULE_SET,
     });
     expect(r.submittable).toBe(false);
-    const mori = r.results.find((x) => x.crewMemberId === "crew-mori")!;
-    const ishii = r.results.find((x) => x.crewMemberId === "crew-ishii")!;
+    const mori = r.results.find((x) => x.crewMemberId === "crew-taira")!;
+    const ishii = r.results.find((x) => x.crewMemberId === "crew-kishimoto")!;
     expect(mori.items.find((i) => i.key === "insurance_employment")?.state).toBe("ng");
     expect(ishii.items.find((i) => i.key === "stcw_basic")?.state).toBe("ng");
   });
@@ -202,7 +202,7 @@ describe("デモシナリオが意図どおり成立する", () => {
     const records = makeSeedEvents(TODAY)
       .filter((e) => e.kind === "time_record")
       .map((e) => e.payload as TimeRecord);
-    for (const crewMemberId of ["crew-kato", "crew-sato", "crew-suzuki", "crew-tanaka"]) {
+    for (const crewMemberId of ["crew-takamatsu", "crew-nakahara", "crew-terada", "crew-oshiro"]) {
       const r = evaluateRestDays({
         crewMemberId,
         endDate: addDaysYmd(TODAY, -1),
@@ -214,14 +214,14 @@ describe("デモシナリオが意図どおり成立する", () => {
     }
   });
 
-  it("労務の見どころが保たれる（佐藤 3日前=警告 / 鈴木 2日前=休息分割の警告）", () => {
+  it("労務の見どころが保たれる（中原 3日前=警告 / 寺田 2日前=休息分割の警告）", () => {
     const records = makeSeedEvents(TODAY)
       .filter((e) => e.kind === "time_record")
       .map((e) => e.payload as TimeRecord);
     const now = new Date(`${TODAY}T23:59:00`);
 
     const sato = evaluateDaily({
-      crewMemberId: "crew-sato",
+      crewMemberId: "crew-nakahara",
       date: addDaysYmd(TODAY, -3),
       records,
       now,
@@ -230,7 +230,7 @@ describe("デモシナリオが意図どおり成立する", () => {
     expect(sato.level).toBe("violation");
 
     const suzuki = evaluateDaily({
-      crewMemberId: "crew-suzuki",
+      crewMemberId: "crew-terada",
       date: addDaysYmd(TODAY, -2),
       records,
       now,

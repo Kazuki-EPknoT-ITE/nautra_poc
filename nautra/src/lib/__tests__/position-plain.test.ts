@@ -89,13 +89,13 @@ describe("簡易海図への写像（3.7.1 地図表示）", () => {
 
 describe("配乗との突き合わせ（3.7.2③）", () => {
   const changes: CrewChangeWarning[] = [
-    { crewMemberId: "crew-sato", date: "2026-09-22", eventType: "off", duty: "一等航海士" },
-    { crewMemberId: "crew-mori", date: "2026-09-15", eventType: "on", duty: "一等航海士" },
+    { crewMemberId: "crew-nakahara", date: "2026-09-22", eventType: "off", duty: "一等航海士" },
+    { crewMemberId: "crew-taira", date: "2026-09-15", eventType: "on", duty: "一等航海士" },
   ];
 
   it("航海の期間に重なる乗下船の予定だけを返す", () => {
     const hit = crewChangesInPeriod(changes, "2026-09-20", "2026-09-25");
-    expect(hit.map((c) => c.crewMemberId)).toEqual(["crew-sato"]);
+    expect(hit.map((c) => c.crewMemberId)).toEqual(["crew-nakahara"]);
   });
 
   it("期間外なら何も返さない", () => {
@@ -104,6 +104,6 @@ describe("配乗との突き合わせ（3.7.2③）", () => {
 
   it("期間の指定が逆でも同じ結果になる", () => {
     const hit = crewChangesInPeriod(changes, "2026-09-25", "2026-09-20");
-    expect(hit.map((c) => c.crewMemberId)).toEqual(["crew-sato"]);
+    expect(hit.map((c) => c.crewMemberId)).toEqual(["crew-nakahara"]);
   });
 });

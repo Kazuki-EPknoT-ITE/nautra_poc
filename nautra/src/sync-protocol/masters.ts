@@ -65,7 +65,7 @@ export const crewMasterPayloadSchema = z
     address: z.string().optional(),
     bloodType: z.string().optional(),
     phone: z.string().optional(),
-    /** 顔写真（PoC はイニシャル文字。本番は署名付きURL） */
+    /** 顔写真の代わりに出す頭文字（写真が無いときの表示）。実データは crew_photo */
     photo: z.string().optional(),
     position: z.string().optional(),
     role: z.string().optional(),
@@ -82,6 +82,8 @@ export const crewMasterPayloadSchema = z
     medication: z.string().optional(),
     /** 保険加入状況（写し。最終確認日つき） */
     insurances: z.array(insuranceEntrySchema).optional(),
+    /** 管理者が足した入力項目の値（項目キー → 値。レビュー CREWEDIT-04。定義は crew_field_def） */
+    customFields: z.record(z.string(), z.string()).optional(),
     /** 退職・登録抹消 */
     retiredOn: z.string().optional(),
   })
@@ -225,6 +227,8 @@ export const vesselMasterPayloadSchema = z
     imoNumber: z.string().optional(),
     /** AIS の識別子（3.7.1） */
     mmsi: z.string().optional(),
+    /** 船種（石灰石船・セメント船 等。配船・保守の判断材料として表示に使う） */
+    vesselType: z.string().optional(),
     /** 航行区域（基準労働期間の決定に使う。3.2.4） */
     navigationArea: z.string().optional(),
     /** 基準労働期間の日数（1月〜1年。週平均40時間の算定単位。3.2.4） */
@@ -239,6 +243,8 @@ export const vesselMasterPayloadSchema = z
     amenities: z.string().optional(),
     /** 環境情報の確認日（求人の的確表示義務は「最新性の維持」を求めるため） */
     environmentVerifiedOn: z.string().optional(),
+    /** 自社配乗をしていない（管理委託中）。配乗ボードに枠を出さない */
+    managedExternally: z.boolean().optional(),
     retiredOn: z.string().optional(),
   })
   .passthrough();
@@ -776,6 +782,218 @@ export const auditLogPayloadSchema = z
   .passthrough();
 export type AuditLogPayload = z.infer<typeof auditLogPayloadSchema>;
 
+/* ═══════════════ 3.1.1 顔写真（船員マスタとは別のエンティティ） ═══════════════ */
+
+/**
+ * 船員の顔写真。
+ *
+ * **マスタとは別に持つ**。写真は本文より桁違いに重く、マスタに載せると
+ * 追記のたびに画像ぶんの版が積み上がる（住所を直しただけで画像が複製される）。
+ * 分けておけば、写真の差し替えはマスタの版を増やさず、マスタの履歴も軽いままになる。
+ *
+ * 実データを同期に載せるのは、**船内が回線の無いところで顔を出す**ため（10.1）。
+ * 共用端末のサインインは顔で選ぶのがいちばん速く、そこで画像が取れないと意味がない。
+ * 端末側で縮めてから送る（`PHOTO_MAX_BYTES` を超えるものは受け付けない）。
+ * 本番はオブジェクトストレージに置き、ここには鍵と縮小版だけを持たせる。
+ */
+export const PHOTO_MAX_BYTES = 200 * 1024;
+
+export const crewPhotoPayloadSchema = z
+  .object({
+    ...masterBase,
+    crewMemberId: z.string(),
+    /** 縮小済みの data URL（image/jpeg） */
+    dataUrl: z.string(),
+    width: z.number().optional(),
+    height: z.number().optional(),
+    /** data URL の長さ（受け入れ判定と一覧表示のため） */
+    bytes: z.number().optional(),
+    /** 取り外したときは true（削除ではなく追記で表す） */
+    removed: z.boolean().optional(),
+  })
+  .passthrough();
+export type CrewPhotoPayload = z.infer<typeof crewPhotoPayloadSchema>;
+
+/**
+ * 船員マスタに管理者が足す入力項目の定義（レビュー CREWEDIT-04）。
+ *
+ * 「基本情報」など画面の大枠ごとに、項目名・入力の種類・必須・入力例を持つ。値は船員マスタの
+ * `customFields` に項目キーで入る。項目の変更・削除も追記型（`supersedesId` / `removed`）で表し、
+ * 削除しても入力済みの値はマスタの履歴に残る。項目キーは作ったときに決めて変えない（値と結び付けるため）。
+ */
+export const CREW_FIELD_CATEGORIES = ["basic", "emergency", "health", "insurance"] as const;
+export type CrewFieldCategory = (typeof CREW_FIELD_CATEGORIES)[number];
+export const CREW_FIELD_INPUT_TYPES = ["text", "number", "date", "textarea"] as const;
+export type CrewFieldInputType = (typeof CREW_FIELD_INPUT_TYPES)[number];
+
+export const crewFieldDefPayloadSchema = z
+  .object({
+    ...masterBase,
+    fieldKey: z.string(),
+    category: z.enum(CREW_FIELD_CATEGORIES),
+    label: z.string().min(1),
+    inputType: z.enum(CREW_FIELD_INPUT_TYPES),
+    required: z.boolean().optional(),
+    /** 入力例（欄の中に薄く出す） */
+    placeholder: z.string().optional(),
+    /** 削除したときは true（削除ではなく追記で表す） */
+    removed: z.boolean().optional(),
+  })
+  .passthrough();
+export type CrewFieldDefPayload = z.infer<typeof crewFieldDefPayloadSchema>;
+
+/**
+ * 船の写真（レビュー VESSEL-03）。顔写真と同じ理由で**船舶マスタとは別のエンティティ**に持つ
+ * （写真の差し替えでマスタの版を増やさない）。端末で横長に縮めてから送る。
+ */
+export const vesselPhotoPayloadSchema = z
+  .object({
+    ...masterBase,
+    targetVesselId: z.string(),
+    /** 縮小済みの data URL（image/jpeg） */
+    dataUrl: z.string(),
+    width: z.number().optional(),
+    height: z.number().optional(),
+    bytes: z.number().optional(),
+    /** 取り外したときは true（削除ではなく追記で表す） */
+    removed: z.boolean().optional(),
+  })
+  .passthrough();
+export type VesselPhotoPayload = z.infer<typeof vesselPhotoPayloadSchema>;
+
+/* ═══════════════ S-16 作業指示・タスク割当 ═══════════════ */
+
+export const WORK_TASK_STATES = ["todo", "doing", "done"] as const;
+export type WorkTaskState = (typeof WORK_TASK_STATES)[number];
+
+/**
+ * 陸上・船長が船員に割り当てる作業（デザイン正本 `design/poc_design` の S-16）。
+ *
+ * 打刻（`time_record`）は「いつ働いたか」の一次記録で、こちらは「**誰が何をやるか**」の
+ * 指示。両者を混ぜないのは、指示は取り消し・付け替えができるが、打刻はできないため
+ * （ガードレール②）。状態の変更は supersedesId 付きの新しいレコードで表す。
+ */
+export const workTaskPayloadSchema = z
+  .object({
+    ...masterBase,
+    targetVesselId: z.string(),
+    title: z.string(),
+    /** 担当船員（未割当は空） */
+    assigneeCrewId: z.string().optional(),
+    /** 期限（日時。日付だけのときは YYYY-MM-DD） */
+    dueAt: z.string().optional(),
+    state: z.enum(WORK_TASK_STATES).default("todo"),
+    /** 繰り返しの目安（毎出港・当直ごと・月次 等。表示のためのラベル） */
+    cycle: z.string().optional(),
+    /** 完了報告の一文（船内から追記される） */
+    doneNote: z.string().optional(),
+  })
+  .passthrough();
+export type WorkTaskPayload = z.infer<typeof workTaskPayloadSchema>;
+
+/* ═══════════════ S-18 削除・アーカイブ（30日の復元枠） ═══════════════ */
+
+export const TRASH_MODES = ["archive", "disable", "delete"] as const;
+export type TrashMode = (typeof TRASH_MODES)[number];
+
+/**
+ * 削除・無効化・アーカイブの記録（デザイン正本 `design/poc_design` の S-18）。
+ *
+ * **一次記録は消えない**（要件定義書 12 / ガードレール②）。ここに積まれるのは
+ * 「一覧から外す」「ログインさせない」といった**見え方の操作**で、打刻・日次レコード・
+ * 届出は法定保存期間のあいだ残り続ける。だからこそ、何が外れて何が残るかを
+ * 操作の前（削除ダイアログ）と後（この一覧）の両方で示す。
+ *
+ * 復元も追記で表す（`restoredAt` を持つ新しいレコードを supersedesId 付きで積む）。
+ */
+export const trashEntryPayloadSchema = z
+  .object({
+    ...masterBase,
+    /** 対象の種別（船員 / ユーザー / 船舶 / 作業タスク / 当直シフト …） */
+    entityKind: z.string(),
+    entityId: z.string(),
+    entityLabel: z.string(),
+    mode: z.enum(TRASH_MODES),
+    /** 操作の言い換え（「退職として無効化」など） */
+    action: z.string(),
+    /** 残るもの・影響の一文 */
+    effect: z.string().optional(),
+    /** 復元できる期限（この日を過ぎたら一覧から消える） */
+    restorableUntil: z.string(),
+    /** 復元済みなら日時が入る（追記で表すため、元レコードは書き換えない） */
+    restoredAt: z.string().optional(),
+  })
+  .passthrough();
+export type TrashEntryPayload = z.infer<typeof trashEntryPayloadSchema>;
+
+/* ═══════════════ 10.3 陸上アプリのユーザーアカウント ═══════════════ */
+
+/**
+ * 陸上ユーザーのロール。
+ *
+ * 値は `src/domain/authz/shore-roles.ts` の `SHORE_ROLES` と同じものを並べる。
+ * ここで import しないのは、同期スキーマ（配信される型の定義）が判定ロジックに
+ * 依存すると、古い端末が新しい判定表を持っていないと配信を読めなくなるため。
+ * ずれは `server/__tests__/shore-user-service.test.ts` が見張っている。
+ */
+export const SHORE_USER_ROLES = ["labor_manager", "operations", "clerk", "admin"] as const;
+
+/**
+ * アカウントの状態。
+ * - invited: 招待済みで、まだ本人が登録していない（サインインできない）
+ * - active: 有効
+ * - disabled: 無効化（S-18 から30日以内に戻せる）
+ */
+export const SHORE_USER_STATUSES = ["invited", "active", "disabled"] as const;
+export type ShoreUserStatus = (typeof SHORE_USER_STATUSES)[number];
+
+/**
+ * 陸上アプリのユーザーアカウント（要件定義書 10.3 / デザイン正本の S-15）。
+ *
+ * **招待は「監査ログに残すだけ」ではなく、このエンティティを1件追記する**。
+ * そうしないと招待した人が一覧に出ず、サインインもできない——「招待した」と
+ * 「使えるようになった」の間が追えなくなる。追記型なので、ロール変更・無効化・
+ * パスワード再設定はいずれも supersedesId 付きの新しい版で表す。
+ *
+ * **パスワードは平文で持たない**。scrypt の派生鍵（`passwordHash`）と
+ * ソルト（`passwordSalt`）だけを持ち、照合は `server/shore-user-service.ts` が行う。
+ * 本番は Supabase Auth が保持し、アプリ側はこの2列ごと持たない。
+ *
+ * 配信範囲: `distribution: "shore_only"`（`sync-protocol/events.ts`）。
+ * 陸上の事務アカウントは船内端末では使わないため、船内へは配らない。
+ */
+export const shoreUserPayloadSchema = z
+  .object({
+    ...masterBase,
+    /** アカウントID（サインインの主体。セッション Cookie に入る値） */
+    userId: z.string(),
+    name: z.string(),
+    /** サインインID。小文字に正規化して保持する */
+    email: z.string(),
+    role: z.enum(SHORE_USER_ROLES),
+    /** 社内の肩書き（ロールとは別。同じロールでも責任の重さが違うため表示を分ける） */
+    title: z.string().optional(),
+    status: z.enum(SHORE_USER_STATUSES),
+    /** 扱える船（"all" ならすべて）。本番は RLS の行フィルタに対応する */
+    scope: z.string().optional(),
+    /** 招待コード。本人が新規登録の画面で入れる（PoC はメールを送らず画面で渡す） */
+    inviteCode: z.string().optional(),
+    invitedBy: z.string().optional(),
+    invitedAt: z.string().optional(),
+    /** 本人が登録を終えた日時 */
+    activatedAt: z.string().optional(),
+    /** scrypt の派生鍵（16進）。平文は保持しない */
+    passwordHash: z.string().optional(),
+    passwordSalt: z.string().optional(),
+    /** パスワード再設定コードと期限（PoC はメールを送らず画面で渡す） */
+    resetCode: z.string().optional(),
+    resetCodeExpiresAt: z.string().optional(),
+    /** 最終サインイン日時（招待中／使われていないアカウントを見分けるため） */
+    lastSignInAt: z.string().optional(),
+  })
+  .passthrough();
+export type ShoreUserPayload = z.infer<typeof shoreUserPayloadSchema>;
+
 /* ═══════════════ レジストリへ渡す対応表 ═══════════════ */
 
 /**
@@ -785,11 +1003,14 @@ export type AuditLogPayload = z.infer<typeof auditLogPayloadSchema>;
  */
 export const MASTER_PAYLOAD_SCHEMAS = {
   crew_master: crewMasterPayloadSchema,
+  crew_photo: crewPhotoPayloadSchema,
+  crew_field_def: crewFieldDefPayloadSchema,
   credential: credentialPayloadSchema,
   embarkation: embarkationPayloadSchema,
   evaluation: evaluationPayloadSchema,
   leave_record: leaveRecordPayloadSchema,
   vessel_master: vesselMasterPayloadSchema,
+  vessel_photo: vesselPhotoPayloadSchema,
   maintenance_plan: maintenancePlanPayloadSchema,
   part_stock: partStockPayloadSchema,
   dock_plan: dockPlanPayloadSchema,
@@ -809,4 +1030,7 @@ export const MASTER_PAYLOAD_SCHEMAS = {
   generated_document: generatedDocumentPayloadSchema,
   agreement: agreementPayloadSchema,
   audit_log: auditLogPayloadSchema,
+  work_task: workTaskPayloadSchema,
+  trash_entry: trashEntryPayloadSchema,
+  shore_user: shoreUserPayloadSchema,
 } as const;

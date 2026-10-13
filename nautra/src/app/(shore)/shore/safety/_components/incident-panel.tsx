@@ -2,7 +2,7 @@
 
 import { useActionState, useState, useTransition } from "react";
 import { t } from "@/i18n/ja";
-import { Button, Checkbox, Input, Select, SelectItem, Textarea } from "@/ui";
+import { Button, Checkbox, Input, Select, SelectItem, Textarea } from "@/ui/heroui";
 import { appendIncidentAction, generateDraftAction, type SafetyFormState } from "../actions";
 
 const INITIAL: SafetyFormState = { ok: false, message: "" };

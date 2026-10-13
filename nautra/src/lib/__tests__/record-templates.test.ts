@@ -57,9 +57,9 @@ describe("記録項目の追加（上司・陸上からの配信）", () => {
       template: tpl(),
       item: { label: "燃料タンク残量", group: "機関", inputType: "number", unit: "kL" },
       id: "tpl-2",
-      recordedBy: "crew-kato",
+      recordedBy: "crew-takamatsu",
       deviceId: "dev-1",
-      publishedBy: "crew-kato",
+      publishedBy: "crew-takamatsu",
     });
     expect(next.supersedesId).toBe("tpl-1");
     expect(next.version).toBe("2026-04.2");
@@ -75,9 +75,9 @@ describe("記録項目の追加（上司・陸上からの配信）", () => {
       template: base,
       item: { label: "追加", group: "機関", inputType: "check" },
       id: "tpl-2",
-      recordedBy: "crew-kato",
+      recordedBy: "crew-takamatsu",
       deviceId: "dev-1",
-      publishedBy: "crew-kato",
+      publishedBy: "crew-takamatsu",
     });
     expect(new Set(next.items.map((i) => i.key)).size).toBe(next.items.length);
   });
@@ -93,9 +93,9 @@ describe("記録項目の追加（上司・陸上からの配信）", () => {
       }),
       item: { label: "気圧", group: "特記", inputType: "number", unit: "hPa" },
       id: "tpl-new",
-      recordedBy: "crew-kato",
+      recordedBy: "crew-takamatsu",
       deviceId: "dev-1",
-      publishedBy: "crew-kato",
+      publishedBy: "crew-takamatsu",
     });
     expect(next.supersedesId).toBeUndefined();
     expect(next.version).toBe("1");
@@ -108,9 +108,9 @@ describe("記録項目の追加（上司・陸上からの配信）", () => {
         template: tpl(),
         item,
         id: "tpl-2",
-        recordedBy: "crew-kato",
+        recordedBy: "crew-takamatsu",
         deviceId: "dev-1",
-        publishedBy: "crew-kato",
+        publishedBy: "crew-takamatsu",
       });
     expect(() => call({ label: "  ", group: "機関", inputType: "check" })).toThrow(/項目名/);
     expect(() => call({ label: "残量", group: "機関", inputType: "number" })).toThrow(/単位/);

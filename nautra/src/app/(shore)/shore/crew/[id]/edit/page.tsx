@@ -3,11 +3,15 @@ import { notFound } from "next/navigation";
 import { t } from "@/i18n/ja";
 import { fmtDateTime } from "@/lib/format";
 import { buildCrewMasterHistory, insuranceRowsOf } from "@/server/crew-master-service";
+import { crewPhotoOf } from "@/server/crew-photo-service";
+import { listCrewFields } from "@/server/crew-field-service";
+import { isSensitiveCategory } from "@/lib/crew-fields";
 import { ageOf, crewMasterOf, todayLocal } from "@/server/master-service";
 import { hasShorePermission, requireShore, shoreStaffById } from "@/server/shore-session";
 import { personName } from "@/lib/crew";
 import { ShoreGuardNotice } from "../../../_components/guard";
 import { CrewMasterForm, type CrewMasterFormValues } from "./_components/crew-master-form";
+import { RetireCrewButton } from "./_components/retire-crew";
 
 export const dynamic = "force-dynamic";
 
@@ -36,11 +40,15 @@ export default async function ShoreCrewEditPage({ params }: { params: Promise<{ 
   const canEditSensitive = await hasShorePermission("view_sensitive_health");
   const age = ageOf(master.birthDate, todayLocal());
   const historyEntries = buildCrewMasterHistory(id);
+  const fields = listCrewFields().filter((f) => canEditSensitive || !isSensitiveCategory(f.category));
+  const sensitiveKeys = new Set(listCrewFields().filter((f) => isSensitiveCategory(f.category)).map((f) => f.fieldKey));
 
   // 要配慮項目は権限がある場合だけクライアントへ渡す（権限が無ければ値そのものを送らない）
   const values: CrewMasterFormValues = {
     crewMemberId: id,
     name: master.name ?? "",
+    photo: master.photo,
+    photoDataUrl: crewPhotoOf(id),
     nameKana: master.nameKana ?? "",
     birthDate: master.birthDate ?? "",
     seamanBookNo: master.seamanBookNo ?? "",
@@ -56,6 +64,10 @@ export default async function ShoreCrewEditPage({ params }: { params: Promise<{ 
     familyNote: master.familyNote ?? "",
     medicalHistory: canEditSensitive ? (master.medicalHistory ?? "") : undefined,
     medication: canEditSensitive ? (master.medication ?? "") : undefined,
+    // 足した項目の値。健康の枠の値は権限がある人にだけ渡す（10.3）
+    customFields: Object.fromEntries(
+      Object.entries(master.customFields ?? {}).filter(([k]) => canEditSensitive || !sensitiveKeys.has(k)),
+    ),
     insurances: insuranceRowsOf(master).map(({ kind, entry }) => ({
       kind,
       number: entry?.number ?? "",
@@ -87,13 +99,21 @@ export default async function ShoreCrewEditPage({ params }: { params: Promise<{ 
           >
             資格・証書を登録／確認
           </Link>
+          {/* 退職・下船は「消す」ではなく無効化で扱う（デザインの削除の決まり） */}
+          {master.retiredOn ? (
+            <span className="ui-btn-ghost h-9 cursor-default opacity-60">
+              無効化済み（{master.retiredOn}）
+            </span>
+          ) : (
+            <RetireCrewButton crewMemberId={id} name={master.name} />
+          )}
         </div>
       </div>
 
-      <CrewMasterForm values={values} age={age} canEditSensitive={canEditSensitive} />
+      <CrewMasterForm values={values} age={age} canEditSensitive={canEditSensitive} fields={fields} canManageFields />
 
       <section aria-label="この船員の変更履歴" className="ui-card p-4">
-        <h2 className="mb-2 font-bold">この船員の変更履歴</h2>
+        <h2 className="mb-2 font-bold" title="変更しても前の内容は消えません。既往歴・服薬状況は「変更あり」とだけ残し、値そのものは 履歴に書きません（要件定義書 12.6）。">この船員の変更履歴</h2>
         {historyEntries.length === 0 ? (
           <p className="text-sm text-foreground-500">変更の記録はありません。</p>
         ) : (
@@ -132,10 +152,6 @@ export default async function ShoreCrewEditPage({ params }: { params: Promise<{ 
             ))}
           </ul>
         )}
-        <p className="mt-2 text-xs text-foreground-500">
-          変更しても前の内容は消えません。既往歴・服薬状況は「変更あり」とだけ残し、値そのものは
-          履歴に書きません（要件定義書 12.6）。
-        </p>
       </section>
     </div>
   );

@@ -51,3 +51,15 @@ export function assignedWorkFor(
   }
   return [...byCategory.values()];
 }
+
+/**
+ * 割り当てられた作業（作業指示）を打刻するときの作業種別（レビュー PUNCH-05）。
+ * 作業名から近い種別を選ぶ。決められないものは「その他作業」にする（確認の画面で本人が分かる）。
+ */
+export function workCategoryForTask(title: string): WorkCategory {
+  if (/荷役|積|揚|貨物/.test(title)) return "cargo";
+  if (/点検|整備|保守|修理|交換|給油|清掃/.test(title)) return "maintenance";
+  if (/当直|見張り|航海/.test(title)) return "navigation_watch";
+  if (/待機|スタンバイ/.test(title)) return "standby";
+  return "other";
+}

@@ -3,7 +3,7 @@
 import { useActionState, useState } from "react";
 import { t } from "@/i18n/ja";
 import { TRAINING_KINDS, type TrainingKind } from "@/sync-protocol/records";
-import { Button, Input, Select, SelectItem, Textarea } from "@/ui";
+import { Button, Input, Select, SelectItem, Textarea } from "@/ui/heroui";
 import {
   arrangeTrainingAction,
   completeTrainingAction,
@@ -39,26 +39,37 @@ function Result({ state }: { state: TrainingFormState }) {
 }
 
 /** 4.4② 受講の手配（登録実技講習機関・予定日） */
-export function ArrangeTrainingForm({ crew, today }: { crew: CrewOption[]; today: string }) {
+export function ArrangeTrainingForm({
+  crew,
+  today,
+  presetCrew,
+  presetKind,
+}: {
+  crew: CrewOption[];
+  today: string;
+  presetCrew?: string;
+  presetKind?: TrainingKind;
+}) {
+  const crewKey = crew.some((c) => c.id === presetCrew) ? presetCrew! : crew[0]?.id;
+  const kind = presetKind ?? "stcw_basic";
   const [state, formAction, pending] = useActionState(arrangeTrainingAction, INITIAL);
   return (
     <form action={formAction} className="ui-card flex flex-col gap-3 p-4">
-      <h2 className="font-bold">受講を手配する</h2>
       <div className="grid gap-3 sm:grid-cols-2">
-        <Select name="crewMemberId" label="船員" defaultSelectedKeys={crew[0] ? [crew[0].id] : []}>
+        <Select name="crewMemberId" label="船員" defaultSelectedKeys={crewKey ? [crewKey] : []}>
           {crew.map((c) => (
             <SelectItem key={c.id} textValue={c.name}>
               {c.name}（{c.position}）
             </SelectItem>
           ))}
         </Select>
-        <Select name="trainingKind" label="訓練の種類" defaultSelectedKeys={["stcw_basic"]}>
+        <Select name="trainingKind" label="訓練の種類" defaultSelectedKeys={[kind]}>
           {TRAINING_KINDS.map((k) => (
             <SelectItem key={k}>{t.trainingKind[k]}</SelectItem>
           ))}
         </Select>
       </div>
-      <Input name="title" label="訓練の名前" placeholder="例: STCW 基本訓練（生存・消火・応急・保安）" isRequired />
+      <Input name="title" label="訓練の名前" placeholder="例: STCW 基本訓練（生存・消火・応急・保安）" defaultValue={presetKind ? t.trainingKind[presetKind] : ""} isRequired />
       <div className="grid gap-3 sm:grid-cols-2">
         <Input name="institution" label="受講先（登録実技講習機関など）" placeholder="例: 海技教育機構 清水校" />
         <Input type="date" name="scheduledOn" label="受講予定日" defaultValue={today} />
@@ -74,26 +85,27 @@ export function ArrangeTrainingForm({ crew, today }: { crew: CrewOption[]; today
 }
 
 /** 4.4③ 修了の登録（修了証を作り、届出の添付要件へ自動連携する） */
-export function CompleteTrainingForm({ plans, today }: { plans: OpenPlanOption[]; today: string }) {
+export function CompleteTrainingForm({
+  plans,
+  today,
+  presetPlan,
+}: {
+  plans: OpenPlanOption[];
+  today: string;
+  presetPlan?: string;
+}) {
   const [state, formAction, pending] = useActionState(completeTrainingAction, INITIAL);
-  const [planId, setPlanId] = useState(plans[0]?.id ?? "");
+  const [planId, setPlanId] = useState(plans.some((p) => p.id === presetPlan) ? presetPlan! : (plans[0]?.id ?? ""));
   const selected = plans.find((p) => p.id === planId);
 
   if (plans.length === 0) {
     return (
-      <div className="ui-card p-4">
-        <h2 className="mb-2 font-bold">修了を登録する</h2>
-        <p className="text-sm text-foreground-500">修了を登録できる訓練はありません。</p>
-      </div>
+      <p className="ui-card m-0 p-4 text-sm text-foreground-500">修了を登録できる受講の予定はありません</p>
     );
   }
 
   return (
     <form action={formAction} className="ui-card flex flex-col gap-3 p-4">
-      <h2 className="font-bold">修了を登録する</h2>
-      <p className="text-sm text-foreground-600">
-        登録すると修了証が作られ、届出の添付要件チェックがその場で「適合」に変わります。
-      </p>
       <input type="hidden" name="planId" value={planId} />
       <Select
         label="修了した訓練"

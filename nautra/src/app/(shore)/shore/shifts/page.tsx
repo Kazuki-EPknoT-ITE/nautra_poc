@@ -1,14 +1,16 @@
 import Link from "next/link";
 import { t } from "@/i18n/ja";
 import { personName } from "@/lib/crew";
-import { fmtDateLabel, fmtDateTime, fmtMinutes } from "@/lib/format";
+import { fmtDateLabel, fmtDateTime } from "@/lib/format";
 import { crewNameOf, listCrewMasters } from "@/server/master-service";
-import { buildWatchLoad, getShiftWeek, getStationPlans } from "@/server/shift-service";
+import { getShiftWeek, getStationPlans } from "@/server/shift-service";
 import { requireShore } from "@/server/shore-session";
+import { listVessels } from "@/server/master-service";
+import { buildShiftCalendar } from "@/server/shift-calendar-service";
+import { ExportAction } from "../_components/export-action";
 import { ShoreGuardNotice } from "../_components/guard";
-import { NewShiftForm, type CrewOption } from "./_components/new-shift-form";
-import { NewStationForm } from "./_components/new-station-form";
-import { ShiftChangeForm, type ShiftOption } from "./_components/shift-change-form";
+import { ShiftCalendar } from "./_components/shift-calendar";
+import { NewStationForm, type CrewOption } from "./_components/new-station-form";
 import { StationChangeForm, type StationOption } from "./_components/station-change-form";
 
 export const dynamic = "force-dynamic";
@@ -21,32 +23,37 @@ export const dynamic = "force-dynamic";
  * 直近2週間の当直時間を船員別に並べて偏りを見えるようにし、
  * 作成前にその計画で基準を超えないかを判定できるようにしている。
  */
-export default async function ShoreShiftsPage() {
+/**
+ * この画面の主題（タブ）。**1画面1主題**にして、目的の節まで延々とめくらずに済むようにする
+ * （デザイン正本 S-15 と同じやりかた。1枚が 3000px を超えないようにする）。
+ * 当直を組む・配置表を決める・配信の結果を確かめるは、同じ画面でも別の作業になる。
+ */
+const TABS = [
+  { id: "watch", label: "当直を組む" },
+  { id: "stations", label: "配置表" },
+  { id: "history", label: "配信の履歴・競合" },
+];
+
+export default async function ShoreShiftsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ tab?: string; vessel?: string; start?: string; step?: string }>;
+}) {
   const guard = await requireShore("manage_manning");
   if (!guard.ok) return <ShoreGuardNotice guard={guard} screen="シフト・配置表" />;
 
+  const sp = await searchParams;
+  const vessels = listVessels();
+  const vesselId = vessels.find((v) => v.id === sp.vessel)?.id ?? vessels[0]?.id ?? "";
+  /** いま開いている主題。未指定なら先頭 */
+  const tab = TABS.some((x) => x.id === sp.tab) ? sp.tab! : TABS[0]!.id;
+  // 配置表（カレンダー）。刻みは1時間が既定（SHIFT-07）。週は ?start= で送る
+  const step = [1, 2, 4].includes(Number(sp.step)) ? Number(sp.step) : 1;
+  const calendar = buildShiftCalendar(vesselId, sp.start);
+
   const week = getShiftWeek();
-  const load = buildWatchLoad();
   const crewMasters = listCrewMasters();
   const crews: CrewOption[] = crewMasters.map((m) => ({ id: m.crewMemberId, name: m.name }));
-  const today = new Date().toISOString().slice(0, 10);
-  /** 週間表に出す船員（乗組員＋計画のある船員） */
-  const boardCrews = crews.length > 0 ? crews : [];
-
-  const options: ShiftOption[] = [];
-  for (const crew of boardCrews) {
-    for (const d of week.days) {
-      for (const p of week.cells[`${crew.id}|${d}`] ?? []) {
-        options.push({
-          id: p.id,
-          label: `${fmtDateLabel(d)} ${crew.name} ${p.shiftType ? t.shiftType[p.shiftType] : ""} ${p.from}–${p.to}`,
-          shiftType: p.shiftType ?? "navigation_watch",
-          from: p.from ?? "",
-          to: p.to ?? "",
-        });
-      }
-    }
-  }
 
   const stationOptions: StationOption[] = [];
   for (const [scenario, rows] of Object.entries(getStationPlans())) {
@@ -60,122 +67,41 @@ export default async function ShoreShiftsPage() {
     }
   }
 
-  const maxLoad = Math.max(1, ...load.rows.map((r) => r.minutes));
-
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-balance text-2xl font-bold">シフト・配置表</h1>
-        <p className="text-sm text-foreground-500">
-          計画は陸上が正本。作成・変更は船内へ同期され、当直表と配置表にすぐ反映されます。
-        </p>
-      </div>
+    <div className="flex flex-col gap-[18px]">
+      {/* 主題の切替（サーバ側で組み立てるためリンクで切り替える） */}
+      <nav aria-label="シフト作成の主題" className="ui-card flex flex-wrap gap-2 p-3">
+        {TABS.map((x) => (
+          <Link
+            key={x.id}
+            href={`/shore/shifts?tab=${x.id}`}
+            aria-current={x.id === tab ? "page" : undefined}
+            className={`ui-btn-quiet ${x.id === tab ? "ui-btn-selected" : ""}`}
+          >
+            {x.label}
+          </Link>
+        ))}
+      </nav>
 
-      <section aria-label="関連する画面" className="ui-card flex flex-wrap items-center gap-3 p-4">
-        <span className="text-sm text-foreground-500">関連:</span>
-        <Link href="/shore/dispatch" className="rounded-medium bg-default-100 px-3 py-1.5 text-sm">
-          運航スケジュール（配船・位置）
-        </Link>
-        <Link href="/shore/manning" className="rounded-medium bg-default-100 px-3 py-1.5 text-sm">
-          配乗計画
-        </Link>
-        <Link href="/shore/labor" className="rounded-medium bg-default-100 px-3 py-1.5 text-sm">
-          労務・記録簿
-        </Link>
-      </section>
+      {tab === "watch" ? (
+        <ShiftCalendar
+          cal={calendar}
+          vessels={vessels}
+          step={step}
+          exportSlot={<ExportAction set="shift" label="シフトを書き出す" />}
+        />
+      ) : null}
 
-      <section aria-label="週間当直表" className="ui-card overflow-x-auto">
-        <h2 className="px-4 pt-4 font-bold">今週の当直</h2>
-        <table className="mt-2 w-full min-w-[760px] text-sm">
-          <thead>
-            <tr className="border-b border-[var(--ui-hairline)] text-left text-foreground-500">
-              <th className="px-4 py-3 font-medium">船員</th>
-              {week.days.map((d) => (
-                <th
-                  key={d}
-                  className={`px-2 py-3 text-center font-medium tabular-nums ${d === week.today ? "text-primary" : ""}`}
-                >
-                  {fmtDateLabel(d)}
-                  {d === week.today ? "（本日）" : ""}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {boardCrews.map((crew) => (
-              <tr key={crew.id} className="border-b border-[var(--ui-hairline)] last:border-b-0">
-                <td className="px-4 py-3">
-                  <p className="font-semibold">{crew.name}</p>
-                  <p className="text-xs text-foreground-500">
-                    {crewMasters.find((m) => m.crewMemberId === crew.id)?.position ?? ""}
-                  </p>
-                </td>
-                {week.days.map((d) => (
-                  <td key={d} className="px-2 py-3 align-top">
-                    <div className="flex flex-col gap-1">
-                      {(week.cells[`${crew.id}|${d}`] ?? []).map((p) => (
-                        <span
-                          key={p.id}
-                          className={`rounded-small bg-default-100 px-1.5 py-0.5 text-xs tabular-nums ${p.supersedesId ? "ring-1 ring-danger" : ""}`}
-                        >
-                          {p.shiftType ? t.shiftType[p.shiftType] : ""} {p.from}–{p.to}
-                          {p.supersedesId ? " ✎" : ""}
-                        </span>
-                      ))}
-                    </div>
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </section>
-
-      {/* 3.2.3 公平な配分の可視化 */}
-      <section aria-label="当直の配分" className="ui-card p-4">
-        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-          <h2 className="font-bold">当直の配分（直近2週間）</h2>
-          <p className="text-xs text-foreground-500">
-            {load.from} 〜 {load.to} / 平均 {fmtMinutes(load.averageMinutes)}
-          </p>
-        </div>
-        <div className="flex flex-col gap-2">
-          {load.rows.map((r) => (
-            <div key={r.crewMemberId} className="flex items-center gap-3">
-              <span className="w-24 shrink-0 truncate text-sm">{r.crewName}</span>
-              <div className="h-4 flex-1 overflow-hidden rounded-small bg-default-100">
-                <span
-                  className="block h-full bg-foreground/70"
-                  style={{ width: `${Math.round((r.minutes / maxLoad) * 100)}%` }}
-                  aria-hidden="true"
-                />
-              </div>
-              <span className="w-24 shrink-0 text-right text-sm tabular-nums">
-                {fmtMinutes(r.minutes)}
-              </span>
-              <span className="w-28 shrink-0 text-right text-xs tabular-nums text-foreground-600">
-                {r.count}本 /{" "}
-                {r.diffFromAverage === 0
-                  ? "平均どおり"
-                  : r.diffFromAverage > 0
-                    ? `平均より ${fmtMinutes(r.diffFromAverage)} 多い`
-                    : `平均より ${fmtMinutes(-r.diffFromAverage)} 少ない`}
-              </span>
-            </div>
-          ))}
-          {load.rows.length === 0 ? (
-            <p className="text-sm text-foreground-500">当直の計画はまだありません。</p>
-          ) : null}
-        </div>
-      </section>
-
-      <NewShiftForm crews={crews} today={today} />
-
-      <ShiftChangeForm options={options} />
-
+      {tab === "stations" ? (
+        <>
       <NewStationForm crews={crews} />
 
       <StationChangeForm options={stationOptions} />
+        </>
+      ) : null}
+
+      {tab === "history" ? (
+        <>
 
       {week.conflicts.length > 0 ? (
         <section aria-label="競合（要確認）" className="ui-card border border-danger p-4">
@@ -214,6 +140,8 @@ export default async function ShoreShiftsPage() {
           </ul>
         )}
       </section>
+        </>
+      ) : null}
     </div>
   );
 }

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { t } from "@/i18n/ja";
 import { fmtDateTime } from "@/lib/format";
 import { requireShore } from "@/server/shore-session";
@@ -10,10 +11,15 @@ import {
   type WellbeingSummary,
 } from "@/server/wellbeing-service";
 import { ShoreGuardNotice } from "../_components/guard";
-import {
-  ConsultationReplyForm,
-  type ConsultationOption,
-} from "./_components/consultation-reply-form";
+import { StatusChip } from "@/ui";
+import { ConsultationReplyForm } from "./_components/consultation-reply-form";
+
+/** 答える（相談）と見る（集計・船内環境）をタブで分ける（レビュー HEALTH-04） */
+const TABS = [
+  { id: "consult", label: "相談に答える" },
+  { id: "survey", label: "アンケートの集計" },
+  { id: "env", label: "船内環境・求人票" },
+] as const;
 
 export const dynamic = "force-dynamic";
 
@@ -47,9 +53,12 @@ function SummarySection({ summary }: { summary: WellbeingSummary }) {
       {summary.responseCount === 0 ? (
         <p className="text-sm text-foreground-500">まだ回答はありません。</p>
       ) : summary.suppressed ? (
-        <p className="text-sm text-warning-700">
-          ⚠ 回答が少ないため、個人が特定されないよう集計を表示しません（
-          {summary.minResponses}件以上で表示します）。
+        <p className="m-0">
+          <StatusChip
+            level="caution"
+            label={`回答 ${summary.minResponses}件未満のため集計を出しません`}
+            hint="少ない回答で集計を出すと、誰の回答か分かってしまうため（10.3）"
+          />
         </p>
       ) : summary.items.length === 0 ? (
         <p className="text-sm text-foreground-500">集計できる設問がありません。</p>
@@ -90,7 +99,7 @@ function SummarySection({ summary }: { summary: WellbeingSummary }) {
  * アンケートは集計だけを出し、回答が少ないときは集計自体を出さない。
  * 船内の環境情報は求人票へ正しく反映するため、確認日が古ければ再確認をうながす。
  */
-export default async function ShoreWellbeingPage() {
+export default async function ShoreWellbeingPage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
   const guard = await requireShore("view_wellbeing");
   if (!guard.ok) return <ShoreGuardNotice guard={guard} screen="健康・相談窓口" />;
 
@@ -99,60 +108,50 @@ export default async function ShoreWellbeingPage() {
   const consultations = listConsultations();
   const environments = buildVesselEnvironments();
 
-  const consultationOptions: ConsultationOption[] = consultations.map((c) => ({
-    id: c.id,
-    label: `${fmtDateTime(c.occurredAt)} / ${t.wellbeingStatus[c.status]} / ${c.message.slice(0, 30)}…`,
-    canReceive: c.status === "submitted",
-  }));
+  const sp = await searchParams;
+  const tab = TABS.some((x) => x.id === sp.tab) ? sp.tab! : "consult";
+  // まだ答えていない相談を先に並べる
+  const open = consultations.filter((c) => c.status !== "responded");
+  const answered = consultations.filter((c) => c.status === "responded");
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-balance text-2xl font-bold">健康・相談窓口</h1>
-        <p className="text-sm text-foreground-500">
-          船内から届いた匿名のアンケート・相談を受け付けます
-        </p>
-      </div>
+    <div className="flex flex-col gap-[18px]">
+      <nav aria-label="健康・相談の主題" className="ui-card flex flex-wrap gap-2 p-3">
+        {TABS.map((x) => (
+          <Link
+            key={x.id}
+            href={`/shore/wellbeing?tab=${x.id}`}
+            aria-current={x.id === tab ? "page" : undefined}
+            className={`ui-btn-quiet ${x.id === tab ? "ui-btn-selected" : ""}`}
+          >
+            {x.label}
+            {x.id === "consult" && open.length > 0 ? <span className="ml-1.5 font-mono text-xs">未回答 {open.length}</span> : null}
+          </Link>
+        ))}
+      </nav>
 
-      <section aria-label="匿名の扱い" className="ui-card border border-warning p-4">
-        <h2 className="font-bold">⚠ 匿名で届いた内容を扱っています</h2>
-        <ul className="mt-2 flex list-disc flex-col gap-1 pl-5 text-sm text-foreground-600">
-          <li>アンケートは誰が答えたかを持ちません。この画面には集計だけを出します。</li>
-          <li>
-            回答が {wellbeingRules.wellbeingMinResponses}
-            件に満たないときは、集計から個人が推測できてしまうため集計を表示しません。
-          </li>
-          <li>相談の本文には書いた人の名前が付きません。回答も名前を伏せたまま船内へ届きます。</li>
-          <li>相談の内容から個人を推測して船内に伝えることはしないでください。</li>
-        </ul>
-      </section>
+      {tab === "consult" ? (
+        <section aria-label="相談・通報" className="flex flex-col gap-3">
+          {consultations.length === 0 ? (
+            <p className="ui-card m-0 p-4 text-sm text-foreground-500">届いている相談はありません</p>
+          ) : (
+            <ul className="m-0 flex list-none flex-col gap-3 p-0">
+              {[...open, ...answered.slice(0, 10)].map((c) => (
 
-      <SummarySection summary={healthSurvey} />
-      <SummarySection summary={stressCheck} />
-
-      <section aria-label="相談・通報" className="flex flex-col gap-3">
-        <h2 className="text-lg font-bold">相談・通報（匿名）</h2>
-        {consultations.length === 0 ? (
-          <p className="ui-card p-4 text-sm text-foreground-500">届いている相談はありません。</p>
-        ) : (
-          <ul className="flex flex-col gap-3">
-            {consultations.map((c) => (
               <li key={c.id} className="ui-card flex flex-col gap-2 p-4">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <span className="tabular-nums text-sm text-foreground-500">
-                    {fmtDateTime(c.occurredAt)} に届きました
+                    {fmtDateTime(c.occurredAt)}
                   </span>
-                  <span className="text-sm">
-                    {c.status === "responded" ? "✓ " : c.status === "received" ? "・" : "⚠ "}
-                    {t.wellbeingStatus[c.status]}
-                  </span>
+                  <StatusChip
+                    level={c.status === "submitted" ? "caution" : "none"}
+                    size="sm"
+                    label={`${c.status === "responded" ? "✓ " : ""}${t.wellbeingStatus[c.status]}`}
+                    hint={false}
+                  />
                 </div>
                 {/* 匿名の相談は氏名欄をそもそも描かない（匿名でない場合だけ名前を出す） */}
-                {c.anonymous ? (
-                  <p className="text-xs text-foreground-500">匿名で送られています</p>
-                ) : (
-                  <p className="text-xs text-foreground-500">記名: {c.displayName}</p>
-                )}
+                {c.anonymous ? null : <p className="m-0 text-xs text-foreground-500">記名: {c.displayName}</p>}
                 <p className="whitespace-pre-wrap text-sm">{c.message}</p>
                 {c.response ? (
                   <div className="ui-inset p-3">
@@ -163,21 +162,26 @@ export default async function ShoreWellbeingPage() {
                     <p className="whitespace-pre-wrap text-sm">{c.response}</p>
                   </div>
                 ) : null}
+                {c.status !== "responded" ? (
+                  <ConsultationReplyForm responseId={c.id} canReceive={c.status === "submitted"} />
+                ) : null}
               </li>
-            ))}
-          </ul>
-        )}
-        <ConsultationReplyForm consultations={consultationOptions} />
-      </section>
 
+              ))}
+            </ul>
+          )}
+        </section>
+      ) : null}
+
+      {tab === "survey" ? (
+        <>
+          <SummarySection summary={healthSurvey} />
+          <SummarySection summary={stressCheck} />
+        </>
+      ) : null}
+
+      {tab === "env" ? (
       <section aria-label="船内環境の整備状況" className="flex flex-col gap-3">
-        <h2 className="text-lg font-bold">船内環境の整備状況と求人票への反映</h2>
-        <p className="ui-card p-4 text-sm text-foreground-600">
-          求人に載せる船内の設備・通信環境は、事実と違ったり誤解を招く書き方をしてはいけません。
-          内容が古いままなのも同じ扱いになるため、確認日から
-          {wellbeingRules.jobPostingFreshnessDays}日 を過ぎたものは再確認をうながします。
-          下の文面はそのまま求人票の設備欄に貼れます。
-        </p>
         {environments.length === 0 ? (
           <p className="ui-card p-4 text-sm text-foreground-500">船舶の情報が登録されていません。</p>
         ) : (
@@ -194,9 +198,11 @@ export default async function ShoreWellbeingPage() {
                       </span>
                     </span>
                   ) : v.freshness === "stale" ? (
-                    <span className="text-warning-700">
-                      ⚠ 確認から {v.daysSinceVerified}日 経っています。求人に出す前に見直してください
-                    </span>
+                    <StatusChip
+                      level="caution"
+                      label={`確認から ${v.daysSinceVerified}日`}
+                      hint={`求人に載せる設備・通信環境は事実と違ってはいけません。確認から ${wellbeingRules.jobPostingFreshnessDays}日を過ぎたら見直してください`}
+                    />
                   ) : (
                     <span className="text-warning-700">⚠ 確認日が未登録です</span>
                   )}
@@ -229,6 +235,7 @@ export default async function ShoreWellbeingPage() {
           ))
         )}
       </section>
+      ) : null}
     </div>
   );
 }

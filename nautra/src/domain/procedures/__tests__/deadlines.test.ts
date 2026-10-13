@@ -82,7 +82,7 @@ describe("着手期限（要件定義書 6.6②）", () => {
 
 describe("イベント駆動の連鎖生成（要件定義書 6.6①）", () => {
   it("乗船イベントから、届出・保険・記帳・チェックが一式で生える", () => {
-    const chained = chainProceduresFor("embark", "2026-09-15", "crew-mori");
+    const chained = chainProceduresFor("embark", "2026-09-15", "crew-taira");
     const keys = chained.map((c) => c.key);
     expect(keys).toContain("hire_filing"); // 届出
     expect(keys).toContain("insurance_acquire"); // 保険
@@ -120,7 +120,7 @@ describe("イベント駆動の連鎖生成（要件定義書 6.6①）", () => 
   });
 
   it("対象IDは連鎖した各手続きへ引き継がれる", () => {
-    const chained = chainProceduresFor("embark", "2026-09-15", "crew-mori");
-    expect(chained.every((c) => c.subjectId === "crew-mori")).toBe(true);
+    const chained = chainProceduresFor("embark", "2026-09-15", "crew-taira");
+    expect(chained.every((c) => c.subjectId === "crew-taira")).toBe(true);
   });
 });

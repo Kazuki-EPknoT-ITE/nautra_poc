@@ -6,6 +6,7 @@ import { DEFAULT_LABOR_RULE_SET } from "@/rules/default-rule-set";
 import { resolveApproval } from "@/sync-protocol/events";
 import { latestBySupersedes, type ShiftPlanPayload } from "@/sync-protocol/records";
 import { getApprovalEvents, getRecordsOfKind, getTimeRecords } from "./store";
+import { currentShiftPlans } from "./trash-service";
 
 /**
  * S-02 船員一覧 / S-03 船員カルテ / S-11 船舶・保守 の参照ビュー用サービス。
@@ -41,7 +42,7 @@ export function buildLaborSnapshot(crewMemberId: string, now = new Date()): Crew
     ruleSet: DEFAULT_LABOR_RULE_SET,
   });
   const approvals = getApprovalEvents();
-  const plans = latestBySupersedes(getRecordsOfKind("shift_plan"));
+  const plans = currentShiftPlans();
 
   let pendingDays = 0;
   let violationDays = 0;

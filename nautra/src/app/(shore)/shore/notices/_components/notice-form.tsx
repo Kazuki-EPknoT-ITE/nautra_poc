@@ -2,7 +2,7 @@
 
 import { useActionState, useState } from "react";
 import type { NoticeLevel } from "@/sync-protocol/records";
-import { Button, Input, Radio, RadioGroup, Select, SelectItem, Textarea } from "@/ui";
+import { Button, Input, Radio, RadioGroup, Select, SelectItem, Textarea } from "@/ui/heroui";
 import { publishNoticeAction, type NoticeFormState } from "../actions";
 
 export interface NoticeOption {

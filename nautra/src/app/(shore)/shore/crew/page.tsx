@@ -5,7 +5,9 @@ import { fmtMinutes } from "@/lib/format";
 import { buildLaborSnapshots } from "@/server/crew-service";
 import { buildManningBoard } from "@/server/manning-service";
 import { requireShore } from "@/server/shore-session";
-import { StatusChip } from "@/ui";
+import { crewPhotoMap } from "@/server/crew-photo-service";
+import { CrewPhoto, StatusChip } from "@/ui";
+import { ExportAction } from "../_components/export-action";
 import { ShoreGuardNotice } from "../_components/guard";
 import { CrewSearchForm } from "./_components/crew-search-form";
 
@@ -41,6 +43,8 @@ export default async function ShoreCrewPage({
 
   const board = buildManningBoard();
   const labor = buildLaborSnapshots(board.map((r) => r.crewMemberId));
+  // 顔写真は船員マスタとは別に持つ（差し替えでマスタの版を増やさないため）
+  const photos = crewPhotoMap();
   const rows = board.filter((r) => {
     if (status !== "all" && r.eligibility.status !== status) return false;
     if (q && !r.name.includes(q) && !(r.master?.nameKana ?? "").includes(q)) return false;
@@ -58,14 +62,7 @@ export default async function ShoreCrewPage({
   };
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-balance text-2xl font-bold">船員一覧</h1>
-        <p className="text-sm text-foreground-500">
-          配乗できるか・証書が切れていないかを、写真付きの一覧でまとめて確認できます。
-        </p>
-      </div>
-
+    <div className="flex flex-col gap-[18px]">
       <section aria-label="絞り込み" className="ui-card flex flex-wrap items-center gap-4 p-4">
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-sm text-foreground-500">配乗できるか</span>
@@ -79,9 +76,7 @@ export default async function ShoreCrewPage({
                 key={f.key}
                 href={href({ status: f.key })}
                 aria-current={f.key === status ? "true" : undefined}
-                className={`rounded-medium px-3 py-1.5 text-sm ${
-                  f.key === status ? "bg-primary text-primary-foreground" : "bg-default-100"
-                }`}
+                className={`ui-btn-quiet ${f.key === status ? "ui-btn-selected" : ""}`}
               >
                 {f.label}
                 <span className="ml-1 tabular-nums">{count}</span>
@@ -90,9 +85,15 @@ export default async function ShoreCrewPage({
           })}
         </div>
         <CrewSearchForm status={status} q={q} />
+        <div className="ml-auto flex flex-wrap items-center gap-2">
+          <ExportAction set="crew" label="船員名簿を書き出す" />
+          <Link href="/shore/crew/new" className="ui-btn-primary h-9">
+            ＋ 船員を登録
+          </Link>
+        </div>
       </section>
 
-      <section aria-label="船員一覧" className="grid gap-3 sm:grid-cols-2">
+      <section aria-label="船員一覧" className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
         {rows.map((r) => {
           const l = labor.get(r.crewMemberId);
           const warnings = r.credentialStatuses.filter((s) => s.level !== "ok");
@@ -102,73 +103,59 @@ export default async function ShoreCrewPage({
             <Link
               key={r.crewMemberId}
               href={`/shore/crew/${r.crewMemberId}`}
-              className="ui-card flex items-start gap-4 p-4 hover:opacity-90"
+              className="ui-card flex items-start gap-3.5 p-4 transition-colors hover:bg-content2"
             >
-              <span
-                aria-hidden="true"
-                className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-default-100 text-lg font-bold"
-              >
-                {r.photo ?? r.name.slice(0, 1)}
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="flex flex-wrap items-center gap-2 font-bold">
-                  {r.name}
-                  <span className="text-sm font-normal text-foreground-500">
-                    {r.position}
-                    {r.age !== null ? ` / ${r.age}歳` : ""}
-                  </span>
+              <CrewPhoto name={r.name} initial={r.photo} src={photos.get(r.crewMemberId)} size="lg" />
+              <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+                <p className="m-0 flex flex-wrap items-baseline gap-2" title={r.age !== null ? `${r.age}歳` : undefined}>
+                  <span className="text-xl font-bold text-foreground-900">{r.name}</span>
+                  <span className="text-sm text-foreground-500">{r.position}</span>
                 </p>
-                {/* Chip は div を描くため p に入れない（不正なネストはハイドレーションを壊す） */}
-                <div className="mt-1">
+                <div className="flex flex-wrap items-center gap-2">
                   <StatusChip
                     level={r.eligibility.level}
                     size="sm"
                     label={t.manningStatus[r.eligibility.status]}
+                    hint={r.eligibility.issues.map((i) => i.label).join("・") || false}
                   />
+                  <span className={r.currentVesselName ? "text-sm font-semibold text-foreground-800" : "text-sm text-foreground-500"}>
+                    {r.currentVesselName ?? "配乗待ち"}
+                  </span>
                 </div>
-                <p className="mt-1 text-sm">
-                  <span className="text-foreground-500">乗っている船: </span>
-                  {r.currentVesselName ?? "乗船していません（配乗待ち）"}
-                </p>
-                <p className="mt-1 text-sm">
-                  <span className="text-foreground-500">直近7日 </span>
-                  <span className="font-semibold tabular-nums">
-                    {fmtMinutes(l?.weeklyMinutes ?? 0)}
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="font-mono text-sm tabular-nums text-foreground-700" title="直近7日の労働時間">
+                    7日 <span className="font-semibold">{fmtMinutes(l?.weeklyMinutes ?? 0)}</span>
                   </span>
-                  <span className="ml-2 text-foreground-500">
-                    警告 {l?.violationDays ?? 0}日 / 注意 {l?.cautionDays ?? 0}日 / 未承認{" "}
-                    {l?.pendingDays ?? 0}日
-                  </span>
-                </p>
-                <p className="mt-1 text-xs text-foreground-500">
-                  {warnings.length === 0
-                    ? "証書はすべて期限内・確認済みです。"
-                    : `証書の注意 ${warnings.length}件（期限切れ ${expired}件 / 要再確認 ${stale}件）`}
-                </p>
-                <p className="mt-1 text-xs text-foreground-500">
-                  本日の当直:{" "}
-                  {(l?.todayWatches ?? []).length === 0
-                    ? "なし"
-                    : (l?.todayWatches ?? [])
-                        .map((w) => `${w.shiftType ? t.shiftType[w.shiftType] : ""} ${w.from}–${w.to}`)
-                        .join(" / ")}
-                </p>
+                  {(l?.violationDays ?? 0) > 0 ? <StatusChip level="violation" size="sm" label={`警告 ${l?.violationDays}日`} hint="直近7日で労働時間・休息の上限を超えた日" /> : null}
+                  {(l?.cautionDays ?? 0) > 0 ? <StatusChip level="caution" size="sm" label={`注意 ${l?.cautionDays}日`} hint="直近7日で上限に近づいた日" /> : null}
+                  {(l?.pendingDays ?? 0) > 0 ? <StatusChip level="none" size="sm" label={`未承認 ${l?.pendingDays}日`} hint={false} /> : null}
+                  {warnings.length > 0 ? (
+                    <StatusChip
+                      level={expired > 0 ? "violation" : "caution"}
+                      size="sm"
+                      label={`証書 ${warnings.length}件`}
+                      hint={`期限切れ ${expired}件 / 要再確認 ${stale}件: ${warnings.map((w) => w.credential.name).join("・")}`}
+                    />
+                  ) : null}
+                </div>
+                {(l?.todayWatches ?? []).length > 0 ? (
+                  <p
+                    className="m-0 font-mono text-xs text-foreground-500"
+                    title={(l?.todayWatches ?? []).map((w) => `${w.shiftType ? t.shiftType[w.shiftType] : ""} ${w.from}–${w.to}`).join(" / ")}
+                  >
+                    当直 {l!.todayWatches[0]!.from}–{l!.todayWatches[0]!.to}
+                    {l!.todayWatches.length > 1 ? ` ほか${l!.todayWatches.length - 1}` : ""}
+                  </p>
+                ) : null}
               </div>
             </Link>
           );
         })}
         {rows.length === 0 ? (
-          <p className="text-sm text-foreground-500">
-            この条件に当てはまる船員はいません。絞り込みを変えてください。
-          </p>
+          <p className="text-sm text-foreground-500">当てはまる船員はいません</p>
         ) : null}
       </section>
 
-      <p className="text-xs text-foreground-500">
-        「配乗できるか」は入力項目ではなく、免状・健康証明書・基本訓練・保険の確認状況と直近の
-        労働時間から、開くたびに計算しています（要件定義書 12.3）。内容を直すのは船員マスタの
-        1画面だけで、この一覧やカルテからは書き換えられません。
-      </p>
     </div>
   );
 }

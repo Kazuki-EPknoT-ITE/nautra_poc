@@ -105,11 +105,11 @@ describe("定期保守計画の次回予定日（3.4.1）", () => {
       tenantId: "tenant-demo",
       vesselId: "vessel-001",
       occurredAt: "2026-08-30T00:00:00.000Z",
-      recordedBy: "crew-suzuki",
+      recordedBy: "crew-terada",
       deviceId: "vessel-device",
       equipment: "main_engine",
       recordType: "maintenance",
-      crewMemberId: "crew-suzuki",
+      crewMemberId: "crew-terada",
       condition: "good",
     };
     const daily: MaintenanceRecordPayload = {

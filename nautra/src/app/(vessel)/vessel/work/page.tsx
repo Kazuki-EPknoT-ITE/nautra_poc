@@ -16,28 +16,20 @@ import {
 import { appendRecord, assertNotFuture, newRecordBase } from "@/lib/vessel-actions";
 import { useRecords, useActiveCrew } from "@/lib/vessel-hooks";
 import { WORK_REPORT_TYPES, type WorkReportPayload, type WorkReportType } from "@/sync-protocol/records";
-import {
-  Button,
-  Card,
-  CardBody,
-  Chip,
-  Input,
-  Modal,
-  ModalBody,
-  ModalContent,
-  ModalFooter,
-  ModalHeader,
-  RadioGroup,
-  Radio,
-  Select,
-  SelectItem,
-  Textarea,
-  useDisclosure,
-  useModalProps,
-} from "@/ui";
+import { LineIcon, type LineIconName, useModalProps } from "@/ui";
+import { Button, Card, CardBody, Chip, Input, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, RadioGroup, Radio, Select, SelectItem, Textarea, useDisclosure } from "@/ui/heroui";
 import { CrewPicker } from "../_components/crew-picker";
 import { GroupHeader } from "../_components/group-header";
 import { RecordTile } from "../_components/record-tile";
+import {
+  PastEmpty,
+  PastFilterBar,
+  RecordModeTabs,
+  ShowMoreButton,
+  usePastList,
+  type RecordMode,
+} from "../_components/record-mode";
+import { isFilterActive } from "@/lib/record-filter";
 
 /** 記録種別は白黒基調（塗り=主要操作 / 枠線=補助）。種別名は必ず文言で併記する */
 const STANDBY_REASONS = [
@@ -137,13 +129,33 @@ export default function WorkPage() {
         .reduce((sum, r) => sum + (durationMinutes(r) ?? 0), 0),
     [reports, weekStart],
   );
+  /** 直近7日の日ごとの待機時間（文字を読まずに、棒の高さで多い日が分かるように。レビュー TASKREC-02） */
+  const standbyByDay = useMemo(
+    () =>
+      Array.from({ length: 7 }, (_, i) => {
+        const day = addDays(weekStart, i);
+        const minutes = reports
+          .filter((r) => r.reportType === "standby" && ymdLocal(new Date(r.startedAt)) === day)
+          .reduce((sum, r) => sum + (durationMinutes(r) ?? 0), 0);
+        return { day, minutes };
+      }),
+    [reports, weekStart],
+  );
+  const standbyMax = Math.max(60, ...standbyByDay.map((d) => d.minutes));
   const standbyWeekCount = reports.filter(
     (r) => r.reportType === "standby" && ymdLocal(new Date(r.startedAt)) >= weekStart,
   ).length;
 
-  const visible = useMemo(
-    () => (filter === "all" ? reports : reports.filter((r) => r.reportType === filter)).slice(0, 60),
+  const [mode, setMode] = useState<RecordMode>("record");
+  const byType = useMemo(
+    () => (filter === "all" ? reports : reports.filter((r) => r.reportType === filter)),
     [reports, filter],
+  );
+  // 過去の作業記録は種別に加えて期間とキーワードで探す（レビュー TASKREC-04）
+  const past = usePastList(
+    byType,
+    (r) => r.startedAt,
+    (r) => [t.workReportType[r.reportType], summaryOf(r), r.remarks, personName(r.crewMemberId)].filter(Boolean).join(" "),
   );
 
   function open(type: WorkReportType) {
@@ -198,14 +210,7 @@ export default function WorkPage() {
   return (
     <div className="flex flex-col gap-4">
       <GroupHeader group="05" subtitle="作業・待機" />
-      {canSwitch ? <CrewPicker selected={crew} onSelect={selectCrew} /> : null}
-      <p className="text-sm text-foreground-600">記録者: {crew.name}（{crew.position}）</p>
-
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-        {WORK_REPORT_TYPES.map((type) => (
-          <RecordTile key={type} label={t.workReportType[type]} onPress={() => open(type)} />
-        ))}
-      </div>
+      <RecordModeTabs mode={mode} onChange={setMode} recordLabel="作業を記録する" pastLabel="過去の記録" />
 
       {done ? (
         <Chip variant="flat" radius="sm" className="h-auto whitespace-normal py-1">
@@ -213,22 +218,41 @@ export default function WorkPage() {
         </Chip>
       ) : null}
 
-      <Card shadow="none" className="ui-card border border-warning/60">
-        <CardBody className="flex flex-col items-start gap-2 text-left sm:flex-row sm:items-center sm:gap-6">
-          <div className="shrink-0">
-            <p className="text-sm text-foreground-600">スタンバイ待機時間（直近7日・全船員）</p>
-            <p className="tabular-nums text-2xl font-bold">
-              {fmtMinutes(standbyWeek)}
-              <span className="ml-2 text-base font-normal text-foreground-600">{standbyWeekCount}件</span>
-            </p>
-          </div>
-          <p className="text-xs text-foreground-600">
-            作業報告（待機記録）ベースの集計です。労働時間への算入は 01 の打刻（スタンバイ）が正であり、
-            労務管理記録簿の集計とは別系統です。待機の見える化は荷主・オペレーターとの取引環境改善協議の
-            エビデンスになります（要件定義書 3.3.3）。
-          </p>
-        </CardBody>
-      </Card>
+      {mode === "record" ? (
+      <>
+      {canSwitch ? <CrewPicker selected={crew} onSelect={selectCrew} /> : null}
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        {WORK_REPORT_TYPES.map((type) => (
+          <RecordTile key={type} label={t.workReportType[type]} icon={type as LineIconName} onPress={() => open(type)} />
+        ))}
+      </div>
+      </>
+      ) : (
+      <>
+      <section
+        aria-label="スタンバイ待機時間（直近7日・全船員）"
+        title="スタンバイ待機時間（直近7日・全船員）。荷主・オペレーターとの協議の材料になります（要件定義書 3.3.3）。労働時間は打刻（スタンバイ）で数えます"
+        className="ui-card flex flex-wrap items-end gap-6 px-5 py-4"
+      >
+        <span className="flex items-center gap-4">
+          <LineIcon name="standby" size={56} className="text-primary" />
+          <span className="flex flex-col">
+            <span className="font-mono text-5xl font-semibold tabular-nums">{fmtMinutes(standbyWeek)}</span>
+            <span className="font-mono text-base tabular-nums text-foreground-500">{standbyWeekCount}件 ／ 7日</span>
+          </span>
+        </span>
+        <span className="flex h-20 flex-1 items-end gap-2" aria-hidden="true">
+          {standbyByDay.map((d) => (
+            <span key={d.day} className="flex flex-1 flex-col items-center gap-1" title={`${d.day.slice(5).replace("-", "/")} ${fmtMinutes(d.minutes)}`}>
+              <span
+                className={d.minutes > 0 ? "w-full rounded-t-[2px] bg-primary" : "w-full bg-[#DFE1E0]"}
+                style={{ height: `${d.minutes > 0 ? Math.max(6, (d.minutes / standbyMax) * 56) : 2}px` }}
+              />
+              <span className="font-mono text-xs text-foreground-500">{Number(d.day.slice(8))}</span>
+            </span>
+          ))}
+        </span>
+      </section>
 
       <div className="flex flex-wrap gap-2">
         {(["all", ...WORK_REPORT_TYPES] as const).map((f) => (
@@ -246,15 +270,16 @@ export default function WorkPage() {
         ))}
       </div>
 
+      <PastFilterBar
+        value={past.filter}
+        onChange={past.setFilter}
+        count={past.matched.length}
+        placeholder="港・貨物・待機理由などで探す"
+      />
+
       <section aria-label="作業記録の履歴" className="flex flex-col gap-2">
-        {visible.length === 0 ? (
-          <Card shadow="none" className="ui-card">
-            <CardBody>
-              <p className="text-foreground-600">記録がありません。</p>
-            </CardBody>
-          </Card>
-        ) : null}
-        {visible.map((r) => {
+        {past.shown.length === 0 ? <PastEmpty filtered={filter !== "all" || isFilterActive(past.filter)} /> : null}
+        {past.shown.map((r) => {
           const mins = durationMinutes(r);
           return (
             <Card key={r.id} shadow="none" className="ui-card">
@@ -276,7 +301,10 @@ export default function WorkPage() {
             </Card>
           );
         })}
+        {past.hasMore ? <ShowMoreButton onPress={past.showMore} /> : null}
       </section>
+      </>
+      )}
 
       <Modal {...modalProps} isOpen={modal.isOpen} onOpenChange={modal.onOpenChange} placement="center" scrollBehavior="inside">
         <ModalContent>

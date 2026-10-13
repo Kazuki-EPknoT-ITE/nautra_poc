@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { t } from "@/i18n/ja";
 import { personName } from "@/lib/crew";
 import { fmtDateLabel, fmtDateTime } from "@/lib/format";
@@ -35,23 +36,206 @@ const LIKELIHOOD_LABEL: Record<number, string> = {
  * 見るのは全員（view_dashboard）。**記入は運航管理の権限（manage_fleet）を持つ人だけ**で、
  * Server Action の中でも同じ権限を再チェックしている。
  */
-export default async function ShoreSafetyPage() {
+/**
+ * この画面の主題（タブ）。**1画面1主題**にして、目的の節まで延々とめくらずに済むようにする
+ * （デザイン正本 S-15 と同じやりかた。1枚が長くなりすぎない）。
+ */
+const TABS = [
+  // 記録の確認・登録をスクロールせずに済むよう、主題ごとに分ける（レビュー ACCIDENT-02）
+  { id: "incidents", label: "事故・ヒヤリ" },
+  { id: "policy", label: "方針・リスク" },
+  { id: "nc", label: "不適合・是正" },
+  { id: "audit", label: "内部監査" },
+];
+
+export default async function ShoreSafetyPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ tab?: string; id?: string; kind?: string }>;
+}) {
+  const sp = await searchParams;
+  /** いま開いている主題。未指定なら先頭 */
+  // 旧 ?tab=sms は「方針・リスク」へ
+  const tabs = [...TABS];
+  const requested = sp.tab === "sms" ? "policy" : sp.tab;
+
   const guard = await requireShore("view_dashboard");
   if (!guard.ok) return <ShoreGuardNotice guard={guard} screen="安全管理・事故報告" />;
   const canWrite = await hasShorePermission("manage_fleet");
+  if (canWrite) tabs.push({ id: "record", label: "＋ 記録する" });
+  const tab = tabs.some((x) => x.id === requested) ? requested! : tabs[0]!.id;
 
   const board = buildSafetyBoard();
   const maxNearMiss = Math.max(board.nearMissTarget, ...board.nearMiss.map((m) => m.count), 1);
+  // 右に出す1件。指定が無ければ、対応が残っているいちばん新しいもの
+  const selected =
+    board.incidents.find((x) => x.id === sp.id) ?? board.incidents.find((x) => x.status !== "closed") ?? board.incidents[0];
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-balance text-2xl font-bold">安全管理・事故報告</h1>
-        <p className="text-sm text-foreground-500">
-          {canWrite ? "記入できます" : "この画面は見るだけです（記入は運航管理の担当者が行います）"}
-        </p>
-      </div>
+    <div className="flex flex-col gap-[18px]">
+      {/* 主題の切替（サーバ側で組み立てるためリンクで切り替える） */}
+      <nav aria-label="安全・事故の主題" className="ui-card flex flex-wrap gap-2 p-3">
+        {tabs.map((x) => (
+          <Link
+            key={x.id}
+            href={`/shore/safety?tab=${x.id}`}
+            aria-current={x.id === tab ? "page" : undefined}
+            className={`ui-btn-quiet ${x.id === tab ? "ui-btn-selected" : ""}`}
+          >
+            {x.label}
+          </Link>
+        ))}
+      </nav>
 
+      {tab === "incidents" ? (
+        <div className="grid gap-[18px] lg:grid-cols-[400px_1fr]">
+          <div className="flex min-w-0 flex-col gap-[18px]">
+          {/* ── 3.5.2 ヒヤリハットの件数推移 ── */}
+          <section aria-label="ヒヤリハットの件数" className="ui-card p-4">
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+              <h2 className="m-0 font-bold">ヒヤリハット（月別）</h2>
+              <StatusChip
+                level="none"
+                size="sm"
+                label={`目標 月${board.nearMissTarget}件以上`}
+                hint="重点施策の目標です。届かない月は、報告しやすい雰囲気か見直してください"
+              />
+            </div>
+            <div className="flex items-end gap-2 overflow-x-auto pb-1">
+              {board.nearMiss.map((m) => (
+                <div key={m.month} className="flex w-11 shrink-0 flex-col items-center gap-1">
+                  <span className="text-xs tabular-nums">{m.count}件</span>
+                  <div
+                    className={`w-6 rounded-t-sm ${m.meetsTarget ? "bg-foreground" : "bg-foreground/35"}`}
+                    style={{ height: `${Math.max(4, (m.count / maxNearMiss) * 48)}px` }}
+                    aria-hidden="true"
+                  />
+                  <span className="text-xs tabular-nums text-foreground-500">{m.month.slice(5)}月</span>
+                  <span className={`text-xs ${m.meetsTarget ? "" : "text-warning-700"}`} title={m.meetsTarget ? "目標を達成" : "目標に届かない"}>
+                    {m.meetsTarget ? "✓" : "⚠"}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </section>
+
+
+            <section aria-label="事故・ヒヤリハットの報告" className="ui-card p-0">
+              {board.incidents.length === 0 ? (
+                <p className="m-0 p-4 text-sm text-foreground-500">報告はありません</p>
+              ) : (
+                <ul className="m-0 flex max-h-[520px] list-none flex-col overflow-y-auto p-0">
+                  {board.incidents.slice(0, 40).map((x) => (
+                    <li key={x.id}>
+                      <Link
+                        href={`/shore/safety?tab=incidents&id=${x.id}`}
+                        aria-current={x.id === selected?.id ? "true" : undefined}
+                        className={`flex flex-col gap-0.5 border-b border-[var(--ui-hairline)] px-4 py-2.5 ${x.id === selected?.id ? "bg-warning-100" : "hover:bg-default-100"}`}
+                      >
+                        <span className="flex items-center gap-2">
+                          <StatusChip
+                            level={x.status === "closed" ? "ok" : x.status === "investigating" ? "caution" : "violation"}
+                            size="sm"
+                            label={t.incidentStatus[x.status]}
+                            hint={false}
+                          />
+                          <span className="truncate font-semibold text-foreground-900">{x.title}</span>
+                        </span>
+                        <span className="font-mono text-xs text-foreground-500">
+                          {fmtDateTime(x.occurredAt)} ・ {t.incidentKind[x.kind]}
+                        </span>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          {/* ── 6.5 生成した報告書ドラフト ── */}
+          <section aria-label="報告書の下書き" className="ui-card p-4">
+            <h2 className="mb-2 text-base font-bold">報告書の下書き</h2>
+            {board.drafts.length === 0 ? (
+              <p className="m-0 text-sm text-foreground-500">まだありません</p>
+            ) : (
+              <ul className="flex flex-col gap-1 text-sm">
+                {board.drafts.slice(0, 5).map((d) => (
+                  <li key={d.id} className="flex flex-wrap gap-2">
+                    <span className="tabular-nums text-foreground-500">{d.generatedOn}</span>
+                    <span className="font-semibold">{d.title}</span>
+                    <span className="text-foreground-500">{d.subjectLabel}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+          </div>
+          {selected ? (
+            (() => {
+              const i = selected;
+              return (
+          <article
+            aria-label="選んだ報告"
+            className={`ui-card flex flex-col gap-2 p-4 ${
+              i.status !== "closed" ? "border-l-2 border-l-warning" : ""
+            }`}
+          >
+            <div className="flex flex-wrap items-center gap-2 text-sm">
+              <StatusChip
+                level={i.status === "closed" ? "ok" : i.status === "investigating" ? "caution" : "violation"}
+                size="sm"
+                label={t.incidentStatus[i.status]}
+              />
+              <span className="font-bold">{i.title}</span>
+              <span className="text-foreground-500">{t.incidentKind[i.kind]}</span>
+              <span className="tabular-nums text-foreground-500">{fmtDateTime(i.occurredAt)}</span>
+              <span className="text-foreground-500">{i.location ?? "場所の記入なし"}</span>
+              <span className="text-foreground-500">記録 {personName(i.recordedBy)}</span>
+              <span className={i.reportedToAuthority ? "text-foreground-600" : "text-foreground-500"}>
+                役所への報告: {i.reportedToAuthority ? `済（${i.authorityReportedOn ?? "日付なし"}）` : "なし"}
+              </span>
+            </div>
+
+            <dl className="flex flex-col gap-1 text-sm">
+              <Row label="状況" value={i.description} />
+              <Row label="被害" value={[i.injured, i.damage].filter(Boolean).join(" / ")} />
+              <Row label="原因の分析" value={i.cause} missing="陸上でこれから記入します" />
+              <Row
+                label="再発防止の策"
+                value={i.preventiveAction}
+                missing="陸上でこれから記入します"
+              />
+              <Row
+                label="付近の船への通報"
+                value={
+                  i.notifiedNearbyShips
+                    ? `済（${notifiedAtOf(i) ? fmtDateTime(notifiedAtOf(i)!) : "日時の記入なし"}）`
+                    : undefined
+                }
+                missing={i.kind === "container_loss" ? "未通報（荷が落ちたときは通報が要ります）" : "該当なし"}
+              />
+            </dl>
+
+            {canWrite ? (
+              <IncidentPanel
+                incidentId={i.id}
+                status={i.status}
+                cause={i.cause}
+                preventiveAction={i.preventiveAction}
+                reportedToAuthority={i.reportedToAuthority ?? false}
+                authorityReportedOn={i.authorityReportedOn}
+                notifiedNearbyShips={i.notifiedNearbyShips ?? false}
+                notifiedNearbyShipsAt={notifiedAtOf(i)}
+                needsNearbyNotice={i.kind === "container_loss"}
+              />
+            ) : null}
+          </article>
+              );
+            })()
+          ) : null}
+        </div>
+      ) : null}
+
+      {tab === "policy" ? (
+        <>
       {/* ── 3.5.1 安全方針・重点施策 ── */}
       <section aria-label="安全方針・重点施策" className="ui-card p-4">
         <h2 className="mb-2 font-bold">安全方針・重点施策</h2>
@@ -75,10 +259,9 @@ export default async function ShoreSafetyPage() {
 
       {/* ── 3.5.1 リスクアセスメント（影響度 × 発生度） ── */}
       <section aria-label="リスクアセスメント" className="ui-card p-4">
-        <h2 className="mb-1 font-bold">リスクアセスメント</h2>
-        <p className="mb-3 text-sm text-foreground-500">
-          縦が「起きたときの重さ」、横が「起きやすさ」です。右上ほど先に手を打つべきものです。
-        </p>
+        <h2 className="mb-3 font-bold" title="縦が起きたときの重さ、横が起きやすさ。右上ほど先に手を打つ（✕ 先に手を打つ区画 / ⚠ 対策を決めておく区画）">
+          リスクアセスメント
+        </h2>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[560px] text-sm">
             <caption className="sr-only">影響度 × 発生度 のリスクマトリクス（件数）</caption>
@@ -127,9 +310,6 @@ export default async function ShoreSafetyPage() {
             </tbody>
           </table>
         </div>
-        <p className="mt-2 text-xs text-foreground-500">
-          ✕ = 先に手を打つべき区画 / ⚠ = 対策を決めておく区画（区分けの基準は自社の安全管理の決めごとです）
-        </p>
 
         {board.risks.length === 0 ? (
           <p className="mt-3 text-sm text-foreground-500">リスクアセスメントの記録はありません。</p>
@@ -158,7 +338,10 @@ export default async function ShoreSafetyPage() {
         )}
       </section>
 
-      {/* ── 3.5.1 不適合・是正措置 ── */}
+        </>
+      ) : null}
+
+      {tab === "nc" ? (
       <section aria-label="不適合・是正措置" className="ui-card p-4">
         <h2 className="mb-2 font-bold">
           不適合・是正措置
@@ -207,7 +390,9 @@ export default async function ShoreSafetyPage() {
         )}
       </section>
 
-      {/* ── 3.5.1 内部監査 ── */}
+      ) : null}
+
+      {tab === "audit" ? (
       <section aria-label="内部監査" className="ui-card p-4">
         <h2 className="mb-2 font-bold">内部監査</h2>
         {board.audits.length === 0 ? (
@@ -238,124 +423,9 @@ export default async function ShoreSafetyPage() {
         )}
       </section>
 
-      {canWrite ? <SmsForm /> : null}
+      ) : null}
 
-      {/* ── 3.5.2 ヒヤリハットの件数推移 ── */}
-      <section aria-label="ヒヤリハットの件数" className="ui-card p-4">
-        <h2 className="mb-1 font-bold">ヒヤリハットの報告件数（月別）</h2>
-        <p className="mb-3 text-sm text-foreground-500">
-          重点施策の目標は「月 {board.nearMissTarget}件以上」です。届かない月は報告しやすい雰囲気か
-          見直してください。
-        </p>
-        <div className="flex items-end gap-4 overflow-x-auto pb-1">
-          {board.nearMiss.map((m) => (
-            <div key={m.month} className="flex w-16 shrink-0 flex-col items-center gap-1">
-              <span className="text-xs tabular-nums">{m.count}件</span>
-              <div
-                className={`w-8 rounded-t-sm ${m.meetsTarget ? "bg-foreground" : "bg-foreground/35"}`}
-                style={{ height: `${Math.max(4, (m.count / maxNearMiss) * 96)}px` }}
-                aria-hidden="true"
-              />
-              <span className="text-xs tabular-nums text-foreground-500">{m.month.slice(5)}月</span>
-              <span className={`text-xs ${m.meetsTarget ? "text-success" : "text-warning-700"}`}>
-                {m.meetsTarget ? "✓ 達成" : "⚠ 未達"}
-              </span>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* ── 3.5.2 事故・インシデント報告 ── */}
-      <section aria-label="事故・インシデント" className="flex flex-col gap-3">
-        <h2 className="font-bold">
-          事故・ヒヤリハットの報告
-          <span className="ml-2 tabular-nums text-sm font-normal text-foreground-500">
-            対応が残っているもの {board.incidents.filter((i) => i.status !== "closed").length}件
-          </span>
-        </h2>
-        {board.incidents.length === 0 ? (
-          <p className="ui-card p-4 text-sm text-foreground-500">報告はありません。</p>
-        ) : (
-          board.incidents.map((i) => (
-            <article
-              key={i.id}
-              className={`ui-card flex flex-col gap-2 p-4 ${
-                i.status !== "closed" ? "border-l-2 border-l-warning" : ""
-              }`}
-            >
-              <div className="flex flex-wrap items-center gap-2 text-sm">
-                <StatusChip
-                  level={i.status === "closed" ? "ok" : i.status === "investigating" ? "caution" : "violation"}
-                  size="sm"
-                  label={t.incidentStatus[i.status]}
-                />
-                <span className="font-bold">{i.title}</span>
-                <span className="text-foreground-500">{t.incidentKind[i.kind]}</span>
-                <span className="tabular-nums text-foreground-500">{fmtDateTime(i.occurredAt)}</span>
-                <span className="text-foreground-500">{i.location ?? "場所の記入なし"}</span>
-                <span className="text-foreground-500">記録 {personName(i.recordedBy)}</span>
-                <span className={i.reportedToAuthority ? "text-foreground-600" : "text-foreground-500"}>
-                  役所への報告: {i.reportedToAuthority ? `済（${i.authorityReportedOn ?? "日付なし"}）` : "なし"}
-                </span>
-              </div>
-
-              <dl className="flex flex-col gap-1 text-sm">
-                <Row label="状況" value={i.description} />
-                <Row label="被害" value={[i.injured, i.damage].filter(Boolean).join(" / ")} />
-                <Row label="原因の分析" value={i.cause} missing="陸上でこれから記入します" />
-                <Row
-                  label="再発防止の策"
-                  value={i.preventiveAction}
-                  missing="陸上でこれから記入します"
-                />
-                <Row
-                  label="付近の船への通報"
-                  value={
-                    i.notifiedNearbyShips
-                      ? `済（${notifiedAtOf(i) ? fmtDateTime(notifiedAtOf(i)!) : "日時の記入なし"}）`
-                      : undefined
-                  }
-                  missing={i.kind === "container_loss" ? "未通報（荷が落ちたときは通報が要ります）" : "該当なし"}
-                />
-              </dl>
-
-              {canWrite ? (
-                <IncidentPanel
-                  incidentId={i.id}
-                  status={i.status}
-                  cause={i.cause}
-                  preventiveAction={i.preventiveAction}
-                  reportedToAuthority={i.reportedToAuthority ?? false}
-                  authorityReportedOn={i.authorityReportedOn}
-                  notifiedNearbyShips={i.notifiedNearbyShips ?? false}
-                  notifiedNearbyShipsAt={notifiedAtOf(i)}
-                  needsNearbyNotice={i.kind === "container_loss"}
-                />
-              ) : null}
-            </article>
-          ))
-        )}
-      </section>
-
-      {/* ── 6.5 生成した報告書ドラフト ── */}
-      <section aria-label="報告書の下書き" className="ui-card p-4">
-        <h2 className="mb-2 font-bold">作った報告書の下書き</h2>
-        {board.drafts.length === 0 ? (
-          <p className="text-sm text-foreground-500">
-            まだ下書きはありません。事故の欄から作れます（作った時点の内容がそのまま保存されます）。
-          </p>
-        ) : (
-          <ul className="flex flex-col gap-1 text-sm">
-            {board.drafts.map((d) => (
-              <li key={d.id} className="flex flex-wrap gap-2">
-                <span className="tabular-nums text-foreground-500">{d.generatedOn}</span>
-                <span className="font-semibold">{d.title}</span>
-                <span className="text-foreground-500">{d.subjectLabel}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+      {tab === "record" && canWrite ? <SmsForm key={sp.kind ?? ""} defaultKind={sp.kind} /> : null}
     </div>
   );
 }

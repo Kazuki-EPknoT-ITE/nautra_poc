@@ -1,25 +1,22 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useRef, useState } from "react";
 import { fmtDateLabel, fmtMinutes } from "@/lib/format";
-import { Button, Checkbox, CheckboxGroup, Chip, Textarea } from "@/ui";
+import { RemandDialog, StatusChip } from "@/ui";
+import { Button, Checkbox, CheckboxGroup } from "@/ui/heroui";
 import { approveDaysAction, type ApprovalFormState } from "../actions";
 
 export interface PendingDay {
   date: string;
   workedMinutes: number;
   level: "ok" | "caution" | "violation";
+  /** 注意・警告の理由（ホバーで出す。LABOR-05） */
+  hint?: string;
   /** 船長の承認が済んでいるか（労務管理責任者はその上で確認する） */
   captainApproved: boolean;
 }
 
 const INITIAL: ApprovalFormState = { ok: false, message: "" };
-
-const LEVEL: Record<string, { color: "success" | "warning" | "danger"; icon: string; label: string }> = {
-  ok: { color: "success", icon: "✓", label: "適合" },
-  caution: { color: "warning", icon: "⚠", label: "注意" },
-  violation: { color: "danger", icon: "✕", label: "警告" },
-};
 
 /**
  * 労務管理責任者の承認フォーム（S-06）。
@@ -37,6 +34,10 @@ export function ApprovalForm({
   const [state, formAction, pending] = useActionState(approveDaysAction, INITIAL);
   const [selected, setSelected] = useState<string[]>(days.map((d) => d.date));
   const [decision, setDecision] = useState<"approved" | "remanded">("approved");
+  /** 差戻しは理由を選んでから送る（デザイン正本 S-06 の問いかけ） */
+  const [remandOpen, setRemandOpen] = useState(false);
+  const [reason, setReason] = useState("");
+  const remandSubmitRef = useRef<HTMLButtonElement>(null);
 
   if (days.length === 0) {
     return (
@@ -72,9 +73,7 @@ export function ApprovalForm({
             <span className="flex flex-wrap items-center gap-2 text-sm">
               <span className="tabular-nums font-semibold">{fmtDateLabel(d.date)}</span>
               <span className="tabular-nums">{fmtMinutes(d.workedMinutes)}</span>
-              <Chip size="sm" variant="flat" color={LEVEL[d.level].color} radius="sm">
-                {LEVEL[d.level].icon} {LEVEL[d.level].label}
-              </Chip>
+              <StatusChip level={d.level} size="sm" hint={d.hint} />
               <span className="text-foreground-500">
                 {d.captainApproved ? "船長 承認済" : "船長 未承認"}
               </span>
@@ -97,11 +96,8 @@ export function ApprovalForm({
         </Button>
       </div>
 
-      <Textarea
-        name="reason"
-        label="差戻しの理由（差戻すときは必須。船内の本人に表示されます）"
-        minRows={2}
-      />
+      {/* 理由は差戻しの問いかけで選ぶ。ここは送信のための控え */}
+      <input type="hidden" name="reason" value={reason} />
 
       <div className="flex flex-wrap items-center gap-3">
         <Button
@@ -114,15 +110,18 @@ export function ApprovalForm({
           選択した{selected.length}日を承認する
         </Button>
         <Button
-          type="submit"
           variant="bordered"
           color="danger"
-          isLoading={pending && decision === "remanded"}
           isDisabled={selected.length === 0}
-          onPress={() => setDecision("remanded")}
+          onPress={() => {
+            setDecision("remanded");
+            setRemandOpen(true);
+          }}
         >
           差戻す
         </Button>
+        {/* 差戻しの送信ボタン。問いかけで理由を選んでから押される（画面には出さない） */}
+        <button ref={remandSubmitRef} type="submit" className="hidden" aria-hidden="true" />
         {state.message ? (
           <p className={state.ok ? "text-sm font-semibold" : "text-sm text-danger"}>
             {state.ok ? "✓ " : "✕ "}
@@ -130,6 +129,24 @@ export function ApprovalForm({
           </p>
         ) : null}
       </div>
+
+      <RemandDialog
+        open={remandOpen}
+        crewName={crewName}
+        targetLabel={`選択した ${selected.length}日`}
+        reason={reason}
+        onReasonChange={setReason}
+        onCancel={() => {
+          setRemandOpen(false);
+          setDecision("approved");
+        }}
+        onSubmit={() => {
+          setRemandOpen(false);
+          // 理由を hidden に載せてからフォームを送る
+          setTimeout(() => remandSubmitRef.current?.click(), 0);
+        }}
+        submitting={pending && decision === "remanded"}
+      />
     </form>
   );
 }

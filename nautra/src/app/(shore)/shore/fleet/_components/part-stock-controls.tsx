@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useState, useTransition } from "react";
-import { Button, Input } from "@/ui";
+import { Button, Input } from "@/ui/heroui";
 import { advancePartOrderAction, receivePartsAction, type FleetFormState } from "../actions";
 
 const INITIAL: FleetFormState = { ok: false, message: "" };

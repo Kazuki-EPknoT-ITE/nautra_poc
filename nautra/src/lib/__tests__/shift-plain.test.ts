@@ -20,7 +20,7 @@ const watch = (over: Partial<ShiftPlanPayload> = {}): ShiftPlanPayload => ({
   recordedBy: "shore-yamamoto",
   deviceId: "shore-planner-device",
   planType: "watch",
-  crewMemberId: "crew-sato",
+  crewMemberId: "crew-nakahara",
   date: "2026-08-28",
   shiftType: "navigation_watch",
   from: "12:00",

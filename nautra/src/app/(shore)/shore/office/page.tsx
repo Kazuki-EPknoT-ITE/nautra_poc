@@ -1,3 +1,4 @@
+import { StatusChip } from "@/ui";
 import Link from "next/link";
 import { t } from "@/i18n/ja";
 import { fmtMinutes } from "@/lib/format";
@@ -44,15 +45,29 @@ const SECTIONS = [
  * 期限・入金遅延・まるめの影響といった「見落とすと困ること」を先に出し、
  * 一覧はそのあとに置く。すべて追記型で、状態の変更も新しい版として積む。
  */
+/**
+ * この画面の主題（タブ）。**1画面1主題**にして、目的の節まで延々とめくらずに済むようにする
+ * （デザイン正本 S-15 と同じやりかた。1枚が長くなりすぎない）。
+ */
+const TABS = [
+  { id: "charters", label: "傭船契約" },
+  { id: "invoices", label: "請求・入金" },
+  { id: "expenses", label: "経費" },
+  { id: "payrolls", label: "船員給与" },
+  { id: "subsidies", label: "補助金・行政手続き" },
+];
+
 export default async function ShoreOfficePage({
   searchParams,
 }: {
-  searchParams: Promise<{ month?: string }>;
+  searchParams: Promise<{ month?: string; tab?: string }>;
 }) {
   const guard = await requireShore("manage_office");
   if (!guard.ok) return <ShoreGuardNotice guard={guard} screen="傭船・請求・経理" />;
 
   const sp = await searchParams;
+  /** いま開いている主題。未指定なら先頭 */
+  const tab = TABS.some((x) => x.id === sp.tab) ? sp.tab! : TABS[0]!.id;
   const today = todayLocal();
   const vessels = listVessels();
 
@@ -104,10 +119,9 @@ export default async function ShoreOfficePage({
   }));
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-[18px]">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-balance text-2xl font-bold">傭船・請求・経理</h1>
-        <p className="text-sm text-foreground-500">
+        <p className="m-0 text-sm text-foreground-500">
           契約の期限・入金の遅れ・給与のもとになる時間を1画面で確認します
         </p>
       </div>
@@ -150,6 +164,22 @@ export default async function ShoreOfficePage({
         </section>
       ) : null}
 
+      {/* 主題の切替（サーバ側で組み立てるためリンクで切り替える） */}
+      <nav aria-label="傭船・経理の主題" className="ui-card flex flex-wrap gap-2 p-3">
+        {TABS.map((x) => (
+          <Link
+            key={x.id}
+            href={`/shore/office?tab=${x.id}`}
+            aria-current={x.id === tab ? "page" : undefined}
+            className={`ui-btn-quiet ${x.id === tab ? "ui-btn-selected" : ""}`}
+          >
+            {x.label}
+          </Link>
+        ))}
+      </nav>
+
+      {tab === "charters" ? (
+        <>
       {/* ══════ 3.6.1 傭船契約 ══════ */}
       <section id="charters" aria-label="傭船契約" className="flex flex-col gap-3">
         <h2 className="text-lg font-bold">傭船契約</h2>
@@ -205,15 +235,14 @@ export default async function ShoreOfficePage({
         </div>
         <CharterForm vessels={vessels} contracts={charterOptions} defaultFrom={today} />
       </section>
+        </>
+      ) : null}
 
+      {tab === "invoices" ? (
+        <>
       {/* ══════ 3.6.1 / 3.6.2 請求・入金 ══════ */}
       <section id="invoices" aria-label="請求・入金" className="flex flex-col gap-3">
-        <h2 className="text-lg font-bold">請求・入金</h2>
-        <p className="ui-card p-4 text-sm text-foreground-600">
-          請求書はインボイス制度・電子帳簿保存法の保存要件の対象です。電子で受け渡しした請求書は
-          電子のまま保存し、日付・金額・取引先で探せるようにしておく必要があります。
-          ここでは原本の識別（保存先のファイル名）を一緒に持ち、どの原本を指しているかを追えるようにしています。
-        </p>
+        <h2 className="text-lg font-bold" title="請求書はインボイス制度・電子帳簿保存法の保存要件の対象です。電子のまま保存し、日付・金額・取引先で探せるように、原本の識別（保存先のファイル名）を一緒に持ちます">請求・入金</h2>
         <div className="ui-card overflow-x-auto">
           {invoices.length === 0 ? (
             <p className="p-4 text-sm text-foreground-500">登録された請求はありません。</p>
@@ -273,7 +302,11 @@ export default async function ShoreOfficePage({
         </div>
         <InvoicePaidForm invoices={unpaidOptions} defaultDate={today} />
       </section>
+        </>
+      ) : null}
 
+      {tab === "expenses" ? (
+        <>
       {/* ══════ 3.6.2 経費 ══════ */}
       <section id="expenses" aria-label="経費" className="flex flex-col gap-3">
         <h2 className="text-lg font-bold">経費</h2>
@@ -355,7 +388,11 @@ export default async function ShoreOfficePage({
         </div>
         <ExpenseForm vessels={vessels} defaultDate={today} />
       </section>
+        </>
+      ) : null}
 
+      {tab === "payrolls" ? (
+        <>
       {/* ══════ 3.6.2 船員給与 ══════ */}
       <section id="payrolls" aria-label="船員給与" className="flex flex-col gap-3">
         <h2 className="text-lg font-bold">船員給与</h2>
@@ -373,15 +410,14 @@ export default async function ShoreOfficePage({
             </Link>
           ))}
         </div>
-        <p className="ui-card p-4 text-sm text-foreground-600">
-          時間外は打刻から計算し、設定のまるめ単位（{officeRules.payrollRoundingUnitMinutes}分・
-          {officeRules.payrollRoundingMode === "nearest"
-            ? "四捨五入"
-            : officeRules.payrollRoundingMode === "floor"
-              ? "切り捨て"
-              : "切り上げ"}
-          ）を当てはめた値を給与に渡します。まるめの前後を並べて出しているので、まるめで
-          どれだけ増減するかが確認できます。支給額はその場で計算した表示で、保存はしていません。
+        <p className="m-0" title="時間外は打刻から計算し、まるめを当てはめた値を給与に渡します。まるめの前後を並べています。支給額はその場で計算した表示で、保存しません">
+          <StatusChip
+            level="none"
+            label={`まるめ ${officeRules.payrollRoundingUnitMinutes}分・${
+              officeRules.payrollRoundingMode === "nearest" ? "四捨五入" : officeRules.payrollRoundingMode === "floor" ? "切り捨て" : "切り上げ"
+            }`}
+            hint={false}
+          />
         </p>
         <div className="ui-card overflow-x-auto">
           {payrolls.length === 0 ? (
@@ -457,21 +493,20 @@ export default async function ShoreOfficePage({
               </tbody>
             </table>
           )}
-          <p className="px-4 py-3 text-xs text-foreground-500">
-            支給額 = 基本給 + 手当 + 時間外手当 − 控除。判定に使ったルール版{" "}
-            {payrolls[0]?.appliedRuleVersion ?? "—"}。
+          <p className="px-4 py-3 text-xs text-foreground-500" title={`判定に使ったルール版 ${payrolls[0]?.appliedRuleVersion ?? "—"}`}>
+            支給額 = 基本給 + 手当 + 時間外手当 − 控除
           </p>
         </div>
         <PayrollConfirmForm payrolls={draftPayrolls} />
       </section>
+        </>
+      ) : null}
 
+      {tab === "subsidies" ? (
+        <>
       {/* ══════ 3.6.3 補助金・行政手続き ══════ */}
       <section id="subsidies" aria-label="補助金・行政手続き" className="flex flex-col gap-3">
         <h2 className="text-lg font-bold">補助金・行政手続き</h2>
-        <p className="ui-card p-4 text-sm text-foreground-600">
-          船舶の建造・改造に係る補助金、内航海運業法にもとづく届出、海上労働検査への対応資料の準備を
-          ここでまとめて管理します。
-        </p>
         <div className="ui-card overflow-x-auto">
           {subsidies.length === 0 ? (
             <p className="p-4 text-sm text-foreground-500">登録された手続きはありません。</p>
@@ -521,6 +556,8 @@ export default async function ShoreOfficePage({
         <SubsidyForm />
         <SubsidyStatusForm subsidies={subsidyOptions} />
       </section>
+        </>
+      ) : null}
     </div>
   );
 }

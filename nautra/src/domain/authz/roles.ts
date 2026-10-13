@@ -42,6 +42,7 @@ export type Permission =
   | "write_work_report"
   | "write_maintenance"
   | "view_shift"
+  | "manage_shift"
   | "view_sync";
 
 /** 権限キーの一覧（権限表の行。陸上 S-15 の表もこの並びから生成する） */
@@ -58,6 +59,7 @@ export const PERMISSIONS: Permission[] = [
   "write_work_report",
   "write_maintenance",
   "view_shift",
+  "manage_shift",
   "view_sync",
 ];
 
@@ -84,6 +86,8 @@ export const ROLE_PERMISSIONS: Record<VesselRole, Permission[]> = {
     "view_all_crew",
     "write_logbook",
     "write_maintenance",
+    // 当直の作成・変更（陸上正本の例外。レビュー SHIFT-04）
+    "manage_shift",
   ],
   // 航海士: 航海当直の主担当。航海日誌の記入を担う
   deck_officer: [...COMMON, "write_logbook"],

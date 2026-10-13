@@ -7,12 +7,14 @@ import { fmtDateTime } from "@/lib/format";
 import { useLocalConflictCount, useSyncBadge } from "@/lib/vessel-hooks";
 import { vesselDb } from "@/lib/vessel-db";
 import { setOfflineSim, syncNow, type SyncResult } from "@/lib/vessel-sync";
-import { Button, Card, CardBody, CardHeader, Chip, Divider, Switch } from "@/ui";
+import { StatusChip } from "@/ui";
+import { Button, Switch } from "@/ui/heroui";
 import { GroupHeader } from "../_components/group-header";
 
 /**
- * V-09 同期状態。未同期件数・最終同期日時・競合件数・隔離件数の常時可視化と手動同期
- * （基本設計書 8.4 / 8.6）。擬似オフライントグルで通信断→復帰→自動回復を検証できる。
+ * V-09 同期状態（基本設計書 8.4 / 8.6）。送っていない記録・最後に送った時刻・確かめが要る記録を
+ * 常に見せ、手で送れる。言葉は日常語にし、説明の文ではなく帯の色と記号で状態を伝える（レビュー SYNC-02/03）。
+ * 受信カーソル・端末内の件数などの仕組みの値は利用者の判断に使わないので出さない。
  */
 export default function SyncPage() {
   const {
@@ -20,25 +22,16 @@ export default function SyncPage() {
     offlineSim,
     lastSyncAt,
     lastSyncError,
-    pullCursor,
     serverQuarantineCount,
     localQuarantineCount,
   } = useSyncBadge();
   const conflictCount = useLocalConflictCount();
+  const heldCount = serverQuarantineCount + localQuarantineCount;
   const [result, setResult] = useState<SyncResult | null>(null);
   const [syncing, setSyncing] = useState(false);
 
   const outboxPreview =
     useLiveQuery(() => vesselDb.outbox.orderBy("queuedAt").limit(10).toArray(), [], []) ?? [];
-  const localCounts = useLiveQuery(
-    async () => ({
-      timeRecords: await vesselDb.timeRecords.count(),
-      approvals: await vesselDb.approvals.count(),
-      records: await vesselDb.records.count(),
-    }),
-    [],
-    { timeRecords: 0, approvals: 0, records: 0 },
-  ) ?? { timeRecords: 0, approvals: 0, records: 0 };
 
   async function manualSync() {
     setSyncing(true);
@@ -49,128 +42,100 @@ export default function SyncPage() {
     }
   }
 
+  // 帯は「送れない（通信なし）」「送っていない記録がある」「すべて送った」の3つだけ
+  const state = offlineSim ? "offline" : pendingCount > 0 ? "pending" : "done";
+  const band = {
+    offline: { icon: "⊘", text: "通信なし", sub: "記録はこの端末に残しています", cls: "!bg-[#EFE9E1] text-[#6F5638]" },
+    pending: { icon: "↑", text: `送っていない記録 ${pendingCount}件`, sub: null, cls: "!bg-[#EFE9E1] text-[#6F5638]" },
+    done: { icon: "✓", text: "すべて送りました", sub: null, cls: "text-foreground-900" },
+  }[state];
+
   return (
     <div className="flex flex-col gap-4">
       <GroupHeader group="06" />
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
-        <Card shadow="none" className="ui-card">
-          <CardBody>
-            <p className="text-sm text-foreground-600">未同期イベント</p>
-            <p className="tabular-nums text-3xl font-bold">
-              {pendingCount}
-              <span className="ml-1 text-base font-normal">件</span>
-            </p>
-          </CardBody>
-        </Card>
-        <Card shadow="none" className={conflictCount > 0 ? "ui-card border border-danger" : "ui-card"}>
-          <CardBody>
-            <p className="text-sm text-foreground-600">競合（要確認）</p>
-            <p className="tabular-nums text-3xl font-bold">
-              {conflictCount}
-              <span className="ml-1 text-base font-normal">件</span>
-            </p>
-            <p className="text-xs text-foreground-600">
-              打刻は追記型で構造的に競合しない。同一記録への複数の訂正・変更（分岐）は双方保持して要確認
-            </p>
-          </CardBody>
-        </Card>
-        <Card shadow="none" className="ui-card">
-          <CardBody>
-            <p className="text-sm text-foreground-600">最終同期日時</p>
-            <p className="tabular-nums font-bold">
-              {lastSyncAt ? fmtDateTime(lastSyncAt) : "未同期"}
-            </p>
-          </CardBody>
-        </Card>
-        <Card shadow="none" className="ui-card">
-          <CardBody>
-            <p className="text-sm text-foreground-600">受信カーソル（Pull）</p>
-            <p className="tabular-nums font-bold">v{pullCursor ?? "0"}</p>
-            <p className="text-xs text-foreground-600">切断後もこの続きから再開（再開可能）</p>
-          </CardBody>
-        </Card>
-        <Card shadow="none" className="ui-card">
-          <CardBody>
-            <p className="text-sm text-foreground-600">隔離（未知種別）</p>
-            <p className="tabular-nums text-3xl font-bold">
-              {serverQuarantineCount + localQuarantineCount}
-              <span className="ml-1 text-base font-normal">件</span>
-            </p>
-            <p className="text-xs text-foreground-600">
-              陸上側 {serverQuarantineCount} / 端末側 {localQuarantineCount}。未対応の種別は破棄せず隔離し、更新後に再処理
-            </p>
-          </CardBody>
-        </Card>
-        <Card shadow="none" className="ui-card">
-          <CardBody>
-            <p className="text-sm text-foreground-600">端末内の記録（IndexedDB）</p>
-            <p className="tabular-nums text-sm">
-              打刻 <span className="font-bold">{localCounts.timeRecords}</span> / 承認{" "}
-              <span className="font-bold">{localCounts.approvals}</span> / 船内記録・シフト{" "}
-              <span className="font-bold">{localCounts.records}</span>
-            </p>
-            <p className="text-xs text-foreground-600">通信断でもここに蓄積され、復帰時に転送される</p>
-          </CardBody>
-        </Card>
-      </div>
+      <section aria-label="送った状態" className={`ui-card flex flex-wrap items-center gap-5 border-0 p-5 ${band.cls}`}>
+        <span aria-hidden="true" className="text-5xl font-bold leading-none">
+          {band.icon}
+        </span>
+        <span className="flex min-w-0 flex-1 flex-col gap-1">
+          <span className="text-3xl font-bold">{band.text}</span>
+          {band.sub ? <span className="text-lg">{band.sub}</span> : null}
+          <span className="font-mono text-lg tabular-nums">
+            最後に送った時刻 {lastSyncAt ? fmtDateTime(lastSyncAt) : "まだありません"}
+          </span>
+        </span>
+        <Button
+          color="primary"
+          className="min-h-16 min-w-48 text-xl"
+          isLoading={syncing}
+          isDisabled={offlineSim}
+          onPress={() => void manualSync()}
+        >
+          いま同期する
+        </Button>
+      </section>
 
-      <Card shadow="none" className="ui-card">
-        <CardHeader className="font-bold">通信・同期操作</CardHeader>
-        <Divider />
-        <CardBody className="flex flex-col gap-4">
-          <Switch
-            isSelected={offlineSim}
-            onValueChange={(v) => void setOfflineSim(v)}
-            color="warning"
-          >
-            擬似オフライン（通信断をシミュレート。記録は端末に蓄積されます）
-          </Switch>
-          <Button
-            color="primary"
-            className="min-h-14 text-lg"
-            isLoading={syncing}
-            onPress={() => void manualSync()}
-          >
-            手動同期を実行
-          </Button>
-          {result ? (
-            <Chip
-              variant="flat"
-              radius="sm"
-              color={result.ok ? "success" : result.skippedOffline ? "warning" : "danger"}
-              className="h-auto whitespace-normal py-1"
-            >
-              {result.ok
-                ? `✓ 同期完了: 送信 ${result.pushed}件 / 受信 ${result.pulled}件`
+      {result ? (
+        <p className="m-0">
+          <StatusChip
+            level={result.ok ? "ok" : "caution"}
+            size="lg"
+            hint={false}
+            label={
+              result.ok
+                ? `送った ${result.pushed}件 ／ 受け取った ${result.pulled}件`
                 : result.skippedOffline
-                  ? "⚡ オフラインのため送信をスキップしました（キューに保持）"
-                  : `✕ 同期失敗: ${result.error}（キューは保持され、次回同期で再開されます）`}
-            </Chip>
+                  ? "通信がないので送れませんでした。記録は残っています"
+                  : "送れませんでした。記録は残っているので、あとでもう一度押してください"
+            }
+          />
+        </p>
+      ) : null}
+
+      {conflictCount > 0 || heldCount > 0 || lastSyncError ? (
+        <div className="flex flex-wrap gap-2" role="group" aria-label="確かめが要るもの">
+          {conflictCount > 0 ? (
+            <StatusChip
+              level="violation"
+              label={`⚡ 確認が必要な記録 ${conflictCount}件`}
+              hint="同じ記録が2か所で別々に直されました。どちらも残してあるので、船長か陸上の担当者が確かめます"
+            />
+          ) : null}
+          {heldCount > 0 ? (
+            <StatusChip
+              level="caution"
+              label={`取り込めなかった記録 ${heldCount}件`}
+              hint="この版のアプリでは読めない記録です。捨てずに取ってあり、アプリを新しくすると取り込みます"
+            />
           ) : null}
           {lastSyncError ? (
-            <p className="text-sm text-danger">直近のエラー: {lastSyncError}</p>
+            <StatusChip level="caution" label="前回は送れませんでした" hint={lastSyncError} />
           ) : null}
-        </CardBody>
-      </Card>
+        </div>
+      ) : null}
 
-      <Card shadow="none" className="ui-card">
-        <CardHeader className="font-bold">送信キュー（先頭10件）</CardHeader>
-        <Divider />
-        <CardBody>
-          {outboxPreview.length === 0 ? (
-            <p className="text-foreground-600">キューは空です。すべて同期済みです。</p>
-          ) : (
-            <ul className="flex flex-col gap-1 text-sm">
-              {outboxPreview.map((o) => (
-                <li key={o.eventId} className="tabular-nums">
-                  {fmtDateTime(o.queuedAt)} — {t.syncKind[o.event.kind] ?? o.event.kind} ({o.eventId.slice(0, 12)}…)
-                </li>
-              ))}
-            </ul>
-          )}
-        </CardBody>
-      </Card>
+      {outboxPreview.length > 0 ? (
+        <section aria-label="まだ送っていない記録" className="ui-card p-0">
+          <ul className="m-0 flex list-none flex-col p-0">
+            {outboxPreview.map((o) => (
+              <li key={o.eventId} className="ui-row flex items-center gap-4 px-4 py-2.5 text-lg">
+                <span aria-hidden="true" className="text-[#917351]">
+                  ↑
+                </span>
+                <span className="flex-1">{t.syncKind[o.event.kind] ?? "記録"}</span>
+                <span className="font-mono tabular-nums text-foreground-600">{fmtDateTime(o.queuedAt)}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      <div className="ui-card p-4">
+        <Switch isSelected={offlineSim} onValueChange={(v) => void setOfflineSim(v)} color="warning" size="lg">
+          通信を切って試す
+        </Switch>
+      </div>
     </div>
   );
 }

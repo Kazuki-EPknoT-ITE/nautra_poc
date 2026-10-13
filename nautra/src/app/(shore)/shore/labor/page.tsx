@@ -11,11 +11,15 @@ import {
 } from "@/server/ledger-service";
 import { buildLeaveBalance, buildLeaveBoard } from "@/server/leave-service";
 import { hasShorePermission, requireShore } from "@/server/shore-session";
-import { StatusChip } from "@/ui";
+import { cn } from "@/lib/cn";
+import { Section, StatusChip } from "@/ui";
+import { ExportAction } from "../_components/export-action";
 import { ShoreGuardNotice } from "../_components/guard";
 import { ApprovalForm, type PendingDay } from "./_components/approval-form";
 import { LeaveForm } from "./_components/leave-form";
 import { LedgerImportForm } from "./_components/ledger-import-form";
+import { LaborCalendar } from "./_components/labor-calendar";
+import { describeCheck } from "@/lib/labor-plain";
 
 export const dynamic = "force-dynamic";
 
@@ -50,10 +54,22 @@ function checkValue(key: string, value: number): string {
  * - 労務管理記録簿（第16号の5書式に相当）の確認・CSV 出力・**印刷（PDF）**（3.2.2）
  * - 国交省 Excel マクロ様式（CSV）の**取込**（3.2.2）
  */
+/**
+ * この画面の主題（タブ）。**1画面1主題**にして、目的の節まで延々とめくらずに済むようにする
+ * （デザイン正本 S-15 と同じやりかた。1枚が 3000px を超えないようにする）。
+ * 対象の切替（船員・月）は主題をまたいで効くので、タブの外に置く。
+ */
+const TABS = [
+  { id: "status", label: "上限と集計・承認" },
+  { id: "chart", label: "タイムチャート" },
+  { id: "leave", label: "休日・有給" },
+  { id: "ledger", label: "記録簿・取込" },
+];
+
 export default async function ShoreLaborPage({
   searchParams,
 }: {
-  searchParams: Promise<{ crew?: string; month?: string }>;
+  searchParams: Promise<{ crew?: string; month?: string; tab?: string }>;
 }) {
   const guard = await requireShore("view_dashboard");
   if (!guard.ok) return <ShoreGuardNotice guard={guard} screen="労務管理（承認・記録簿）" />;
@@ -63,15 +79,25 @@ export default async function ShoreLaborPage({
 
   const crews = ledgerCrewOptions();
   const sp = await searchParams;
+  /** いま開いている主題。未指定なら先頭 */
+  const tab = TABS.some((x) => x.id === sp.tab) ? sp.tab! : TABS[0]!.id;
   const crewMemberId = crews.find((c) => c.id === sp.crew)?.id ?? crews[0].id;
   const month = sp.month ?? currentMonth();
   const period = buildLedger(crewMemberId, month);
-  const months = monthOptions();
+  // カレンダーで送れる範囲は直近12か月（LABOR-03）
+  const months = monthOptions(new Date(), 12);
   const today = new Date().toISOString().slice(0, 10);
 
   const leave = buildLeaveBalance(crewMemberId);
   const leaveBoard = buildLeaveBoard();
   const restDates = new Set(period.aggregates.leaveDates);
+
+  /** その日に外れた基準を、初心者にも分かる文でつなぐ（ホバーの説明。LABOR-05） */
+  const dayHint = (d: (typeof period.days)[number]) =>
+    d.summary.checks
+      .filter((c) => c.level !== "ok")
+      .map((c) => describeCheck(c))
+      .join(" ") || undefined;
 
   const pendingDays: PendingDay[] = period.days
     .filter((d) => d.summary.hasRecords && !d.approvedByManager)
@@ -79,11 +105,12 @@ export default async function ShoreLaborPage({
       date: d.date,
       workedMinutes: d.summary.workedMinutes,
       level: d.summary.level,
+      hint: dayHint(d),
       captainApproved: d.approval?.approverRole === "captain" && d.approval.decision === "approved",
     }));
 
   /** 4週・月の判定（3.2.1 自動集計 / 3.2.5③） */
-  // 休日（rest_day）は下に専用の枠を置くので、上限系の一覧からは外す
+  // 休日（rest_day）は4枚目のカードで別に出すので、上限系の一覧からは外す
   const periodChecks = [
     ...period.aggregates.fourWeek.checks
       .filter((c) => c.key !== "rest_day")
@@ -96,199 +123,291 @@ export default async function ShoreLaborPage({
       .map((c) => ({ check: c, range: `${period.month}` })),
   ];
 
-  return (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-balance text-2xl font-bold">労務管理（承認・記録簿）</h1>
-        <p className="text-sm text-foreground-500">
-          判定は船内と同じルール版 {period.appliedRuleVersion} で行っています
-        </p>
-      </div>
+  /**
+   * 上限ゲージの材料。4週・月の判定に「休息の分割」を足して4枚にする。
+   * 判定そのものはドメイン関数が済ませているので、ここは表示用の詰め替えだけ。
+   */
+  const limitCards = [
+    ...periodChecks.slice(0, 3).map(({ check, range }) => ({
+      key: `${check.key}-${range}`,
+      label: `${checkLabel(check.key)}（${range}）`,
+      actual: checkValue(check.key, check.actual),
+      limit: checkValue(check.key, check.limit),
+      ratio: check.limit > 0 ? check.actual / check.limit : 0,
+      level: check.level,
+      hint: describeCheck(check),
+      note:
+        check.level === "violation"
+          ? "上限を超えています。休息を入れて是正してください。"
+          : check.level === "caution"
+            ? "上限に近づいています。"
+            : "上限内です。",
+    })),
+    {
+      key: "rest_day",
+      label: checkLabel("rest_day") + "（直近1週間）",
+      actual: `${period.aggregates.restDay.actual}日`,
+      limit: `${period.aggregates.restDay.limit}日`,
+      ratio:
+        period.aggregates.restDay.limit > 0
+          ? period.aggregates.restDay.actual / period.aggregates.restDay.limit
+          : 0,
+      level: period.aggregates.restDay.level,
+      hint: describeCheck(period.aggregates.restDay),
+      note:
+        period.aggregates.restDay.level === "ok"
+          ? "週1日以上の休日が取れています（3.2.5⑤）。"
+          : "休日が足りません。休みを入れてください。",
+    },
+  ];
 
+  return (
+    <div className="flex flex-col gap-[18px]">
       {/* 対象の切替（サーバ側で組み立てるためリンクで切り替える） */}
-      <section aria-label="対象の切替" className="ui-card flex flex-wrap items-center gap-4 p-4">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-sm text-foreground-500">船員</span>
+      <section aria-label="対象の切替" className="ui-card flex flex-col gap-3.5 px-[18px] py-4">
+        <div className="flex flex-wrap items-center gap-3">
+          <p className="m-0 flex-none text-sm text-foreground-500">対象船員</p>
           {crews.map((c) => (
             <Link
               key={c.id}
               href={`/shore/labor?crew=${c.id}&month=${month}`}
-              className={`rounded-medium px-3 py-1.5 text-sm ${
-                c.id === crewMemberId ? "bg-primary text-primary-foreground" : "bg-default-100"
-              }`}
+              aria-current={c.id === crewMemberId ? "true" : undefined}
+              className={cn(
+                "flex flex-col rounded-small border px-3 py-1.5",
+                c.id === crewMemberId
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : "border-[var(--ui-hairline-strong)] bg-content1 text-foreground-700",
+              )}
             >
-              {c.name}
+              <span className="text-base font-bold">{c.name}</span>
+              <span className="text-2xs tracking-normal opacity-75">{c.position ?? ""}</span>
             </Link>
           ))}
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-sm text-foreground-500">対象月</span>
-          {months.map((m) => (
+          <div className="ml-auto flex flex-wrap items-center gap-2">
             <Link
-              key={m}
-              href={`/shore/labor?crew=${crewMemberId}&month=${m}`}
-              className={`rounded-medium px-3 py-1.5 text-sm tabular-nums ${
-                m === month ? "bg-primary text-primary-foreground" : "bg-default-100"
-              }`}
+              href={`/shore/labor/ledger/print?crew=${crewMemberId}&month=${month}`}
+              className="ui-btn-primary h-9"
+              prefetch={false}
             >
-              {m}
+              記録簿を印刷・PDF
             </Link>
-          ))}
+            <ExportAction set="labor" label="労務記録を書き出す" />
+          </div>
         </div>
-        <div className="ml-auto flex flex-wrap items-center gap-2">
-          <Link
-            href={`/shore/labor/ledger/print?crew=${crewMemberId}&month=${month}`}
-            className="rounded-medium bg-primary px-3 py-1.5 text-sm font-semibold text-primary-foreground"
-            prefetch={false}
-          >
-            記録簿を印刷・PDF
-          </Link>
-          <Link
-            href={`/api/v1/shore/ledger.csv?crew=${crewMemberId}&month=${month}`}
-            className="rounded-medium bg-default-100 px-3 py-1.5 text-sm font-semibold"
-            prefetch={false}
-          >
-            CSV で出力
-          </Link>
+        <div className="flex flex-wrap items-start gap-4 border-t border-[var(--ui-hairline)] pt-3">
+          <p className="m-0 flex-none pt-1.5 text-sm text-foreground-500">集計期間</p>
+          <div className="w-full max-w-[400px]">
+            <LaborCalendar
+              crewMemberId={crewMemberId}
+              month={month}
+              oldest={months[months.length - 1]!}
+              newest={months[0]!}
+              today={today}
+              days={period.days.map((d) => ({
+                date: d.date,
+                hasRecords: d.summary.hasRecords,
+                level: d.summary.level,
+                hint: dayHint(d),
+                pending: d.proposalPending,
+              }))}
+            />
+          </div>
         </div>
       </section>
 
-      <section aria-label="月次の集計" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        {[
-          { label: "記録のある日", value: `${period.totals.recordedDays}日`, tone: "" },
-          { label: "労働時間の合計", value: fmtMinutes(period.totals.workedMinutes), tone: "" },
-          { label: "警告（赤）", value: `${period.totals.violationDays}日`, tone: "text-danger" },
-          { label: "未承認", value: `${period.totals.pendingDays}日`, tone: "text-warning-700" },
-        ].map((s) => (
-          <div key={s.label} className="ui-card p-4">
-            <p className="text-sm text-foreground-500">{s.label}</p>
-            <p className={`tabular-nums text-2xl font-bold ${s.tone}`}>{s.value}</p>
+      {/*
+        上限ゲージ（デザインの「上限カード」）。
+        **実績／上限と残りを1枚にまとめる**。数字だけだと「あとどれだけ働けるか」が
+        読み取れず、棒だけだと法定の値が見えないため、両方を同じカードに置く。
+      */}
+      {/* 主題の切替（サーバ側で組み立てるためリンクで切り替える。船員・月の選択は持ち回る） */}
+      <nav aria-label="労務管理の主題" className="ui-card flex flex-wrap gap-2 p-3">
+        {TABS.map((x) => (
+          <Link
+            key={x.id}
+            href={`/shore/labor?crew=${crewMemberId}&month=${month}&tab=${x.id}`}
+            aria-current={x.id === tab ? "page" : undefined}
+            className={`ui-btn-quiet ${x.id === tab ? "ui-btn-selected" : ""}`}
+          >
+            {x.label}
+          </Link>
+        ))}
+      </nav>
+
+      {tab === "status" ? (
+        <>
+      <section aria-label="上限に対する実績" className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {limitCards.map((l) => (
+          <div
+            key={l.key}
+            className={cn(
+              "ui-card cursor-help px-[18px] py-4",
+              l.level === "violation" && "border-danger",
+              l.level === "caution" && "border-primary",
+            )}
+            title={l.note}
+          >
+            <div className="flex items-start justify-between gap-2">
+              <p className="m-0 text-sm leading-normal text-foreground-500">{l.label}</p>
+              <StatusChip level={l.level} size="sm" hint={l.level === "ok" ? undefined : l.hint} />
+            </div>
+            <p
+              className={cn(
+                "m-0 mt-2 font-mono text-4xl font-semibold tabular-nums",
+                l.level === "violation" && "text-danger",
+                l.level === "caution" && "text-warning-700",
+                l.level === "ok" && "text-foreground-900",
+              )}
+            >
+              {l.actual}
+              <span className="ml-1.5 text-base font-normal text-foreground-400">/ {l.limit}</span>
+            </p>
+            <span className="mt-3 block h-[5px] overflow-hidden rounded-[3px] bg-[#DFE1E0]">
+              <span
+                className={cn(
+                  "block h-full rounded-[3px]",
+                  l.level === "violation"
+                    ? "bg-danger"
+                    : l.level === "caution"
+                      ? "bg-primary"
+                      : "bg-foreground-700",
+                )}
+                style={{ width: `${Math.min(100, Math.round(l.ratio * 100))}%` }}
+              />
+            </span>
           </div>
         ))}
       </section>
 
-      {/* 4週単位・月単位の集計（3.2.1「日単位・週単位・4週単位・月単位」） */}
-      <section aria-label="4週間・1か月の集計" className="ui-card p-4">
-        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-          <h2 className="font-bold">4週間・1か月のまとめ</h2>
-          <p className="text-xs text-foreground-500">
-            働いた日 {period.aggregates.monthly.workedDays}日 / 休んだ日{" "}
-            {period.aggregates.monthly.restDays}日 / 時間外{" "}
-            {fmtMinutes(period.aggregates.monthly.overtimeMinutes)} / 週平均{" "}
-            {fmtMinutes(period.aggregates.fourWeek.weeklyAverageMinutes)}
-          </p>
-        </div>
-        <div className="grid gap-3 sm:grid-cols-2">
-          {periodChecks.map(({ check, range }) => (
-            <div key={`${check.key}-${range}`} className="ui-inset flex items-center gap-3 p-3">
-              <StatusChip level={check.level} size="sm" />
-              <div className="min-w-0 flex-1">
-                <p className="font-semibold">{checkLabel(check.key)}</p>
-                <p className="text-xs text-foreground-600">
-                  <span className="tabular-nums">{checkValue(check.key, check.actual)}</span>
-                  <span className="text-foreground-500">
-                    {" "}
-                    / 上限 {checkValue(check.key, check.limit)}（{range}）
-                  </span>
-                </p>
-              </div>
-            </div>
-          ))}
-          {/* 週1日以上の休日付与（3.2.5⑤）。休暇記録の日付を含めて判定する */}
-          <div className="ui-inset flex items-center gap-3 p-3">
-            <StatusChip level={period.aggregates.restDay.level} size="sm" />
-            <div className="min-w-0 flex-1">
-              <p className="font-semibold">{checkLabel("rest_day")}</p>
-              <p className="text-xs text-foreground-600">
-                直近1週間で休んだ日{" "}
-                <span className="tabular-nums">{period.aggregates.restDay.actual}日</span>
-                <span className="text-foreground-500">
-                  {" "}
-                  / 必要 {period.aggregates.restDay.limit}日
-                </span>
-                {period.aggregates.restDay.level !== "ok"
-                  ? " — 休日が足りません。休みを入れてください。"
-                  : ""}
-              </p>
-            </div>
-          </div>
-        </div>
+      {/* 4週単位・月単位の集計（3.2.1）。判定は上の4枚にあるので、ここは数字だけ */}
+      <section aria-label="この月の集計" className="flex flex-wrap gap-2">
+        {[
+          ["働いた日", `${period.aggregates.monthly.workedDays}日`],
+          ["休んだ日", `${period.aggregates.monthly.restDays}日`],
+          ["時間外", fmtMinutes(period.aggregates.monthly.overtimeMinutes)],
+          ["4週の週平均", fmtMinutes(period.aggregates.fourWeek.weeklyAverageMinutes)],
+        ].map(([k, v]) => (
+          <span key={k} className="ui-card flex items-baseline gap-2 px-4 py-2.5">
+            <span className="text-sm text-foreground-500">{k}</span>
+            <span className="font-mono text-xl font-semibold tabular-nums text-foreground-900">{v}</span>
+          </span>
+        ))}
       </section>
 
       {canApprove ? (
         <ApprovalForm crewMemberId={crewMemberId} crewName={period.crewName} days={pendingDays} />
-      ) : (
-        <p className="ui-card p-4 text-sm text-foreground-600">
-          承認・差戻しは労務管理責任者の担当です。ここでは記録の確認のみ行えます。
-        </p>
-      )}
+      ) : null}
 
-      {/* タイムチャート（0〜24時） */}
-      <section aria-label="船員別タイムチャート" className="ui-card p-4">
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-          <h2 className="font-bold">
-            タイムチャート — {period.crewName}（{period.position}）
-          </h2>
+        </>
+      ) : null}
+
+      {tab === "chart" ? (
+      /* タイムチャート（0〜24時）。1日1本の帯で、いつ働いたかを日をまたいで見比べる */
+      <Section
+        title={`タイムチャート — ${period.crewName}（${period.position}）`}
+        actions={
           <div className="flex flex-wrap gap-3 text-xs text-foreground-500">
             {Object.entries(BAR_TONE).map(([cat, tone]) => (
-              <span key={cat} className="flex items-center gap-1">
-                <span className={`inline-block h-3 w-4 rounded-sm ${tone}`} aria-hidden="true" />
+              <span key={cat} className="flex items-center gap-1.5">
+                <span className={`inline-block h-2 w-3.5 rounded-[1px] ${tone}`} aria-hidden="true" />
                 {t.workCategory[cat]}
               </span>
             ))}
           </div>
-        </div>
-        <div className="mb-1 flex text-[10px] text-foreground-500">
+        }
+        bodyClassName="px-[18px] py-4"
+      >
+        <div className="mb-2.5 flex pl-[78px] pr-[310px] font-mono text-xs text-foreground-400">
           {[0, 6, 12, 18].map((h) => (
             <span key={h} className="w-1/4 tabular-nums">
               {String(h).padStart(2, "0")}:00
             </span>
           ))}
         </div>
-        <div className="flex flex-col gap-1">
+        <div className="flex flex-col gap-3">
           {period.days
             .filter((d) => d.summary.hasRecords)
-            .map((d) => {
-              const style = LEVEL_STYLE[d.summary.level];
-              return (
-                <div key={d.date} className="flex items-center gap-3">
-                  <span className="w-20 shrink-0 tabular-nums text-xs text-foreground-500">
-                    {fmtDateLabel(d.date)}
-                  </span>
-                  <div className="relative h-5 flex-1 overflow-hidden rounded-small bg-default-100">
-                    {d.bars.map((b, i) => (
-                      <span
-                        key={`${d.date}-${i}`}
-                        title={b.label}
-                        className={`absolute inset-y-0 ${BAR_TONE[b.workCategory] ?? "bg-foreground/40"} ${
-                          b.open ? "opacity-70" : ""
-                        }`}
-                        style={{ left: `${b.start * 100}%`, width: `${Math.max(b.width * 100, 0.4)}%` }}
-                      />
-                    ))}
-                  </div>
-                  <span className="w-16 shrink-0 tabular-nums text-right text-xs">
-                    {fmtMinutes(d.summary.workedMinutes)}
-                  </span>
-                  <span className={`w-16 shrink-0 text-xs font-semibold ${style.cls}`}>
-                    {style.icon} {style.label}
-                  </span>
-                </div>
-              );
-            })}
+            .map((d) => (
+              <div key={d.date} id={`d-${d.date}`} className="flex scroll-mt-24 items-center">
+                <span className="flex-none basis-[78px] font-mono text-xs text-foreground-700">
+                  {fmtDateLabel(d.date)}
+                </span>
+                <span className="relative h-[26px] flex-1 overflow-hidden rounded-[2px] bg-[#DFE1E0]">
+                  {d.bars.map((b, i) => (
+                    <span
+                      key={`${d.date}-${i}`}
+                      title={b.label}
+                      className={`absolute inset-y-0 ${BAR_TONE[b.workCategory] ?? "bg-foreground/40"} ${
+                        b.open ? "opacity-70" : ""
+                      }`}
+                      style={{ left: `${b.start * 100}%`, width: `${Math.max(b.width * 100, 0.4)}%` }}
+                    />
+                  ))}
+                </span>
+                <span className="flex-none basis-[74px] text-right font-mono text-sm tabular-nums text-foreground-800">
+                  {fmtMinutes(d.summary.workedMinutes)}
+                </span>
+                <span className="flex-none basis-[86px] text-right">
+                  <StatusChip level={d.summary.level} size="sm" hint={dayHint(d)} />
+                </span>
+                <span className="flex flex-none basis-[150px] items-center justify-end gap-1.5">
+                  {d.proposalPending ? (
+                    <span className="rounded-small bg-warning-100 px-1.5 py-px text-xs font-semibold text-warning-700">
+                      本人の確認待ち
+                    </span>
+                  ) : null}
+                  {canApprove && (d.summary.level !== "ok" || d.proposalPending) ? (
+                    <Link
+                      href={`/shore/labor/adjust?crew=${crewMemberId}&date=${d.date}`}
+                      className="ui-btn-quiet"
+                    >
+                      修正を依頼
+                    </Link>
+                  ) : null}
+                </span>
+              </div>
+            ))}
           {period.totals.recordedDays === 0 ? (
             <p className="text-sm text-foreground-500">この月の打刻記録はまだありません。</p>
           ) : null}
         </div>
-      </section>
 
-      {/* 休日・有給休暇・補償休日（3.2.4） */}
+        <div className="mt-4 flex flex-wrap items-baseline gap-6 border-t border-[var(--ui-hairline)] pt-5">
+          <div>
+            <p className="m-0 text-xs text-foreground-400">この月の労働時間</p>
+            <p className="m-0 mt-1.5 font-mono text-3xl font-semibold leading-none tabular-nums text-foreground-900">
+              {fmtMinutes(period.totals.workedMinutes)}
+              <span className="ml-1.5 text-sm font-normal text-foreground-400">
+                / 記録のある日 {period.totals.recordedDays}日
+              </span>
+            </p>
+          </div>
+          <StatusChip
+            level={
+              period.totals.violationDays > 0
+                ? "violation"
+                : period.totals.pendingDays > 0
+                  ? "caution"
+                  : "ok"
+            }
+            label={
+              period.totals.violationDays > 0
+                ? `要対応 ${period.totals.violationDays}日`
+                : period.totals.pendingDays > 0
+                  ? `承認待 ${period.totals.pendingDays}日`
+                  : "すべて承認済み"
+            }
+          />
+        </div>
+      </Section>
+
+      ) : null}
+
+      {tab === "leave" ? (
+      /* 休日・有給休暇・補償休日（3.2.4） */
       <section aria-label="休日・有給休暇・補償休日" className="ui-card flex flex-col gap-4 p-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="font-bold">休日・有給休暇・補償休日</h2>
-          <p className="text-xs text-foreground-500">
-            残り日数は付与と取得から計算した値です（記録として持ちません）
-          </p>
+          <h2 className="font-bold" title="残り日数は付与と取得から計算した値です（記録として持ちません）">休日・有給休暇・補償休日</h2>
         </div>
 
         {leaveBoard.some((b) => b.expiringGrants.length > 0) ? (
@@ -402,25 +521,33 @@ export default async function ShoreLaborPage({
         )}
       </section>
 
+      ) : null}
+
+      {tab === "ledger" ? (
+        <>
       {/* 労務管理記録簿（第16号の5 相当） */}
-      <section aria-label="労務管理記録簿" className="ui-card overflow-x-auto">
-        <div className="flex flex-wrap items-center justify-between gap-2 px-4 pt-4">
-          <h2 className="font-bold">労務管理記録簿（第16号の5書式に相当）</h2>
-          <p className="text-xs text-foreground-500">
-            {period.month} / {period.crewName} / 適用ルール版 {period.appliedRuleVersion}
+      <Section
+        title="労務管理記録簿（第16号の5書式に相当）"
+        note="検査・監査で提出する法定帳簿です"
+        actions={
+          <p className="m-0 cursor-help text-xs text-foreground-400" title="記録は打刻（一次記録）から毎回導出しています。修正は本人の差戻し・再入力のみで、記録簿を直接 書き換えることはできません（要件定義書 12.3）。">
+            {period.month} ／ {period.crewName} ／ 適用ルール版 {period.appliedRuleVersion}
           </p>
-        </div>
-        <table className="mt-3 w-full min-w-[900px] text-sm">
+        }
+        bodyClassName="p-0"
+      >
+        <div className="ui-table-scroll" style={{ maxHeight: 520 }}>
+          <table className="ui-table min-w-[900px]">
           <thead>
-            <tr className="border-b border-[var(--ui-hairline)] text-left text-foreground-500">
-              <th className="px-4 py-2 font-medium">日付</th>
-              <th className="px-2 py-2 font-medium">労働時間</th>
-              <th className="px-2 py-2 font-medium">休息の合計</th>
-              <th className="px-2 py-2 font-medium">分割回数</th>
-              <th className="px-2 py-2 font-medium">最長休息</th>
-              <th className="px-2 py-2 font-medium">休日</th>
-              <th className="px-2 py-2 font-medium">判定</th>
-              <th className="px-2 py-2 font-medium">承認</th>
+            <tr>
+              <th>日付</th>
+              <th className="num">労働時間</th>
+              <th className="num">休息の合計</th>
+              <th className="num">分割回数</th>
+              <th className="num">最長休息</th>
+              <th>休日</th>
+              <th>判定</th>
+              <th>承認</th>
             </tr>
           </thead>
           <tbody>
@@ -437,13 +564,13 @@ export default async function ShoreLaborPage({
                 );
                 const isRest = !d.summary.hasRecords || restDates.has(d.date);
                 return (
-                  <tr key={d.date} className="border-b border-[var(--ui-hairline)] last:border-b-0">
-                    <td className="px-4 py-2 tabular-nums">{fmtDateLabel(d.date)}</td>
-                    <td className="px-2 py-2 tabular-nums">{fmtMinutes(d.summary.workedMinutes)}</td>
-                    <td className="px-2 py-2 tabular-nums">{fmtMinutes(d.summary.restTotalMinutes)}</td>
-                    <td className="px-2 py-2 tabular-nums">{split}回</td>
-                    <td className="px-2 py-2 tabular-nums">{fmtMinutes(longest)}</td>
-                    <td className="px-2 py-2">{isRest ? "休み" : "—"}</td>
+                  <tr key={d.date}>
+                    <td className="font-mono tabular-nums">{fmtDateLabel(d.date)}</td>
+                    <td className="num">{fmtMinutes(d.summary.workedMinutes)}</td>
+                    <td className="num">{fmtMinutes(d.summary.restTotalMinutes)}</td>
+                    <td className="num">{split}回</td>
+                    <td className="num">{fmtMinutes(longest)}</td>
+                    <td>{isRest ? "休み" : "—"}</td>
                     <td className={`px-2 py-2 font-semibold ${style.cls}`}>
                       {d.summary.hasRecords ? (
                         <>
@@ -475,19 +602,21 @@ export default async function ShoreLaborPage({
                 );
               })}
           </tbody>
-        </table>
-        <p className="px-4 py-3 text-xs text-foreground-500">
-          記録は打刻（一次記録）から毎回導出しています。修正は本人の差戻し・再入力のみで、記録簿を直接
-          書き換えることはできません（要件定義書 12.3）。
-        </p>
-      </section>
+          </table>
+        </div>
+      </Section>
 
       {/* 国交省 Excel マクロ様式の取込（3.2.2） */}
       {canApprove ? (
-        <section aria-label="記録簿の取込" className="ui-card flex flex-col gap-3 p-4">
-          <h2 className="font-bold">これまでの記録簿を取り込む（Excel様式 → CSV）</h2>
+        <Section
+          title="これまでの記録簿を取り込む（Excel 様式）"
+          note="取り込んだ分も打刻と同じ一次記録として追記されます"
+          divided={false}
+        >
           <LedgerImportForm />
-        </section>
+        </Section>
+      ) : null}
+        </>
       ) : null}
     </div>
   );

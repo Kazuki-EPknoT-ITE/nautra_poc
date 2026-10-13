@@ -1,10 +1,11 @@
 import { CREW_MEMBERS } from "@/lib/crew";
+import { csvEncodingOf, csvResponse } from "@/server/csv-response";
 import { buildLedger, currentMonth, ledgerCsv } from "@/server/ledger-service";
 
 export const dynamic = "force-dynamic";
 
 /**
- * GET /api/v1/shore/ledger.csv?crew=&month= — 労務管理記録簿の出力（S-06 / S-14）。
+ * GET /api/v1/shore/ledger.csv?crew=&month=&encoding= — 労務管理記録簿の出力（S-06 / S-14）。
  * PoC は CSV（Excel で開ける）。本番は第16号の5書式の PDF 生成・電子保管に置き換える。
  */
 export async function GET(req: Request): Promise<Response> {

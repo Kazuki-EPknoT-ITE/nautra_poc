@@ -28,7 +28,7 @@ describe("作成対象の日付（範囲指定の一括作成）", () => {
   it("開始日だけなら1日分になる", () => {
     expect(
       svc.shiftDatesOf({
-        crewMemberId: "crew-kato",
+        crewMemberId: "crew-takamatsu",
         fromDate: FUTURE,
         shiftType: "navigation_watch",
         from: "08:00",
@@ -39,7 +39,7 @@ describe("作成対象の日付（範囲指定の一括作成）", () => {
 
   it("期間を指定すると日ごとに展開する", () => {
     const dates = svc.shiftDatesOf({
-      crewMemberId: "crew-kato",
+      crewMemberId: "crew-takamatsu",
       fromDate: FUTURE,
       toDate: addDays(FUTURE, 4),
       shiftType: "navigation_watch",
@@ -53,7 +53,7 @@ describe("作成対象の日付（範囲指定の一括作成）", () => {
   it("終了日が開始日より前なら作らせない", () => {
     expect(() =>
       svc.shiftDatesOf({
-        crewMemberId: "crew-kato",
+        crewMemberId: "crew-takamatsu",
         fromDate: FUTURE,
         toDate: addDays(FUTURE, -1),
         shiftType: "navigation_watch",
@@ -66,7 +66,7 @@ describe("作成対象の日付（範囲指定の一括作成）", () => {
   it("長すぎる期間は安全弁で止める", () => {
     expect(() =>
       svc.shiftDatesOf({
-        crewMemberId: "crew-kato",
+        crewMemberId: "crew-takamatsu",
         fromDate: FUTURE,
         toDate: addDays(FUTURE, 400),
         shiftType: "navigation_watch",
@@ -80,7 +80,7 @@ describe("作成対象の日付（範囲指定の一括作成）", () => {
 describe("作成前の法令チェック（3.2.5）", () => {
   it("1日14時間を超える当直は警告になる", () => {
     const result = svc.checkShiftPlanCompliance({
-      crewMemberId: "crew-tanaka",
+      crewMemberId: "crew-oshiro",
       fromDate: FUTURE,
       shiftType: "navigation_watch",
       from: "06:00",
@@ -90,12 +90,12 @@ describe("作成前の法令チェック（3.2.5）", () => {
     expect(keys).toContain("daily_max");
     // 16時間働くと休息が10時間に足りない
     expect(keys).toContain("rest_total");
-    expect(result.appliedRuleVersion).toContain("2026-04.1");
+    expect(result.appliedRuleVersion).toContain("2026-04-A");
   });
 
   it("基準の範囲に収まる当直では警告が出ない", () => {
     const result = svc.checkShiftPlanCompliance({
-      crewMemberId: "crew-tanaka",
+      crewMemberId: "crew-oshiro",
       fromDate: FUTURE,
       shiftType: "navigation_watch",
       from: "08:00",
@@ -107,7 +107,7 @@ describe("作成前の法令チェック（3.2.5）", () => {
   it("時刻の書き方が不正なら判定に進まない", () => {
     expect(() =>
       svc.checkShiftPlanCompliance({
-        crewMemberId: "crew-tanaka",
+        crewMemberId: "crew-oshiro",
         fromDate: FUTURE,
         shiftType: "navigation_watch",
         from: "8時",
@@ -120,7 +120,7 @@ describe("作成前の法令チェック（3.2.5）", () => {
 describe("新規作成の配信（追記型・陸上正本）", () => {
   it("期間ぶんの当直を作ると当直表に載る", () => {
     const created = svc.publishNewShift({
-      crewMemberId: "crew-sato",
+      crewMemberId: "crew-nakahara",
       fromDate: TODAY,
       toDate: addDays(TODAY, 1),
       shiftType: "cargo_watch",
@@ -131,7 +131,7 @@ describe("新規作成の配信（追記型・陸上正本）", () => {
     expect(created).toHaveLength(2);
 
     const week = svc.getShiftWeek();
-    const cell = week.cells[`crew-sato|${TODAY}`] ?? [];
+    const cell = week.cells[`crew-nakahara|${TODAY}`] ?? [];
     expect(cell.some((p) => p.from === "13:00" && p.shiftType === "cargo_watch")).toBe(true);
     // 新規作成は既存を置き換えない（supersedesId を持たない）
     expect(created.every((p) => p.supersedesId === undefined)).toBe(true);
@@ -139,7 +139,7 @@ describe("新規作成の配信（追記型・陸上正本）", () => {
 
   it("配置表に新しい持ち場を追加できる", () => {
     const created = svc.publishNewStation({
-      crewMemberId: "crew-sato",
+      crewMemberId: "crew-nakahara",
       scenario: "emergency",
       station: "第2甲板 消火班",
       duty: "ホース展張",
@@ -152,7 +152,7 @@ describe("新規作成の配信（追記型・陸上正本）", () => {
   it("持ち場が空欄なら配信しない", () => {
     expect(() =>
       svc.publishNewStation({
-        crewMemberId: "crew-sato",
+        crewMemberId: "crew-nakahara",
         scenario: "cargo",
         station: "   ",
         duty: "",
@@ -165,7 +165,7 @@ describe("当直の配分（3.2.3 公平な配分の可視化）", () => {
   it("船員別の合計と平均との差を出す", () => {
     const load = svc.buildWatchLoad();
     expect(load.rows.length).toBeGreaterThanOrEqual(4);
-    const sato = load.rows.find((r) => r.crewMemberId === "crew-sato");
+    const sato = load.rows.find((r) => r.crewMemberId === "crew-nakahara");
     // 直前のテストで 4時間 × 2日を追加している
     expect(sato && sato.minutes).toBeGreaterThanOrEqual(4 * 60);
     const sum = load.rows.reduce((a, r) => a + r.minutes, 0);

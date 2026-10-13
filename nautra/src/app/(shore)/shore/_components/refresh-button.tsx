@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
-import { Button } from "@/ui";
+import { Button } from "@/ui/heroui";
 
 export function RefreshButton() {
   const router = useRouter();

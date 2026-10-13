@@ -10,6 +10,7 @@ import type {
   WorkCategory,
   WorkInterval,
 } from "./types";
+import { countsAsWork } from "./types";
 import { buildIntervals, mergeRanges, overlapMinutes } from "./intervals";
 
 /** ローカル日付の YYYY-MM-DD */
@@ -99,6 +100,8 @@ export function evaluateDaily(params: {
     const overlapMs =
       Math.min(end.getTime(), dayEnd.getTime()) - Math.max(iv.startAt.getTime(), dayStart.getTime());
     if (overlapMs <= 0) continue;
+    // 休息の打刻は労働ではない。内訳にも和集合にも入れない（3.2 / types.ts の countsAsWork）
+    if (!countsAsWork(iv.workCategory)) continue;
     clipped.push({
       start: new Date(Math.max(iv.startAt.getTime(), dayStart.getTime())),
       end: new Date(Math.min(end.getTime(), dayEnd.getTime())),

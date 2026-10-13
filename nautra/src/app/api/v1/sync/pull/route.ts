@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { eventsSince, getSyncStats } from "@/server/store";
+import { isVesselDistributable } from "@/sync-protocol/events";
 
 export const dynamic = "force-dynamic";
 
@@ -40,10 +41,16 @@ export async function GET(req: Request) {
       : Math.min(MAX_BATCH, Math.max(1, Math.floor(Number(rawLimit)) || MAX_BATCH));
 
   const pending = eventsSince(since);
+  /**
+   * **カーソルは絞り込みの前に決める**。船内へ配らない種別（`shore_only`）を
+   * 先に落としてしまうと、末尾がすべて対象外だったときに nextCursor が進まず、
+   * 端末が同じ範囲を延々と取り直すことになるため。
+   */
   const batch = pending.slice(0, limit);
+  const events = batch.filter((e) => isVesselDistributable(e.event.kind));
   const stats = getSyncStats();
   return NextResponse.json({
-    events: batch,
+    events,
     nextCursor: batch.length > 0 ? batch[batch.length - 1].serverSeq : since,
     serverVersion: stats.serverVersion,
     hasMore: batch.length > 0 && batch[batch.length - 1].serverSeq < stats.serverVersion,

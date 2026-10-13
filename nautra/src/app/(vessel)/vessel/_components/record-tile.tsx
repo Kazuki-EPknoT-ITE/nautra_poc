@@ -1,6 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/cn";
+import { LineIcon, type LineIconName } from "@/ui";
 
 /**
  * 記録の入口タイル（航海日誌・点検・操練・検知で共用）。
@@ -11,11 +12,14 @@ import { cn } from "@/lib/cn";
 export function RecordTile({
   label,
   sublabel,
+  icon,
   onPress,
   disabled = false,
 }: {
   label: string;
   sublabel?: string;
+  /** 絵を添えると、絵を主役にした大きなタイルになる（レビュー TASKREC-02: 文字を読まずに選べる） */
+  icon?: LineIconName;
   onPress: () => void;
   disabled?: boolean;
 }) {
@@ -25,11 +29,13 @@ export function RecordTile({
       onClick={onPress}
       disabled={disabled}
       className={cn(
-        "ui-card flex min-h-20 flex-col items-start justify-center gap-1 border-2 border-transparent p-4 text-left",
+        "ui-card flex flex-col justify-center gap-1 border-2 border-transparent p-4",
+        icon ? "min-h-[160px] items-center text-center" : "min-h-20 items-start text-left",
         disabled && "opacity-50",
       )}
     >
-      <span className="text-lg font-bold leading-tight">{label}</span>
+      {icon ? <LineIcon name={icon} size={56} className="mb-1 text-primary" /> : null}
+      <span className={cn("font-bold leading-tight", icon ? "text-xl" : "text-lg")}>{label}</span>
       {sublabel ? <span className="text-sm text-foreground-600">{sublabel}</span> : null}
     </button>
   );

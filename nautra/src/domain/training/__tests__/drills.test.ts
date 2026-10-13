@@ -23,11 +23,11 @@ function drill(drillType: DrillType, ymd: string, id = `d-${drillType}-${ymd}`):
     vesselId: "vessel-001",
     occurredAt: at14(ymd),
     recordedAt: at14(ymd),
-    recordedBy: "crew-kato",
+    recordedBy: "crew-takamatsu",
     deviceId: "dev-test",
     drillType,
-    leader: "crew-kato",
-    participants: ["crew-kato", "crew-sato"],
+    leader: "crew-takamatsu",
+    participants: ["crew-takamatsu", "crew-nakahara"],
     durationMinutes: 45,
   };
 }

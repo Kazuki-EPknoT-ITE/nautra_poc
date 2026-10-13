@@ -1,8 +1,9 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { Button, Input, Select, SelectItem, Textarea } from "@/ui";
+import { Input, Select, SelectItem, Textarea } from "@/ui/heroui";
 import { createOpinionStatementAction, type DocumentFormState } from "../actions";
+import { FormResult } from "./form-result";
 
 const INITIAL: DocumentFormState = { ok: false, message: "" };
 
@@ -27,12 +28,6 @@ export function OpinionForm({
 
   return (
     <form action={formAction} className="ui-card flex flex-col gap-3 p-4">
-      <h2 className="font-bold">意見陳述書を作る（オペレーター宛）</h2>
-      <p className="text-sm text-foreground-600">
-        相手先と期間を選ぶと、その期間の待機時間と労働時間の実績を書面に自動で添えます。
-        待機が長引くと乗組員の労働時間の上限に直接影響するため、実績を示して運航計画の見直しを
-        申し入れる書面です。
-      </p>
       <input type="hidden" name="counterparty" value={counterparty} />
       <div className="grid gap-3 sm:grid-cols-3">
         <Select
@@ -54,17 +49,7 @@ export function OpinionForm({
         minRows={3}
         placeholder="例: 荷役開始時刻の事前確定と、待機が長引く場合の早期連絡をお願いします。"
       />
-      <div className="flex flex-wrap items-center gap-3">
-        <Button type="submit" color="primary" isLoading={pending}>
-          意見陳述書を作る
-        </Button>
-        {state.message ? (
-          <p className={state.ok ? "text-sm font-semibold" : "text-sm text-danger"}>
-            {state.ok ? "✓ " : "✕ "}
-            {state.message}
-          </p>
-        ) : null}
-      </div>
+      <FormResult label="意見陳述書を作る" pending={pending} state={state} />
     </form>
   );
 }

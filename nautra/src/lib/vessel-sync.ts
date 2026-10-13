@@ -73,6 +73,11 @@ async function pushOutbox(): Promise<number> {
       // 陸上で隔離された（未対応種別・ポリシー違反）件数を端末側でも把握できるようにする
       const prev = Number((await getMeta("quarantinedByServer")) ?? "0");
       await setMeta("quarantinedByServer", String(prev + outcome.quarantined.length));
+      // どの記録が隔離されたかも覚える。船長が船内で作った当直が陸上で受け付けられなかったとき、
+      // 端末だけで有効な計画として扱い続けないようにする（SHIFT-04。一次記録の行は書き換えない）
+      const ids = new Set<string>(JSON.parse((await getMeta("serverQuarantinedIds")) ?? "[]") as string[]);
+      for (const id of outcome.quarantined) ids.add(id);
+      await setMeta("serverQuarantinedIds", JSON.stringify([...ids].slice(-500)));
     }
     await vesselDb.outbox.bulkDelete(toDelete);
     pushed += toDelete.length;

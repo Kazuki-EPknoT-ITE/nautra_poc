@@ -4,14 +4,22 @@
  * LaborRuleSet として引数で受け取る（ガードレール⑪ / 基本設計書 5.3(6)）。
  */
 
-/** 作業種別（国交省ガイドライン準拠。要件定義書 3.2） */
+/**
+ * 作業種別（国交省ガイドライン準拠。要件定義書 3.2 / デザイン正本 `PUNCH_CATS`）。
+ *
+ * `rest`（休息）だけは**労働時間に数えない**。打刻できる種別に含めてあるのは、
+ * 「休んだ」ことを本人が明示できるようにするため（船員法は休息時間の記録を求める）。
+ * 休息時間そのものは従来どおり**労働していない時間**から導く（二重に数えない）。
+ */
 export type WorkCategory =
   | "navigation_watch"
   | "cargo"
   | "standby"
   | "maintenance"
-  | "other";
+  | "other"
+  | "rest";
 
+/** 労働時間として数える種別（判定・集計はこれだけを見る） */
 export const WORK_CATEGORIES: WorkCategory[] = [
   "navigation_watch",
   "cargo",
@@ -19,6 +27,14 @@ export const WORK_CATEGORIES: WorkCategory[] = [
   "maintenance",
   "other",
 ];
+
+/** 打刻できる種別（休息を含む。画面のタイルはこの並び） */
+export const PUNCH_CATEGORIES: WorkCategory[] = [...WORK_CATEGORIES, "rest"];
+
+/** 労働時間に数える種別か（判定の分岐はこの関数だけを通す） */
+export function countsAsWork(category: WorkCategory): boolean {
+  return category !== "rest";
+}
 
 export type PunchAction = "start" | "end";
 
@@ -52,6 +68,11 @@ export interface TimeRecord {
    * 記録簿には実績として残るため、除外の事実と理由が後から検証できる。
    */
   exceptionKind?: ExceptionalWorkKind;
+  /**
+   * 陸上の修正案（レビュー LABOR-06）に本人が同意して入れた打刻なら、その差戻し（approval）の ID。
+   * 打刻を入れるのは常に本人で、陸上は案を出すだけ（要件定義書 3.2.1「修正は本人への差戻しのみ」）。
+   */
+  proposalId?: string;
 }
 
 /** 上限算定から除外する労働の区分（3.2.5⑥） */

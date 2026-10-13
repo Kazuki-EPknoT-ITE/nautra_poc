@@ -9,24 +9,11 @@ import { appendRecord, newRecordBase } from "@/lib/vessel-actions";
 import type { VesselRecordRow } from "@/lib/vessel-db";
 import { useRecords, useSessionCrew } from "@/lib/vessel-hooks";
 import { INCIDENT_KINDS, latestBySupersedes, type IncidentKind } from "@/sync-protocol/records";
-import {
-  Button,
-  Card,
-  CardBody,
-  Checkbox,
-  Chip,
-  SurfaceCard,
-  Input,
-  Modal,
-  ModalBody,
-  ModalContent,
-  ModalFooter,
-  ModalHeader,
-  Textarea,
-  useDisclosure,
-  useModalProps,
-} from "@/ui";
+import { SurfaceCard, useModalProps } from "@/ui";
+import { Button, Card, CardBody, Checkbox, Chip, Input, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, Textarea, useDisclosure } from "@/ui/heroui";
 import { GroupHeader } from "../_components/group-header";
+import { SAFETY_SUB_TABS, SubTabs } from "../_components/sub-tabs";
+import { ShowMoreButton } from "../_components/record-mode";
 import { RecordTile } from "../_components/record-tile";
 
 /**
@@ -163,12 +150,15 @@ export default function IncidentPage() {
 
   // 有効な報告（訂正で置き換えられたものを除く）を新しい順に
   const effective = useMemo(() => latestBySupersedes(reports), [reports]);
+  // 一覧は全件出さない（CLAUDE.md レイアウト節）。報告の札は背が高いので10件ずつ「もっと見る」
+  const [limit, setLimit] = useState(10);
 
   if (!session) return null;
 
   return (
     <div className="flex flex-col gap-4">
       <GroupHeader group="07" subtitle="事故・ヒヤリ" />
+      <SubTabs label="安全の切り替え" items={SAFETY_SUB_TABS} />
 
       <SurfaceCard>
         <CardBody className="flex flex-col gap-2 p-5">
@@ -210,7 +200,7 @@ export default function IncidentPage() {
             </CardBody>
           </Card>
         ) : null}
-        {effective.map((r) => (
+        {effective.slice(0, limit).map((r) => (
           <Card key={r.id} shadow="none" className="ui-card">
             <CardBody className="flex flex-col gap-2">
               <div className="flex flex-wrap items-center gap-2">
@@ -279,6 +269,7 @@ export default function IncidentPage() {
             </CardBody>
           </Card>
         ))}
+        {effective.length > limit ? <ShowMoreButton onPress={() => setLimit((l) => l + 10)} /> : null}
       </section>
 
       <Modal

@@ -5,11 +5,24 @@ import {
   type ShorePermission,
   type ShoreRole,
 } from "@/domain/authz/shore-roles";
+import { SEED_RESPONSIBLE_MANAGER } from "./shore-staff-seed";
+import {
+  authenticateShoreUser,
+  listActiveShoreUsers,
+  listShoreUsers,
+  shoreUserById,
+  type ShoreUser,
+} from "./shore-user-service";
 
 /**
  * 陸上アプリのサインイン（要件定義書 10.3 ロールベースの閲覧権限）。
  *
- * PoC の簡略化: 担当者を選ぶだけの簡易サインインとし、セッションは HttpOnly Cookie に置く。
+ * アカウントの実体は追記型の `shore_user` エンティティで、デモ用の種は
+ * `shore-staff-seed.ts` に置く（読み書きは `shore-user-service.ts` が一手に引き受ける）。
+ * この層は **Cookie とガード**だけを持つ——セッションの扱いとアカウントの扱いを
+ * 混ぜると、招待・無効化のたびにガードの側を触ることになるため。
+ *
+ * PoC の簡略化: セッションは HttpOnly Cookie にアカウントIDを入れるだけ。
  * 本番は Supabase Auth（管理者ロールは MFA）＋ RLS でテナント・行レベルまで絞る。
  * ただし**権限判定の経路は本番と同じ**にしてある（`domain/authz/shore-roles.ts` の表が
  * 唯一の情報源で、画面は requireShore/hasShorePermission 経由でしか判定しない）。
@@ -17,23 +30,45 @@ import {
 
 const COOKIE_NAME = "nautra_shore_session";
 
-export interface ShoreStaff {
-  id: string;
-  name: string;
-  role: ShoreRole;
-  title: string;
+/** 陸上スタッフ（＝アカウント）。中身は `shore-user-service.ts` の ShoreUser */
+export type ShoreStaff = ShoreUser;
+
+/** 一覧・選択肢に出すアカウント（招待中・無効化を含む全件） */
+export function listShoreStaff(): ShoreStaff[] {
+  return listShoreUsers();
 }
 
-/** デモの陸上スタッフ（本番は users テーブル + Supabase Auth） */
-export const SHORE_STAFF_ACCOUNTS: ShoreStaff[] = [
-  { id: "shore-yamamoto", name: "山本 陸", role: "labor_manager", title: "労務管理責任者" },
-  { id: "shore-okada", name: "岡田 航", role: "operations", title: "運航管理者" },
-  { id: "shore-nishi", name: "西 事務", role: "clerk", title: "事務担当" },
-  { id: "shore-admin", name: "管理者アカウント", role: "admin", title: "システム管理者" },
-];
+/** サインインできるアカウントだけ（評価者の選択肢・デモ用の並びに使う） */
+export function listActiveShoreStaff(): ShoreStaff[] {
+  return listActiveShoreUsers();
+}
+
+/**
+ * 承認の最終権限者（デザインのサイドバー下部に出る「労務管理責任者」）。
+ * 肩書きはストア側で変わりうるので毎回引き直す（種は見つからなかったときの拠り所）。
+ */
+export function responsibleManager(): ShoreStaff {
+  const found = listActiveShoreUsers().find((s) => s.title === "労務管理責任者");
+  if (found) return found;
+  return {
+    ...SEED_RESPONSIBLE_MANAGER,
+    status: "active",
+    scope: "all",
+    seeded: true,
+    invitePending: false,
+  };
+}
+
+/**
+ * メール + パスワードでの照合（デザイン正本のサインイン画面）。
+ * 招待中・無効化のアカウントは通さない。判定は `shore-user-service.ts` が行う。
+ */
+export function authenticateShore(email: string, password: string): ShoreStaff | null {
+  return authenticateShoreUser(email, password);
+}
 
 export function shoreStaffById(id: string): ShoreStaff | undefined {
-  return SHORE_STAFF_ACCOUNTS.find((s) => s.id === id);
+  return shoreUserById(id);
 }
 
 /** 現在のサインイン中スタッフ（未サインインなら null） */
@@ -41,7 +76,9 @@ export async function getShoreSession(): Promise<ShoreStaff | null> {
   const jar = await cookies();
   const id = jar.get(COOKIE_NAME)?.value;
   if (!id) return null;
-  return shoreStaffById(id) ?? null;
+  const staff = shoreStaffById(id);
+  // 無効化されたアカウントの Cookie が残っていても中身は見せない
+  return staff && staff.status === "active" ? staff : null;
 }
 
 export async function setShoreSession(staffId: string): Promise<void> {

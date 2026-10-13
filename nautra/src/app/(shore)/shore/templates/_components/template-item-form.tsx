@@ -2,7 +2,7 @@
 
 import { useActionState, useState } from "react";
 import type { TemplateInputType } from "@/sync-protocol/records";
-import { Button, Input, Radio, RadioGroup, Select, SelectItem, Textarea } from "@/ui";
+import { Button, Input, Radio, RadioGroup, Select, SelectItem, Textarea } from "@/ui/heroui";
 import { publishTemplateItemAction, type TemplateItemFormState } from "../actions";
 
 export interface TemplateTargetOption {

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { PERMISSIONS, ROLE_PERMISSIONS, VESSEL_ROLES, can } from "@/domain/authz/roles";
+import { PERMISSIONS, VESSEL_ROLES, can } from "@/domain/authz/roles";
 import {
   SHORE_PERMISSIONS,
   SHORE_ROLE_PERMISSIONS,
@@ -32,24 +32,30 @@ import {
   RULE_VALUE_UNIT,
 } from "@/server/labor-rules";
 import { crewNameOf, listAuditLogs, listVessels } from "@/server/master-service";
-import { requireShore, SHORE_STAFF_ACCOUNTS, shoreStaffById } from "@/server/shore-session";
+import { listShoreStaff, requireShore, shoreStaffById } from "@/server/shore-session";
+import { trashedEntityIds } from "@/server/trash-service";
 import { getSyncStats } from "@/server/store";
 import { ShoreGuardNotice } from "../_components/guard";
+import { UserInvitePanel } from "./_components/user-invite";
 import { AgreementForm, type OverrideField } from "./_components/agreement-form";
 
 export const dynamic = "force-dynamic";
 
 /** 画面内の節（目次の並びと各 section の id を1か所で持つ） */
+/**
+ * 設定の主題（タブ）。8つの主題を1枚に積むと目的の節まで延々とめくることになるため、
+ * **1画面1主題**に分ける（デザイン正本 S-15）。労使協定と判定に使う値は
+ * 「協定を変えると閾値が変わる」関係なので同じ枚に置く。
+ */
 const SECTIONS = [
   { id: "tenant", label: "事業者の設定" },
   { id: "connectivity", label: "回線の運用" },
   { id: "punch-auth", label: "打刻の本人確認" },
   { id: "tiers", label: "導入の構成" },
-  { id: "staff", label: "担当者" },
+  { id: "users", label: "ユーザー" },
   { id: "permissions", label: "権限表" },
-  { id: "agreements", label: "労使協定" },
-  { id: "thresholds", label: "判定に使う値" },
-  { id: "audit", label: "監査ログ" },
+  { id: "agreements", label: "労使協定・判定に使う値" },
+  { id: "audit", label: "監査ログ・同期" },
 ];
 
 /** 監査ログの実施者名（陸上スタッフ・船員のどちらでも解決する） */
@@ -68,12 +74,14 @@ function actorName(id: string): string {
 export default async function ShoreSettingsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ audit?: string }>;
+  searchParams: Promise<{ audit?: string; tab?: string; view?: string; add?: string }>;
 }) {
   const guard = await requireShore("manage_settings");
   if (!guard.ok) return <ShoreGuardNotice guard={guard} screen="設定・権限・監査" />;
 
   const sp = await searchParams;
+  /** いま開いている主題。未指定なら先頭 */
+  const tab = SECTIONS.some((x) => x.id === sp.tab) ? sp.tab! : SECTIONS[0]!.id;
   const sync = getSyncStats();
   const labor = currentLaborRuleSet();
   const safety = DEFAULT_SAFETY_RULE_SET;
@@ -81,9 +89,17 @@ export default async function ShoreSettingsPage({
   const ruleRows = buildRuleValueRows();
   const agreements = listAgreements();
   const vessels = listVessels();
+  /**
+   * ユーザー一覧。無効化して S-18 へ送ったものは出さない（消えたはずの人が
+   * 設定に残っていると、権限を持っているように読めてしまうため）。
+   */
+  const trashedUsers = trashedEntityIds("ユーザー");
+  const shoreUsers = listShoreStaff().filter((u) => !trashedUsers.has(u.id));
   const today = new Date().toISOString().slice(0, 10);
 
   const auditFilter = sp.audit && sp.audit !== "all" ? sp.audit : null;
+  const permView = sp.view === "vessel" ? "vessel" : "shore";
+  const addAgreement = sp.add === "1";
   const auditMatched = listAuditLogs(500).filter((l) => !auditFilter || l.action === auditFilter);
   /**
    * 監査ログは追記され続ける（要配慮情報は**参照するたび**に1件増える。12.6）ため、
@@ -105,30 +121,23 @@ export default async function ShoreSettingsPage({
   }));
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-balance text-2xl font-bold">設定・権限・監査</h1>
-        <p className="text-sm text-foreground-500">
-          権限表と判定基準は実装から生成しています。表示のためだけの写しは持ちません。
-        </p>
-      </div>
-
-      {/*
-        節への近道。この画面は8つの主題を1ページに載せているため、
-        目的の節まで延々とめくらずに飛べるようにする（見出しは下の各 section の id と対応）。
-      */}
-      <nav aria-label="この画面の目次" className="ui-card flex flex-wrap gap-2 p-3">
-        {SECTIONS.map((s) => (
-          <a
-            key={s.id}
-            href={`#${s.id}`}
-            className="rounded-medium bg-default-100 px-3 py-1.5 text-sm hover:bg-default-200"
+    <div className="flex flex-col gap-[18px]">
+      {/* 主題の切替。1枚に1主題だけ出す（サーバ側で組み立てるためリンクで切り替える） */}
+      <nav aria-label="設定の主題" className="ui-card flex flex-wrap gap-2 p-3">
+        {SECTIONS.map((x) => (
+          <Link
+            key={x.id}
+            href={`/shore/settings?tab=${x.id}`}
+            aria-current={x.id === tab ? "page" : undefined}
+            className={`ui-btn-quiet ${x.id === tab ? "ui-btn-selected" : ""}`}
           >
-            {s.label}
-          </a>
+            {x.label}
+          </Link>
         ))}
       </nav>
 
+      {tab === "tenant" ? (
+        <>
       {/* ── テナント設定 ── */}
       <section id="tenant" aria-label="事業者の設定" className="ui-card scroll-mt-20 p-4">
         <h2 className="mb-2 font-bold">事業者の設定</h2>
@@ -155,32 +164,32 @@ export default async function ShoreSettingsPage({
               s: credential.source,
             },
           ].map((row) => (
-            <div key={row.k} className="ui-inset p-3">
+            <div key={row.k} className="ui-inset cursor-help p-3" title={row.s}>
               <p className="text-sm font-semibold">{row.k}</p>
               <p className="text-sm tabular-nums">{row.v}</p>
-              <p className="mt-1 text-xs text-foreground-500">{row.s}</p>
             </div>
           ))}
         </div>
-        <p className="mt-2 text-xs text-foreground-500">
-          アルコール検知の基準値は {safety.values.alcoholLimitMgPerL} mg/L です。判定結果には適用した版を
-          記録しているため、基準を変えても過去の判定の意味は変わりません。
+        <p className="mt-2 text-sm" title="判定結果には適用した版を記録するため、基準を変えても過去の判定の意味は変わりません">
+          アルコール検知の基準値 <span className="font-mono font-semibold">{safety.values.alcoholLimitMgPerL} mg/L</span>
         </p>
       </section>
+        </>
+      ) : null}
 
+      {tab === "connectivity" ? (
+        <>
       {/* ── 10.1 接続4類型ごとの運用構成 ── */}
       <section id="connectivity" aria-label="回線の状況に合わせた運用" className="ui-card scroll-mt-20 p-4">
-        <h2 className="mb-1 font-bold">回線の状況に合わせた運用</h2>
-        <p className="mb-3 text-sm text-foreground-500">
-          船と陸の回線の使えかたは船によって違います。どの型でも
-          <span className="font-semibold">記録は先に端末へ確定する</span>ため、打刻・記録は必ずできます。
-          変わるのは「いつ送るか」だけです（要件定義書 10.1）。
-        </p>
+        <h2 className="mb-3 font-bold" title="どの型でも記録は先に端末へ確定するため、打刻・記録は必ずできます。変わるのは「いつ送るか」だけです（要件定義書 10.1）">
+          回線の状況に合わせた運用
+        </h2>
         <div className="grid gap-3 sm:grid-cols-2">
           {CONNECTIVITY_PROFILE_LIST.map((p) => (
             <div
               key={p.id}
-              className={`ui-inset p-3 ${p.id === DEFAULT_CONNECTIVITY_PROFILE ? "border border-primary" : ""}`}
+              className={`ui-inset cursor-help p-3 ${p.id === DEFAULT_CONNECTIVITY_PROFILE ? "border border-primary" : ""}`}
+              title={`${p.description}\n${p.operationNote}`}
             >
               <p className="font-semibold">
                 {p.label}
@@ -188,8 +197,6 @@ export default async function ShoreSettingsPage({
                   <span className="ml-2 text-xs font-normal text-foreground-500">（いまの設定）</span>
                 ) : null}
               </p>
-              <p className="mt-1 text-xs text-foreground-500">{p.description}</p>
-              <p className="mt-2 text-sm">{p.operationNote}</p>
               <p className="mt-2 text-xs tabular-nums text-foreground-500">
                 同期の間隔:{" "}
                 {p.syncIntervalMs === 0 ? "手動のみ" : `${Math.round(p.syncIntervalMs / 60000)}分ごと`}
@@ -200,19 +207,22 @@ export default async function ShoreSettingsPage({
           ))}
         </div>
       </section>
+        </>
+      ) : null}
 
+      {tab === "punch-auth" ? (
+        <>
       {/* ── 3.2.1 打刻認証の方式 ── */}
       <section id="punch-auth" aria-label="打刻のときの本人確認" className="ui-card scroll-mt-20 p-4">
-        <h2 className="mb-1 font-bold">打刻のときの本人確認</h2>
-        <p className="mb-3 text-sm text-foreground-500">
-          共用端末の使いかたに合わせて選べます。どの方式でも
-          <span className="font-semibold">誰の記録かは必ず残ります</span>（要件定義書 3.2.1）。
-        </p>
+        <h2 className="mb-3 font-bold" title="どの方式でも、誰の記録かは必ず残ります（要件定義書 3.2.1）">
+          打刻のときの本人確認
+        </h2>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {PUNCH_AUTH_METHODS.map((m) => (
             <div
               key={m.id}
-              className={`ui-inset p-3 ${m.id === DEFAULT_PUNCH_AUTH_METHOD ? "border border-primary" : ""}`}
+              className={`ui-inset cursor-help p-3 ${m.id === DEFAULT_PUNCH_AUTH_METHOD ? "border border-primary" : ""}`}
+              title={`${m.suitedFor}\n${m.note}`}
             >
               <p className="font-semibold">
                 {m.label}
@@ -220,8 +230,6 @@ export default async function ShoreSettingsPage({
                   <span className="ml-2 text-xs font-normal text-foreground-500">（いまの設定）</span>
                 ) : null}
               </p>
-              <p className="mt-1 text-xs text-foreground-500">{m.suitedFor}</p>
-              <p className="mt-2 text-sm">{m.note}</p>
               <p className="mt-2 text-xs text-foreground-500">
                 {m.needsHardware ? "追加の機材が要ります" : "追加の機材は不要"}
                 {" / "}
@@ -231,21 +239,24 @@ export default async function ShoreSettingsPage({
           ))}
         </div>
       </section>
+        </>
+      ) : null}
 
+      {tab === "tiers" ? (
+        <>
       {/* ── 10.5 段階的実装・縮退構成 ── */}
       <section id="tiers" aria-label="導入の構成" className="ui-card scroll-mt-20 p-4">
-        <h2 className="mb-1 font-bold">導入の構成（段階的に増やせます）</h2>
-        <p className="mb-3 text-sm text-foreground-500">
-          法令に直結する機能と、効率化の機能を分けてあります。慣れに応じて構成を上げられ、
-          最小構成でも法令対応は成立します（要件定義書 10.5）。
-        </p>
+        <h2 className="mb-3 font-bold" title="慣れに応じて構成を上げられ、最小構成でも法令対応は成立します（要件定義書 10.5）">
+          導入の構成
+        </h2>
         <div className="grid gap-3 lg:grid-cols-3">
           {DEPLOYMENT_TIERS.map((tier) => {
             const off = disabledFeatures(tier.id);
             return (
               <div
                 key={tier.id}
-                className={`ui-inset p-3 ${tier.id === DEFAULT_DEPLOYMENT_TIER ? "border border-primary" : ""}`}
+                className={`ui-inset cursor-help p-3 ${tier.id === DEFAULT_DEPLOYMENT_TIER ? "border border-primary" : ""}`}
+                title={`${tier.description}\n${tier.note}`}
               >
                 <p className="font-semibold">
                   {tier.label}
@@ -253,7 +264,6 @@ export default async function ShoreSettingsPage({
                     <span className="ml-2 text-xs font-normal text-foreground-500">（いまの構成）</span>
                   ) : null}
                 </p>
-                <p className="mt-1 text-sm">{tier.description}</p>
                 <p className="mt-2 text-xs tabular-nums text-foreground-500">
                   使う機能 {tier.features.length} / {FEATURE_GROUPS.length} 件
                 </p>
@@ -262,7 +272,6 @@ export default async function ShoreSettingsPage({
                     入れないもの: {off.map((f) => f.label).join("・")}
                   </p>
                 ) : null}
-                <p className="mt-2 text-xs text-foreground-500">{tier.note}</p>
               </div>
             );
           })}
@@ -295,39 +304,47 @@ export default async function ShoreSettingsPage({
           </table>
         </div>
       </section>
+        </>
+      ) : null}
 
+      {tab === "users" ? (
+        <>
       {/* ── ユーザ・ロール（陸上） ── */}
-      <section id="staff" aria-label="陸上の担当者" className="ui-card scroll-mt-20 p-4">
-        <h2 className="mb-2 font-bold">陸上の担当者</h2>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {SHORE_STAFF_ACCOUNTS.map((s) => (
-            <div
-              key={s.id}
-              className={`ui-inset p-3 ${s.id === guard.staff.id ? "ring-1 ring-primary" : ""}`}
-            >
-              <p className="font-semibold">
-                {s.name}
-                {s.id === guard.staff.id ? (
-                  <span className="ml-1 text-xs text-foreground-500">（サインイン中）</span>
-                ) : null}
-              </p>
-              <p className="text-sm text-foreground-600">{t.shoreRole[s.role]}</p>
-              <p className="text-xs text-foreground-500">{s.title}</p>
-            </div>
-          ))}
-        </div>
-        <p className="mt-2 text-xs text-foreground-500">
-          PoC は担当者を選ぶだけの簡易サインインです。本番は Supabase Auth（管理者は多要素認証）と
-          行レベルのアクセス制御を併用します（基本設計書 11.3）。
-        </p>
-      </section>
+      <UserInvitePanel
+        users={shoreUsers.map((a) => ({
+          id: a.id,
+          name: a.name,
+          email: a.email,
+          roleKey: a.role,
+          role: t.shoreRole[a.role] ?? a.role,
+          title: a.title,
+          status: a.status,
+          scope: a.scope,
+          inviteCode: a.inviteCode,
+          current: a.id === guard.staff.id,
+          sensitive: canShore(a.role, "view_sensitive_health"),
+        }))}
+        roles={SHORE_ROLES.map((r) => ({ value: r, label: t.shoreRole[r] ?? r }))}
+        vessels={vessels.map((v) => v.name)}
+      />
+        </>
+      ) : null}
+      {tab === "permissions" ? (
+        <>
 
+      <div className="flex flex-wrap gap-2" role="group" aria-label="権限表の切り替え">
+        <Link href="/shore/settings?tab=permissions" aria-current={permView === "shore" ? "true" : undefined} className={`ui-btn-quiet ${permView === "shore" ? "ui-btn-selected" : ""}`}>
+          陸上
+        </Link>
+        <Link href="/shore/settings?tab=permissions&view=vessel" aria-current={permView === "vessel" ? "true" : undefined} className={`ui-btn-quiet ${permView === "vessel" ? "ui-btn-selected" : ""}`}>
+          船内アプリ
+        </Link>
+      </div>
+      {permView === "shore" ? (
       <section id="permissions" aria-label="陸上ロールの権限表" className="ui-card scroll-mt-20 overflow-x-auto">
-        <h2 className="px-4 pt-4 font-bold">できること（陸上）</h2>
-        <p className="px-4 pb-2 pt-1 text-xs text-foreground-500">
-          要件定義書 10.3 のロールベース閲覧権限。判定は
-          <code className="mx-1">src/domain/authz/shore-roles.ts</code>が唯一の情報源です。
-        </p>
+        <h2 className="px-4 pb-2 pt-4 font-bold" title="要配慮個人情報（既往歴・服薬状況）を見られるのは労務管理責任者と管理者だけで、参照そのものも監査ログに残ります（10.3 / 12.6）">
+          できること（陸上）
+        </h2>
         <table className="w-full min-w-[720px] text-sm">
           <thead>
             <tr className="border-b border-[var(--ui-hairline)] text-left text-foreground-500">
@@ -344,7 +361,6 @@ export default async function ShoreSettingsPage({
               <tr key={p} className="border-b border-[var(--ui-hairline)] last:border-b-0">
                 <td className="px-4 py-2">
                   {t.shorePermission[p] ?? p}
-                  <span className="ml-2 text-xs text-foreground-500">{p}</span>
                 </td>
                 {SHORE_ROLES.map((role) => (
                   <td key={role} className="px-3 py-2 text-center">
@@ -359,18 +375,12 @@ export default async function ShoreSettingsPage({
             ))}
           </tbody>
         </table>
-        <p className="px-4 py-3 text-xs text-foreground-500">
-          要配慮個人情報（既往歴・服薬状況）を見られるのは労務管理責任者と管理者だけです。
-          参照そのものも監査ログに残ります（10.3 / 12.6）。
-        </p>
       </section>
-
+      ) : (
       <section aria-label="船内ロールの権限表" className="ui-card overflow-x-auto">
-        <h2 className="px-4 pt-4 font-bold">できること（船内アプリ）</h2>
-        <p className="px-4 pb-2 pt-1 text-xs text-foreground-500">
-          基本設計書 11.2 の権限マトリクスを船内画面に展開したもの。判定は
-          <code className="mx-1">src/domain/authz/roles.ts</code>が唯一の情報源です。
-        </p>
+        <h2 className="px-4 pb-2 pt-4 font-bold" title="陸上の労務管理責任者は、船長の承認より優先する承認権を持ちます（役割優先。基本設計書 8.3）">
+          できること（船内アプリ）
+        </h2>
         <table className="w-full min-w-[720px] text-sm">
           <thead>
             <tr className="border-b border-[var(--ui-hairline)] text-left text-foreground-500">
@@ -387,7 +397,6 @@ export default async function ShoreSettingsPage({
               <tr key={p} className="border-b border-[var(--ui-hairline)] last:border-b-0">
                 <td className="px-4 py-2">
                   {t.permission[p] ?? p}
-                  <span className="ml-2 text-xs text-foreground-500">{p}</span>
                 </td>
                 {VESSEL_ROLES.map((role) => (
                   <td key={role} className="px-3 py-2 text-center">
@@ -402,28 +411,13 @@ export default async function ShoreSettingsPage({
             ))}
           </tbody>
         </table>
-        <p className="px-4 py-3 text-xs text-foreground-500">
-          陸上の労務管理責任者は、船長の承認より優先する承認権を持ちます（役割優先。基本設計書 8.3）。
-          承認は <Link href="/shore/labor" className="text-primary underline-offset-2 hover:underline">労務管理</Link>{" "}
-          から行います。
-        </p>
       </section>
+      )}
+        </>
+      ) : null}
 
-      <section aria-label="船内ロール別の一覧" className="grid gap-3 sm:grid-cols-2">
-        {VESSEL_ROLES.map((role) => (
-          <div key={role} className="ui-card p-4">
-            <h3 className="font-bold">{t.role[role]}</h3>
-            <div className="mt-2 flex flex-wrap gap-2 text-sm">
-              {ROLE_PERMISSIONS[role].map((p) => (
-                <span key={p} className="rounded-small bg-default-100 px-2 py-1">
-                  {t.permission[p] ?? p}
-                </span>
-              ))}
-            </div>
-          </div>
-        ))}
-      </section>
-
+      {tab === "agreements" ? (
+        <>
       {/* ── 労使協定 → 判定閾値（6.5） ── */}
       <section id="agreements" aria-label="協定・就業規則" className="ui-card scroll-mt-20 p-4">
         <h2 className="mb-2 font-bold">労使協定・就業規則</h2>
@@ -484,11 +478,12 @@ export default async function ShoreSettingsPage({
       </section>
 
       <section id="thresholds" aria-label="判定に使う値" className="ui-card scroll-mt-20 overflow-x-auto">
-        <h2 className="px-4 pt-4 font-bold">いま判定に使っている値</h2>
-        <p className="px-4 pb-2 pt-1 text-xs text-foreground-500">
-          左が法令の既定値、右が労使協定を反映したあとの値です。判定結果には適用した版（
-          {labor.version}）が記録されます。
-        </p>
+        <h2
+          className="px-4 pb-2 pt-4 font-bold"
+          title={`判定結果には適用した版（${labor.version}）が記録されます。既定値の出典: ${DEFAULT_LABOR_RULE_SET.source}`}
+        >
+          いま判定に使っている値
+        </h2>
         <table className="w-full min-w-[720px] text-sm">
           <thead>
             <tr className="border-b border-[var(--ui-hairline)] text-left text-foreground-500">
@@ -525,11 +520,9 @@ export default async function ShoreSettingsPage({
             ))}
           </tbody>
         </table>
-        <p className="px-4 py-3 text-xs text-foreground-500">
-          既定値の出典: {DEFAULT_LABOR_RULE_SET.source}
-        </p>
       </section>
 
+      {addAgreement ? (
       <AgreementForm
         fields={overrideFields}
         options={agreements.map((a) => ({
@@ -538,19 +531,29 @@ export default async function ShoreSettingsPage({
         }))}
         today={today}
       />
+      ) : (
+        <p className="m-0">
+          <Link href="/shore/settings?tab=agreements&add=1" className="ui-btn-primary inline-flex">
+            ＋ 協定・規則を登録する
+          </Link>
+        </p>
+      )}
+        </>
+      ) : null}
 
+      {tab === "audit" ? (
+        <>
       {/* ── 監査ログ（12.6） ── */}
       <section id="audit" aria-label="監査ログ" className="ui-card scroll-mt-20 overflow-x-auto">
         <div className="flex flex-wrap items-center justify-between gap-2 px-4 pt-4">
-          <h2 className="font-bold">監査ログ</h2>
-          <p className="text-xs text-foreground-500">
-            マスタの更新・要配慮情報の参照・出力を残しています（要件定義書 12.6）
-          </p>
+          <h2 className="font-bold" title="マスタの更新・要配慮情報の参照・出力を残します。追記のみで、あとから書き換えられません（要件定義書 10.4 / 12.6）">
+            監査ログ
+          </h2>
         </div>
         <div className="flex flex-wrap items-center gap-2 px-4 pb-2 pt-2">
           <span className="text-sm text-foreground-500">絞り込み</span>
           <Link
-            href="/shore/settings"
+            href="/shore/settings?tab=audit"
             className={`rounded-medium px-3 py-1.5 text-sm ${
               !auditFilter ? "bg-primary text-primary-foreground" : "bg-default-100"
             }`}
@@ -560,7 +563,7 @@ export default async function ShoreSettingsPage({
           {auditActions.map((a) => (
             <Link
               key={a}
-              href={`/shore/settings?audit=${a}`}
+              href={`/shore/settings?tab=audit&audit=${a}`}
               className={`rounded-medium px-3 py-1.5 text-sm ${
                 auditFilter === a ? "bg-primary text-primary-foreground" : "bg-default-100"
               }`}
@@ -569,6 +572,7 @@ export default async function ShoreSettingsPage({
             </Link>
           ))}
         </div>
+        <div className="ui-table-scroll" style={{ maxHeight: 560 }}>
         <table className="w-full min-w-[860px] text-sm">
           <thead>
             <tr className="border-b border-[var(--ui-hairline)] text-left text-foreground-500">
@@ -625,10 +629,9 @@ export default async function ShoreSettingsPage({
             ) : null}
           </tbody>
         </table>
+        </div>
         <p className="px-4 py-3 text-xs text-foreground-500">
-          新しい順に {auditLogs.length} 件を表示しています
-          {auditHidden > 0 ? `（この条件でさらに ${auditHidden} 件あります。絞り込みで目的の操作に寄せてください）` : ""}
-          。監査ログは追記のみで、あとから書き換えられません（要件定義書 10.4）。
+          新しい {auditLogs.length}件{auditHidden > 0 ? ` ／ ほか ${auditHidden}件（絞り込みで探せます）` : ""}
         </p>
       </section>
 
@@ -649,6 +652,8 @@ export default async function ShoreSettingsPage({
           </span>
         </div>
       </section>
+        </>
+      ) : null}
     </div>
   );
 }

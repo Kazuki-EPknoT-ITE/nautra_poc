@@ -1,8 +1,9 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { Button, Select, SelectItem } from "@/ui";
+import { Select, SelectItem } from "@/ui/heroui";
 import { createOperationReportAction, type DocumentFormState } from "../actions";
+import { FormResult } from "./form-result";
 
 const INITIAL: DocumentFormState = { ok: false, message: "" };
 
@@ -16,11 +17,6 @@ export function ReportForm({ months }: { months: string[] }) {
 
   return (
     <form action={formAction} className="ui-card flex flex-col gap-3 p-4">
-      <h2 className="font-bold">運航実績レポート（月次報告書）を作る</h2>
-      <p className="text-sm text-foreground-600">
-        対象月の航海・荷役・燃料・待機・労働時間をまとめます。作成時点の内容を保存するので、
-        あとからマスタが変わっても提出した書面は変わりません。
-      </p>
       <input type="hidden" name="month" value={month} />
       <div className="grid gap-3 sm:grid-cols-3">
         <Select
@@ -34,17 +30,7 @@ export function ReportForm({ months }: { months: string[] }) {
           ))}
         </Select>
       </div>
-      <div className="flex flex-wrap items-center gap-3">
-        <Button type="submit" color="primary" isLoading={pending}>
-          レポートを作る
-        </Button>
-        {state.message ? (
-          <p className={state.ok ? "text-sm font-semibold" : "text-sm text-danger"}>
-            {state.ok ? "✓ " : "✕ "}
-            {state.message}
-          </p>
-        ) : null}
-      </div>
+      <FormResult label="レポートを作る" pending={pending} state={state} />
     </form>
   );
 }

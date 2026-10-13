@@ -7,6 +7,9 @@ import type {
   CharterContractPayload,
   CredentialPayload,
   CrewMasterPayload,
+  CrewPhotoPayload,
+  VesselPhotoPayload,
+  CrewFieldDefPayload,
   DockPlanPayload,
   EmbarkationPayload,
   EvaluationPayload,
@@ -20,23 +23,26 @@ import type {
   PartStockPayload,
   PayrollPayload,
   ProcedureTaskPayload,
+  ShoreUserPayload,
   SmsDocumentPayload,
   SubsidyPayload,
   TrainingPlanPayload,
   VesselMasterPayload,
+  TrashEntryPayload,
   VesselPositionPayload,
   VoyageSchedulePayload,
   WellbeingResponsePayload,
+  WorkTaskPayload,
 } from "@/sync-protocol/masters";
 
 /**
  * マスタ・事務エンティティのデモデータ（要件定義書 3.1 / 3.4〜3.9 / 6.2 / 9章 / 12章）。
  *
  * 見どころ（画面で確認できる状態を意図的に作る）:
- * - 佐藤: **海技免状の更新着手時期**（満了まで 300日 < リードタイム365日）→ S-08 に「着手時期」
- * - 鈴木: **健康証明書の最終確認日が古い**（200日前 > 鮮度180日）→「要再確認」（不適合ではない）
- * - 森（予備船員）: **保険の加入が未確認** → 配乗ブロック／届出の添付要件で「不適合」
- * - 石井（新規雇入予定）: **基本訓練 未修了** → 2026-02-14 以降の雇入で受理保留リスク
+ * - 中原: **海技免状の更新着手時期**（満了まで 300日 < リードタイム365日）→ S-08 に「着手時期」
+ * - 寺田: **健康証明書の最終確認日が古い**（200日前 > 鮮度180日）→「要再確認」（不適合ではない）
+ * - 平良（予備船員）: **保険の加入が未確認** → 配乗ブロック／届出の添付要件で「不適合」
+ * - 岸本（新規雇入予定）: **基本訓練 未修了** → 2026-02-14 以降の雇入で受理保留リスク
  * - 部品在庫: 潤滑油フィルタが発注点割れ、ウインチのブレーキライニングは在庫ゼロで手配依頼中
  * - 入渠: 中間検査が3か月後。前回検査の指摘1件が未対応のまま残っている
  * - 事故: 前日のヒヤリハット（通路の工具放置。安全パトロールの不良と符合する）
@@ -47,12 +53,15 @@ const SEED_DEVICE = "seed-shore-device";
 export const COMPANY_SCOPE_ID = "company-demo";
 
 /** デモの2隻目（配船・位置情報で複数隻を見せるため） */
-export const DEMO_VESSEL_2 = { id: "vessel-002", name: "第二のーとら丸" } as const;
+export const DEMO_VESSEL_2 = { id: "vessel-002", name: "第七豊洋丸" } as const;
+/** デモの3隻目（管理委託中。自社配乗が無い船の見え方を確かめるため） */
+export const DEMO_VESSEL_3 = { id: "vessel-003", name: "昭運丸" } as const;
 
 /** 配乗候補（乗船していないため船内アプリのサインイン一覧には出ない） */
 export const CANDIDATE_CREW = [
-  { id: "crew-mori", name: "森 波留", position: "一等航海士（予備）" },
-  { id: "crew-ishii", name: "石井 新", position: "甲板部員（新規雇入予定）" },
+  { id: "crew-taira", name: "平良 直人", position: "甲板長（予備）" },
+  { id: "crew-kishimoto", name: "岸本 洋一", position: "機関士（新規雇入予定）" },
+  { id: "crew-morishita", name: "森下 賢治", position: "船長（第七豊洋丸）" },
 ] as const;
 
 function mbase(id: string, occurredAt: string, vesselId: string = DEMO_VESSEL.id) {
@@ -70,8 +79,16 @@ function mbase(id: string, occurredAt: string, vesselId: string = DEMO_VESSEL.id
 
 /** ローカル日 YYYY-MM-DD の 09:00 を ISO 文字列で返す（決定的） */
 function at9(ymd: string): string {
+  return atHour(ymd, 9);
+}
+
+/**
+ * その日のローカル時刻（時）の ISO。以前は atHour(..., 12) と書いていたが、
+ * toISOString は UTC なので日本時間では "T00" になり、置き換えが効かず全部 9時になっていた。
+ */
+function atHour(ymd: string, hour: number): string {
   const [y, m, d] = ymd.split("-").map(Number);
-  return new Date(y, m - 1, d, 9, 0, 0, 0).toISOString();
+  return new Date(y, m - 1, d, hour, 0, 0, 0).toISOString();
 }
 
 /* ═══════════════ 3.1.1 船員マスタ ═══════════════ */
@@ -82,21 +99,21 @@ function crewMasterSeed(today: string): SyncEvent[] {
 
   const rows: CrewMasterPayload[] = [
     {
-      ...mbase("sd-cm-kato", t, COMPANY_SCOPE_ID),
-      crewMemberId: "crew-kato",
-      name: "加藤 大和",
-      nameKana: "カトウ ヤマト",
+      ...mbase("sd-cm-takamatsu", t, COMPANY_SCOPE_ID),
+      crewMemberId: "crew-takamatsu",
+      name: "高松 誠",
+      nameKana: "タカマツ マコト",
       birthDate: "1971-05-14",
       seamanBookNo: "SB-1102-4471",
       address: "広島県尾道市山波町1-2-3",
       bloodType: "A",
       phone: "090-1111-0001",
-      photo: "加",
+      photo: "高",
       position: "船長",
       role: "captain",
       employmentType: "期間の定めのない雇用",
       hiredOn: "2009-04-01",
-      emergencyContactName: "加藤 恵",
+      emergencyContactName: "高松 恵",
       emergencyContactRelation: "配偶者",
       emergencyContactPhone: "090-1111-9001",
       medicalHistory: "高血圧（内服で安定）",
@@ -108,21 +125,21 @@ function crewMasterSeed(today: string): SyncEvent[] {
       ],
     },
     {
-      ...mbase("sd-cm-sato", t, COMPANY_SCOPE_ID),
-      crewMemberId: "crew-sato",
-      name: "佐藤 海斗",
-      nameKana: "サトウ カイト",
+      ...mbase("sd-cm-nakahara", t, COMPANY_SCOPE_ID),
+      crewMemberId: "crew-nakahara",
+      name: "中原 拓也",
+      nameKana: "ナカハラ タクヤ",
       birthDate: "1988-11-03",
       seamanBookNo: "SB-1102-5588",
       address: "愛媛県今治市片原町2-5",
       bloodType: "O",
       phone: "090-2222-0002",
-      photo: "佐",
+      photo: "中",
       position: "航海士",
       role: "deck_officer",
       employmentType: "期間の定めのない雇用",
       hiredOn: "2015-07-01",
-      emergencyContactName: "佐藤 美咲",
+      emergencyContactName: "中原 美咲",
       emergencyContactRelation: "配偶者",
       emergencyContactPhone: "090-2222-9002",
       insurances: [
@@ -132,21 +149,21 @@ function crewMasterSeed(today: string): SyncEvent[] {
       ],
     },
     {
-      ...mbase("sd-cm-suzuki", t, COMPANY_SCOPE_ID),
-      crewMemberId: "crew-suzuki",
-      name: "鈴木 港",
-      nameKana: "スズキ ミナト",
+      ...mbase("sd-cm-terada", t, COMPANY_SCOPE_ID),
+      crewMemberId: "crew-terada",
+      name: "寺田 稔",
+      nameKana: "テラダ ミノル",
       birthDate: "1979-02-20",
       seamanBookNo: "SB-1102-6613",
       address: "香川県坂出市入船町1-8",
       bloodType: "B",
       phone: "090-3333-0003",
-      photo: "鈴",
+      photo: "寺",
       position: "機関長",
       role: "chief_engineer",
       employmentType: "期間の定めのない雇用",
       hiredOn: "2012-10-01",
-      emergencyContactName: "鈴木 剛",
+      emergencyContactName: "寺田 剛",
       emergencyContactRelation: "父",
       emergencyContactPhone: "090-3333-9003",
       medicalHistory: "腰椎椎間板ヘルニア（2019年 手術）",
@@ -157,21 +174,21 @@ function crewMasterSeed(today: string): SyncEvent[] {
       ],
     },
     {
-      ...mbase("sd-cm-tanaka", t, COMPANY_SCOPE_ID),
-      crewMemberId: "crew-tanaka",
-      name: "田中 凪",
-      nameKana: "タナカ ナギ",
+      ...mbase("sd-cm-oshiro", t, COMPANY_SCOPE_ID),
+      crewMemberId: "crew-oshiro",
+      name: "大城 稜",
+      nameKana: "オオシロ リョウ",
       birthDate: "1997-08-09",
       seamanBookNo: "SB-1102-7724",
       address: "岡山県玉野市宇野3-11",
       bloodType: "A",
       phone: "090-4444-0004",
-      photo: "田",
+      photo: "大",
       position: "甲板部員",
       role: "deck_rating",
       employmentType: "期間の定めのない雇用",
       hiredOn: "2021-04-01",
-      emergencyContactName: "田中 千夏",
+      emergencyContactName: "大城 千夏",
       emergencyContactRelation: "母",
       emergencyContactPhone: "090-4444-9004",
       insurances: [
@@ -182,21 +199,21 @@ function crewMasterSeed(today: string): SyncEvent[] {
     },
     {
       // 予備船員: 雇用保険の加入が未確認 → 配乗ブロック（3.1.2 ブロック条件）
-      ...mbase("sd-cm-mori", t, COMPANY_SCOPE_ID),
-      crewMemberId: "crew-mori",
-      name: "森 波留",
-      nameKana: "モリ ハル",
+      ...mbase("sd-cm-taira", t, COMPANY_SCOPE_ID),
+      crewMemberId: "crew-taira",
+      name: "平良 直人",
+      nameKana: "タイラ ナオト",
       birthDate: "1983-03-30",
       seamanBookNo: "SB-1102-8830",
       address: "広島県呉市中通2-4",
       bloodType: "AB",
       phone: "090-5555-0005",
-      photo: "森",
-      position: "一等航海士（予備）",
+      photo: "平",
+      position: "甲板長（予備）",
       role: "deck_officer",
       employmentType: "期間の定めのない雇用",
       hiredOn: "2018-06-01",
-      emergencyContactName: "森 亜紀",
+      emergencyContactName: "平良 亜紀",
       emergencyContactRelation: "配偶者",
       emergencyContactPhone: "090-5555-9005",
       insurances: [
@@ -207,22 +224,48 @@ function crewMasterSeed(today: string): SyncEvent[] {
       ],
     },
     {
+      // 第七豊洋丸の船長。自船（第一昭運丸）の船内アプリには出ないが、
+      // 配乗・作業指示・訓練の対象としては陸上から見える
+      ...mbase("sd-cm-morishita", t, COMPANY_SCOPE_ID),
+      crewMemberId: "crew-morishita",
+      name: "森下 賢治",
+      nameKana: "モリシタ ケンジ",
+      birthDate: "1971-11-02",
+      seamanBookNo: "SB-1102-7712",
+      address: "香川県坂出市西大浜1-9",
+      bloodType: "A",
+      phone: "090-7777-0007",
+      photo: "森",
+      position: "船長",
+      role: "captain",
+      employmentType: "期間の定めのない雇用",
+      hiredOn: "2009-04-01",
+      emergencyContactName: "森下 佳代",
+      emergencyContactRelation: "配偶者",
+      emergencyContactPhone: "090-7777-9007",
+      insurances: [
+        { kind: "seamen", number: "SI-7712-01", acquiredOn: "2009-04-01", lastVerifiedOn: v(-40), verifyMethod: "document", verifiedBy: SHORE_PLANNER_ID },
+        { kind: "workers_accident", number: "RS-7712-01", acquiredOn: "2009-04-01", lastVerifiedOn: v(-40), verifyMethod: "document", verifiedBy: SHORE_PLANNER_ID },
+        { kind: "employment", number: "KY-7712-01", acquiredOn: "2009-04-01", lastVerifiedOn: v(-40), verifyMethod: "document", verifiedBy: SHORE_PLANNER_ID },
+      ],
+    },
+    {
       // 新規雇入予定: 基本訓練 未修了 → 2026-02-14 以降の届出で受理保留リスク（3.8.1）
-      ...mbase("sd-cm-ishii", t, COMPANY_SCOPE_ID),
-      crewMemberId: "crew-ishii",
-      name: "石井 新",
-      nameKana: "イシイ アラタ",
+      ...mbase("sd-cm-kishimoto", t, COMPANY_SCOPE_ID),
+      crewMemberId: "crew-kishimoto",
+      name: "岸本 洋一",
+      nameKana: "キシモト ヨウイチ",
       birthDate: "2004-01-18",
       seamanBookNo: "SB-1102-9941",
       address: "愛媛県松山市三津3-2",
       bloodType: "O",
       phone: "090-6666-0006",
-      photo: "石",
-      position: "甲板部員（新規雇入予定）",
+      photo: "岸",
+      position: "機関士（新規雇入予定）",
       role: "deck_rating",
       employmentType: "有期雇用（1年）",
       hiredOn: addDays(today, 14),
-      emergencyContactName: "石井 幸子",
+      emergencyContactName: "岸本 幸子",
       emergencyContactRelation: "母",
       emergencyContactPhone: "090-6666-9006",
       insurances: [
@@ -257,8 +300,8 @@ function credentialSeed(today: string): SyncEvent[] {
     rows.push({ ...mbase(id, t, COMPANY_SCOPE_ID), subjectType, subjectId, ...c });
   };
 
-  // 加藤（船長）: 三級海技士（航海）・健診・基本訓練 いずれも余裕あり
-  push("sd-cr-kato-lic", "crew", "crew-kato", {
+  // 高松（船長）: 三級海技士（航海）・健診・基本訓練 いずれも余裕あり
+  push("sd-cr-kato-lic", "crew", "crew-takamatsu", {
     category: "license",
     name: "三級海技士（航海）",
     grade: "三級",
@@ -270,7 +313,7 @@ function credentialSeed(today: string): SyncEvent[] {
     verifyMethod: "original",
     verifiedBy: SHORE_PLANNER_ID,
   });
-  push("sd-cr-kato-med", "crew", "crew-kato", {
+  push("sd-cr-kato-med", "crew", "crew-takamatsu", {
     category: "medical",
     name: "健康証明書",
     issuedOn: addDays(today, -120),
@@ -280,7 +323,7 @@ function credentialSeed(today: string): SyncEvent[] {
     verifyMethod: "document",
     verifiedBy: SHORE_PLANNER_ID,
   });
-  push("sd-cr-kato-stcw", "crew", "crew-kato", {
+  push("sd-cr-kato-stcw", "crew", "crew-takamatsu", {
     category: "stcw_basic",
     name: "STCW 基本訓練修了証",
     issuedOn: addDays(today, -800),
@@ -290,8 +333,8 @@ function credentialSeed(today: string): SyncEvent[] {
     verifiedBy: SHORE_PLANNER_ID,
   });
 
-  // 佐藤（航海士）: 免状の満了まで 300日 → 着手期限（365日前）を過ぎている＝更新に着手する時期
-  push("sd-cr-sato-lic", "crew", "crew-sato", {
+  // 中原（航海士）: 免状の満了まで 300日 → 着手期限（365日前）を過ぎている＝更新に着手する時期
+  push("sd-cr-sato-lic", "crew", "crew-nakahara", {
     category: "license",
     name: "四級海技士（航海）",
     grade: "四級",
@@ -303,7 +346,7 @@ function credentialSeed(today: string): SyncEvent[] {
     verifyMethod: "original",
     verifiedBy: SHORE_PLANNER_ID,
   });
-  push("sd-cr-sato-med", "crew", "crew-sato", {
+  push("sd-cr-sato-med", "crew", "crew-nakahara", {
     category: "medical",
     name: "健康証明書",
     issuedOn: addDays(today, -200),
@@ -313,7 +356,7 @@ function credentialSeed(today: string): SyncEvent[] {
     verifyMethod: "document",
     verifiedBy: SHORE_PLANNER_ID,
   });
-  push("sd-cr-sato-stcw", "crew", "crew-sato", {
+  push("sd-cr-sato-stcw", "crew", "crew-nakahara", {
     category: "stcw_basic",
     name: "STCW 基本訓練修了証",
     issuedOn: addDays(today, -1400),
@@ -323,8 +366,8 @@ function credentialSeed(today: string): SyncEvent[] {
     verifiedBy: SHORE_PLANNER_ID,
   });
 
-  // 鈴木（機関長）: 健康証明書の最終確認から 200日 → 鮮度切れ「要再確認」（期限内なので不適合ではない）
-  push("sd-cr-suzuki-lic", "crew", "crew-suzuki", {
+  // 寺田（機関長）: 健康証明書の最終確認から 200日 → 鮮度切れ「要再確認」（期限内なので不適合ではない）
+  push("sd-cr-suzuki-lic", "crew", "crew-terada", {
     category: "license",
     name: "四級海技士（機関）",
     grade: "四級",
@@ -336,7 +379,7 @@ function credentialSeed(today: string): SyncEvent[] {
     verifyMethod: "original",
     verifiedBy: SHORE_PLANNER_ID,
   });
-  push("sd-cr-suzuki-med", "crew", "crew-suzuki", {
+  push("sd-cr-suzuki-med", "crew", "crew-terada", {
     category: "medical",
     name: "健康証明書",
     issuedOn: addDays(today, -210),
@@ -346,7 +389,7 @@ function credentialSeed(today: string): SyncEvent[] {
     verifyMethod: "document",
     verifiedBy: SHORE_PLANNER_ID,
   });
-  push("sd-cr-suzuki-stcw", "crew", "crew-suzuki", {
+  push("sd-cr-suzuki-stcw", "crew", "crew-terada", {
     category: "stcw_basic",
     name: "STCW 基本訓練修了証",
     issuedOn: addDays(today, -1000),
@@ -356,8 +399,8 @@ function credentialSeed(today: string): SyncEvent[] {
     verifiedBy: SHORE_PLANNER_ID,
   });
 
-  // 田中（甲板部員）
-  push("sd-cr-tanaka-lic", "crew", "crew-tanaka", {
+  // 大城（甲板部員）
+  push("sd-cr-tanaka-lic", "crew", "crew-oshiro", {
     category: "license",
     name: "六級海技士（航海）",
     grade: "六級",
@@ -369,7 +412,7 @@ function credentialSeed(today: string): SyncEvent[] {
     verifyMethod: "original",
     verifiedBy: SHORE_PLANNER_ID,
   });
-  push("sd-cr-tanaka-med", "crew", "crew-tanaka", {
+  push("sd-cr-tanaka-med", "crew", "crew-oshiro", {
     category: "medical",
     name: "健康証明書",
     issuedOn: addDays(today, -90),
@@ -379,7 +422,7 @@ function credentialSeed(today: string): SyncEvent[] {
     verifyMethod: "document",
     verifiedBy: SHORE_PLANNER_ID,
   });
-  push("sd-cr-tanaka-stcw", "crew", "crew-tanaka", {
+  push("sd-cr-tanaka-stcw", "crew", "crew-oshiro", {
     category: "stcw_basic",
     name: "STCW 基本訓練修了証",
     issuedOn: addDays(today, -650),
@@ -388,7 +431,7 @@ function credentialSeed(today: string): SyncEvent[] {
     verifyMethod: "original",
     verifiedBy: SHORE_PLANNER_ID,
   });
-  push("sd-cr-tanaka-prac", "crew", "crew-tanaka", {
+  push("sd-cr-tanaka-prac", "crew", "crew-oshiro", {
     category: "stcw_practical",
     name: "登録実技講習（生存・消火）修了証",
     issuedOn: addDays(today, -300),
@@ -398,8 +441,8 @@ function credentialSeed(today: string): SyncEvent[] {
     verifiedBy: SHORE_PLANNER_ID,
   });
 
-  // 森（予備）: 証書は揃うが保険が未確認（crewMasterSeed 側でブロック要因を作る）
-  push("sd-cr-mori-lic", "crew", "crew-mori", {
+  // 平良（予備）: 証書は揃うが保険が未確認（crewMasterSeed 側でブロック要因を作る）
+  push("sd-cr-mori-lic", "crew", "crew-taira", {
     category: "license",
     name: "三級海技士（航海）",
     grade: "三級",
@@ -411,7 +454,7 @@ function credentialSeed(today: string): SyncEvent[] {
     verifyMethod: "original",
     verifiedBy: SHORE_PLANNER_ID,
   });
-  push("sd-cr-mori-med", "crew", "crew-mori", {
+  push("sd-cr-mori-med", "crew", "crew-taira", {
     category: "medical",
     name: "健康証明書",
     issuedOn: addDays(today, -150),
@@ -421,7 +464,7 @@ function credentialSeed(today: string): SyncEvent[] {
     verifyMethod: "document",
     verifiedBy: SHORE_PLANNER_ID,
   });
-  push("sd-cr-mori-stcw", "crew", "crew-mori", {
+  push("sd-cr-mori-stcw", "crew", "crew-taira", {
     category: "stcw_basic",
     name: "STCW 基本訓練修了証",
     issuedOn: addDays(today, -1150),
@@ -431,8 +474,41 @@ function credentialSeed(today: string): SyncEvent[] {
     verifiedBy: SHORE_PLANNER_ID,
   });
 
-  // 石井（新規雇入予定）: 基本訓練の修了証が無い → 届出の添付要件で「不適合」
-  push("sd-cr-ishii-lic", "crew", "crew-ishii", {
+  // 森下（第七豊洋丸 船長）: 証書はすべて期限内
+  push("sd-cr-morishita-lic", "crew", "crew-morishita", {
+    category: "license",
+    name: "四級海技士（航海）",
+    grade: "四級",
+    number: "K-040-771203",
+    issuedOn: addDays(today, -1500),
+    expiresOn: addDays(today, 900),
+    issuer: "四国運輸局",
+    lastVerifiedOn: addDays(today, -40),
+    verifyMethod: "original",
+    verifiedBy: SHORE_PLANNER_ID,
+  });
+  push("sd-cr-morishita-med", "crew", "crew-morishita", {
+    category: "medical",
+    name: "健康証明書",
+    issuedOn: addDays(today, -100),
+    expiresOn: addDays(today, 265),
+    issuer: "坂出市立病院",
+    lastVerifiedOn: addDays(today, -100),
+    verifyMethod: "document",
+    verifiedBy: SHORE_PLANNER_ID,
+  });
+  push("sd-cr-morishita-stcw", "crew", "crew-morishita", {
+    category: "stcw_basic",
+    name: "STCW 基本訓練修了証",
+    issuedOn: addDays(today, -1400),
+    issuer: "海技教育機構",
+    lastVerifiedOn: addDays(today, -40),
+    verifyMethod: "original",
+    verifiedBy: SHORE_PLANNER_ID,
+  });
+
+  // 岸本（新規雇入予定）: 基本訓練の修了証が無い → 届出の添付要件で「不適合」
+  push("sd-cr-ishii-lic", "crew", "crew-kishimoto", {
     category: "license",
     name: "六級海技士（航海）",
     grade: "六級",
@@ -444,7 +520,7 @@ function credentialSeed(today: string): SyncEvent[] {
     verifyMethod: "original",
     verifiedBy: SHORE_PLANNER_ID,
   });
-  push("sd-cr-ishii-med", "crew", "crew-ishii", {
+  push("sd-cr-ishii-med", "crew", "crew-kishimoto", {
     category: "medical",
     name: "健康証明書",
     issuedOn: addDays(today, -20),
@@ -503,12 +579,13 @@ function vesselMasterSeed(today: string): SyncEvent[] {
       targetVesselId: DEMO_VESSEL.id,
       name: DEMO_VESSEL.name,
       grossTonnage: 499,
-      imoNumber: "IMO 9123456",
+      imoNumber: "IMO 9612345",
       mmsi: "431000123",
+      vesselType: "石灰石船",
       navigationArea: "沿海区域",
       referencePeriodDays: 28,
-      requiredCrew: 4,
-      builtOn: "2016-03-15",
+      requiredCrew: 5,
+      builtOn: "2012-03-15",
       wifiAvailable: true,
       // メモは「あり／なし」の補足だけを書く（画面側が あり／なし を別に表示するため）
       wifiNote: "衛星回線。居室でも利用可。上限 30GB/月",
@@ -521,17 +598,39 @@ function vesselMasterSeed(today: string): SyncEvent[] {
       targetVesselId: DEMO_VESSEL_2.id,
       name: DEMO_VESSEL_2.name,
       grossTonnage: 749,
-      imoNumber: "IMO 9234567",
+      imoNumber: "IMO 9455678",
       mmsi: "431000456",
+      vesselType: "セメント船",
       navigationArea: "近海区域",
       referencePeriodDays: 28,
-      requiredCrew: 5,
-      builtOn: "2019-08-20",
+      requiredCrew: 6,
+      builtOn: "2008-08-20",
       wifiAvailable: false,
       wifiNote: "2027年度に整備予定。現在は港での接続のみ",
       cabinType: "個室（士官）／2人部屋（部員）",
       amenities: "洗濯機・共用ラウンジ",
       environmentVerifiedOn: addDays(today, -30),
+    },
+    {
+      // 管理委託中: 自社で配乗しないため、配乗ボードに枠を出さない。
+      // それでも満載喫水線証書の期限は自社に責任が残るので、期限管理からは外さない
+      ...mbase("sd-vm-3", t, DEMO_VESSEL_3.id),
+      targetVesselId: DEMO_VESSEL_3.id,
+      name: DEMO_VESSEL_3.name,
+      grossTonnage: 199,
+      imoNumber: "IMO 9302211",
+      mmsi: "431000789",
+      vesselType: "石炭船",
+      navigationArea: "沿海区域",
+      referencePeriodDays: 28,
+      requiredCrew: 0,
+      builtOn: "2005-06-01",
+      managedExternally: true,
+      wifiAvailable: false,
+      wifiNote: "委託先の運用に準じる",
+      cabinType: "委託先の運用に準じる",
+      amenities: "在庫・居住環境の管理は委託先",
+      environmentVerifiedOn: addDays(today, -120),
     },
   ];
   return rows.map((r) => makeRecordEvent("vessel_master", r, SEED_DEVICE));
@@ -543,10 +642,10 @@ function embarkationSeed(today: string): SyncEvent[] {
   const rows: EmbarkationPayload[] = [
     ...(
       [
-        ["crew-kato", "船長", -120],
-        ["crew-sato", "一等航海士", -95],
-        ["crew-suzuki", "機関長", -120],
-        ["crew-tanaka", "甲板手", -60],
+        ["crew-takamatsu", "船長", -120],
+        ["crew-nakahara", "一等航海士", -95],
+        ["crew-terada", "機関長", -120],
+        ["crew-oshiro", "甲板手", -60],
       ] as [string, string, number][]
     ).map(([crewMemberId, duty, offset], i) => ({
       ...mbase(`sd-emb-on-${i}`, at9(addDays(today, offset)), COMPANY_SCOPE_ID),
@@ -559,21 +658,32 @@ function embarkationSeed(today: string): SyncEvent[] {
       status: "actual" as const,
     })),
     {
-      // 予定: 森が2週間後に乗船（保険未確認のため配乗ブロックの警告つき）
-      ...mbase("sd-emb-plan-mori", at9(today), COMPANY_SCOPE_ID),
-      crewMemberId: "crew-mori",
+      // 実績: 森下は第七豊洋丸に乗船中
+      ...mbase("sd-emb-on-morishita", at9(addDays(today, -80)), COMPANY_SCOPE_ID),
+      crewMemberId: "crew-morishita",
+      eventType: "on",
+      targetVesselId: DEMO_VESSEL_2.id,
+      date: addDays(today, -80),
+      duty: "船長",
+      contractType: "start",
+      status: "actual",
+    },
+    {
+      // 予定: 岸本が2週間後に乗船（基本訓練が未修了のため配乗ブロックの警告つき）
+      ...mbase("sd-emb-plan-kishimoto", at9(today), COMPANY_SCOPE_ID),
+      crewMemberId: "crew-kishimoto",
       eventType: "on",
       targetVesselId: DEMO_VESSEL_2.id,
       date: addDays(today, 14),
-      duty: "一等航海士",
+      duty: "機関士",
       contractType: "start",
       status: "planned",
-      blockNoteAtPlanning: "雇用保険の加入が未確認（届出の受理保留リスク）",
+      blockNoteAtPlanning: "STCW 基本訓練が未修了（届出の受理保留リスク）",
     },
     {
-      // 予定: 佐藤が3週間後に下船（交代）
+      // 予定: 中原が3週間後に下船（交代）
       ...mbase("sd-emb-plan-sato-off", at9(today), COMPANY_SCOPE_ID),
-      crewMemberId: "crew-sato",
+      crewMemberId: "crew-nakahara",
       eventType: "off",
       targetVesselId: DEMO_VESSEL.id,
       date: addDays(today, 21),
@@ -591,24 +701,24 @@ function evaluationSeed(today: string): SyncEvent[] {
   const rows: EvaluationPayload[] = [
     {
       ...mbase("sd-eval-sato", at9(addDays(today, -100)), COMPANY_SCOPE_ID),
-      crewMemberId: "crew-sato",
+      crewMemberId: "crew-nakahara",
       periodFrom: addDays(today, -280),
       periodTo: addDays(today, -100),
       scores: { job_skill: 4, safety: 5, teamwork: 4, discipline: 4, growth: 5 },
       comment:
         "荷役計画の精度が高く、若手への指導も丁寧。当直交代時の引継が明確で事故の芽を摘めている。次期は船長補佐業務の習熟を期待。",
-      evaluatedBy: "crew-kato",
+      evaluatedBy: "crew-takamatsu",
       disclosedToCrew: true,
     },
     {
       ...mbase("sd-eval-tanaka", at9(addDays(today, -70)), COMPANY_SCOPE_ID),
-      crewMemberId: "crew-tanaka",
+      crewMemberId: "crew-oshiro",
       periodFrom: addDays(today, -250),
       periodTo: addDays(today, -70),
       scores: { job_skill: 3, safety: 4, teamwork: 5, discipline: 4, growth: 4 },
       comment:
         "点検記録の記入が丁寧で漏れがない。係船作業の手順はさらに反復が必要。六級海技士の取得に向けた学習を継続中。",
-      evaluatedBy: "crew-kato",
+      evaluatedBy: "crew-takamatsu",
       disclosedToCrew: true,
     },
   ];
@@ -619,7 +729,7 @@ function evaluationSeed(today: string): SyncEvent[] {
 
 function leaveSeed(today: string): SyncEvent[] {
   const rows: LeaveRecordPayload[] = [];
-  const crew = ["crew-kato", "crew-sato", "crew-suzuki", "crew-tanaka"];
+  const crew = ["crew-takamatsu", "crew-nakahara", "crew-terada", "crew-oshiro"];
   crew.forEach((crewMemberId, i) => {
     // 年次付与（有効期限＝2年の時効）
     rows.push({
@@ -671,7 +781,7 @@ function maintenancePlanSeed(today: string): SyncEvent[] {
       intervalDays: 90,
       intervalHours: 500,
       lastDoneOn: addDays(today, -85),
-      responsible: "crew-suzuki",
+      responsible: "crew-terada",
       active: true,
     },
     {
@@ -681,7 +791,7 @@ function maintenancePlanSeed(today: string): SyncEvent[] {
       task: "燃料フィルタ交換・冷却水点検",
       intervalDays: 180,
       lastDoneOn: addDays(today, -175),
-      responsible: "crew-suzuki",
+      responsible: "crew-terada",
       active: true,
     },
     {
@@ -691,7 +801,7 @@ function maintenancePlanSeed(today: string): SyncEvent[] {
       task: "作動油交換・リンク部給脂",
       intervalDays: 90,
       lastDoneOn: addDays(today, -3),
-      responsible: "crew-suzuki",
+      responsible: "crew-terada",
       active: true,
     },
     {
@@ -701,7 +811,7 @@ function maintenancePlanSeed(today: string): SyncEvent[] {
       task: "ウインチ ブレーキライニング点検・調整",
       intervalDays: 60,
       lastDoneOn: addDays(today, -75),
-      responsible: "crew-tanaka",
+      responsible: "crew-oshiro",
       active: true,
     },
     {
@@ -711,7 +821,7 @@ function maintenancePlanSeed(today: string): SyncEvent[] {
       task: "上甲板 塗装・防錆処理",
       intervalDays: 365,
       lastDoneOn: addDays(today, -300),
-      responsible: "crew-tanaka",
+      responsible: "crew-oshiro",
       active: true,
     },
     {
@@ -721,7 +831,7 @@ function maintenancePlanSeed(today: string): SyncEvent[] {
       task: "救命胴衣・膨張式救命いかだの点検",
       intervalDays: 365,
       lastDoneOn: addDays(today, -200),
-      responsible: "crew-kato",
+      responsible: "crew-takamatsu",
       active: true,
     },
   ];
@@ -861,7 +971,7 @@ function smsSeed(today: string): SyncEvent[] {
       likelihood: 2,
       correctiveAction: "立入禁止区画の表示を追加（実施済）。玉掛け合図の手順書を配布。",
       status: "closed",
-      responsible: "crew-kato",
+      responsible: "crew-takamatsu",
     },
     {
       ...mbase("sd-sms-3", at9(addDays(today, -1)), COMPANY_SCOPE_ID),
@@ -871,7 +981,7 @@ function smsSeed(today: string): SyncEvent[] {
       correctiveAction: "即時撤去。工具の戻し場所を明示し、作業終了時の相互確認を朝礼で周知する。",
       dueOn: addDays(today, 6),
       status: "in_progress",
-      responsible: "crew-kato",
+      responsible: "crew-takamatsu",
     },
     {
       ...mbase("sd-sms-4", at9(addDays(today, -60)), COMPANY_SCOPE_ID),
@@ -898,7 +1008,7 @@ function incidentSeed(today: string): SyncEvent[] {
       vesselId: DEMO_VESSEL.id,
       occurredAt: at9(addDays(today, -1)),
       recordedAt: at9(addDays(today, -1)),
-      recordedBy: "crew-tanaka",
+      recordedBy: "crew-oshiro",
       deviceId: SEED_DEVICE,
       kind: "near_miss",
       title: "機関室前通路の工具につまずきかけた",
@@ -916,7 +1026,7 @@ function incidentSeed(today: string): SyncEvent[] {
       vesselId: DEMO_VESSEL.id,
       occurredAt: at9(addDays(today, -1)),
       recordedAt: at9(addDays(today, -1)),
-      recordedBy: "crew-tanaka",
+      recordedBy: "crew-oshiro",
       deviceId: SEED_DEVICE,
       kind: "equipment",
       title: "No.2 ウインチ ブレーキの効き不良",
@@ -990,8 +1100,8 @@ function filingSeed(today: string): SyncEvent[] {
       ...mbase("sd-fil-1", at9(today), COMPANY_SCOPE_ID),
       filingType: "hire",
       targets: [
-        { crewMemberId: "crew-mori", targetVesselId: DEMO_VESSEL_2.id, duty: "一等航海士", effectiveOn: addDays(today, 14) },
-        { crewMemberId: "crew-ishii", targetVesselId: DEMO_VESSEL.id, duty: "甲板手", effectiveOn: addDays(today, 14) },
+        { crewMemberId: "crew-taira", targetVesselId: DEMO_VESSEL_2.id, duty: "一等航海士", effectiveOn: addDays(today, 14) },
+        { crewMemberId: "crew-kishimoto", targetVesselId: DEMO_VESSEL.id, duty: "甲板手", effectiveOn: addDays(today, 14) },
       ],
       method: "bulk_electronic",
       status: "draft",
@@ -1000,7 +1110,7 @@ function filingSeed(today: string): SyncEvent[] {
       ...mbase("sd-fil-2", at9(addDays(today, -55)), COMPANY_SCOPE_ID),
       filingType: "hire",
       targets: [
-        { crewMemberId: "crew-tanaka", targetVesselId: DEMO_VESSEL.id, duty: "甲板手", effectiveOn: addDays(today, -60) },
+        { crewMemberId: "crew-oshiro", targetVesselId: DEMO_VESSEL.id, duty: "甲板手", effectiveOn: addDays(today, -60) },
       ],
       method: "paper",
       status: "accepted",
@@ -1009,7 +1119,7 @@ function filingSeed(today: string): SyncEvent[] {
       office: "中国運輸局 尾道海事事務所",
       documentIds: ["sd-doc-2"],
       seamanBookEntries: [
-        { crewMemberId: "crew-tanaka", vesselName: DEMO_VESSEL.name, duty: "甲板手", onDate: addDays(today, -60) },
+        { crewMemberId: "crew-oshiro", vesselName: DEMO_VESSEL.name, duty: "甲板手", onDate: addDays(today, -60) },
       ],
     },
   ];
@@ -1023,10 +1133,10 @@ function procedureSeed(today: string): SyncEvent[] {
     {
       ...mbase("sd-pt-1", at9(today), COMPANY_SCOPE_ID),
       group: "B",
-      title: "雇入契約成立の届出（森・石井）",
+      title: "雇入契約成立の届出（平良・岸本）",
       basis: "船員法第37条。遅滞なく届け出る",
       subjectType: "crew",
-      subjectId: "crew-mori",
+      subjectId: "crew-taira",
       dueOn: addDays(today, 17),
       leadTimeDays: 14,
       status: "in_progress",
@@ -1036,10 +1146,10 @@ function procedureSeed(today: string): SyncEvent[] {
     {
       ...mbase("sd-pt-2", at9(today), COMPANY_SCOPE_ID),
       group: "C",
-      title: "海技免状の更新（佐藤 海斗・四級海技士（航海））",
+      title: "海技免状の更新（中原 拓也・四級海技士（航海））",
       basis: "船舶職員及び小型船舶操縦者法。5年更新・1年前から申請可",
       subjectType: "crew",
-      subjectId: "crew-sato",
+      subjectId: "crew-nakahara",
       dueOn: addDays(today, 300),
       leadTimeDays: 365, // 着手期限を既に過ぎている → 「着手時期」
       status: "open",
@@ -1060,10 +1170,10 @@ function procedureSeed(today: string): SyncEvent[] {
     {
       ...mbase("sd-pt-4", at9(today), COMPANY_SCOPE_ID),
       group: "C",
-      title: "健康証明書の更新（鈴木 港）",
+      title: "健康証明書の更新（寺田 稔）",
       basis: "船員法施行規則",
       subjectType: "crew",
-      subjectId: "crew-suzuki",
+      subjectId: "crew-terada",
       dueOn: addDays(today, 155),
       leadTimeDays: 60,
       status: "open",
@@ -1107,10 +1217,10 @@ function procedureSeed(today: string): SyncEvent[] {
     {
       ...mbase("sd-pt-8", at9(addDays(today, -20)), COMPANY_SCOPE_ID),
       group: "B",
-      title: "船員保険・雇用保険の資格取得届（石井 新）",
+      title: "船員保険・雇用保険の資格取得届（岸本 洋一）",
       basis: "船員保険法・雇用保険法",
       subjectType: "crew",
-      subjectId: "crew-ishii",
+      subjectId: "crew-kishimoto",
       dueOn: addDays(today, 19),
       leadTimeDays: 10,
       status: "open",
@@ -1126,7 +1236,7 @@ function trainingSeed(today: string): SyncEvent[] {
   const rows: TrainingPlanPayload[] = [
     {
       ...mbase("sd-tr-1", at9(today), COMPANY_SCOPE_ID),
-      crewMemberId: "crew-ishii",
+      crewMemberId: "crew-kishimoto",
       trainingKind: "stcw_basic",
       title: "STCW 基本訓練（生存・消火・応急・保安）",
       institution: "海技教育機構 清水校",
@@ -1138,7 +1248,7 @@ function trainingSeed(today: string): SyncEvent[] {
     },
     {
       ...mbase("sd-tr-2", at9(today), COMPANY_SCOPE_ID),
-      crewMemberId: "crew-mori",
+      crewMemberId: "crew-taira",
       trainingKind: "stcw_practical",
       title: "登録実技講習（生存・消火）",
       institution: "海技大学校（登録実技講習機関）",
@@ -1147,7 +1257,7 @@ function trainingSeed(today: string): SyncEvent[] {
     },
     {
       ...mbase("sd-tr-3", at9(today), COMPANY_SCOPE_ID),
-      crewMemberId: "crew-sato",
+      crewMemberId: "crew-nakahara",
       trainingKind: "license_renewal",
       title: "海技免状 更新講習（四級海技士（航海））",
       institution: "日本海技協会",
@@ -1155,7 +1265,7 @@ function trainingSeed(today: string): SyncEvent[] {
     },
     {
       ...mbase("sd-tr-4", at9(addDays(today, -300)), COMPANY_SCOPE_ID),
-      crewMemberId: "crew-tanaka",
+      crewMemberId: "crew-oshiro",
       trainingKind: "stcw_practical",
       title: "登録実技講習（生存・消火）",
       institution: "海技大学校（登録実技講習機関）",
@@ -1165,7 +1275,7 @@ function trainingSeed(today: string): SyncEvent[] {
     },
     {
       ...mbase("sd-tr-5", at9(addDays(today, -30)), COMPANY_SCOPE_ID),
-      crewMemberId: "crew-tanaka",
+      crewMemberId: "crew-oshiro",
       trainingKind: "internal",
       title: "船内教育: 係船作業の手順と合図",
       status: "completed",
@@ -1301,10 +1411,10 @@ function officeSeed(today: string): SyncEvent[] {
   const month = addDays(today, -1).slice(0, 7);
   const payrolls: PayrollPayload[] = (
     [
-      ["crew-kato", 480000, { 乗船手当: 90000, 職務手当: 60000 }],
-      ["crew-sato", 380000, { 乗船手当: 75000, 職務手当: 35000 }],
-      ["crew-suzuki", 420000, { 乗船手当: 80000, 職務手当: 45000 }],
-      ["crew-tanaka", 290000, { 乗船手当: 60000 }],
+      ["crew-takamatsu", 480000, { 乗船手当: 90000, 職務手当: 60000 }],
+      ["crew-nakahara", 380000, { 乗船手当: 75000, 職務手当: 35000 }],
+      ["crew-terada", 420000, { 乗船手当: 80000, 職務手当: 45000 }],
+      ["crew-oshiro", 290000, { 乗船手当: 60000 }],
     ] as [string, number, Record<string, number>][]
   ).map(([crewMemberId, baseAmount, allowances], i) => ({
     ...mbase(`sd-pay-${i}`, at9(today), COMPANY_SCOPE_ID),
@@ -1368,10 +1478,10 @@ function dispatchSeed(today: string): SyncEvent[] {
   // 航跡（横浜 → 名古屋 → 現在地）。無償 AIS を模した観測点
   const track: [string, number, number, number, string][] = [
     [at9(addDays(today, -2)), 35.45, 139.68, 0, "moored"],
-    [at9(addDays(today, -2)).replace("T09", "T12"), 34.58, 138.83, 11.5, "underway"],
-    [at9(addDays(today, -2)).replace("T09", "T18"), 35.05, 136.85, 6.2, "underway"],
+    [atHour(addDays(today, -2), 12), 34.58, 138.83, 11.5, "underway"],
+    [atHour(addDays(today, -2), 18), 35.05, 136.85, 6.2, "underway"],
     [at9(addDays(today, -1)), 35.05, 136.86, 0, "anchored"],
-    [at9(addDays(today, -1)).replace("T09", "T13"), 35.05, 136.87, 0, "cargo_ops"],
+    [atHour(addDays(today, -1), 13), 35.05, 136.87, 0, "cargo_ops"],
     [at9(today), 35.05, 136.87, 0, "moored"],
   ];
   track.forEach(([observedAt, lat, lon, speedKnots, navStatus], i) => {
@@ -1385,7 +1495,7 @@ function dispatchSeed(today: string): SyncEvent[] {
       courseDeg: speedKnots > 0 ? 265 : undefined,
       navStatus: navStatus as VesselPositionPayload["navStatus"],
       destination: "名古屋港（金城埠頭）",
-      eta: at9(addDays(today, -2)).replace("T09", "T18"),
+      eta: atHour(addDays(today, -2), 18),
       observedAt,
     };
     events.push(makeRecordEvent("vessel_position", p, SEED_DEVICE));
@@ -1413,8 +1523,8 @@ function dispatchSeed(today: string): SyncEvent[] {
       voyageNo: "V-2026-041",
       departurePort: "横浜港（大黒埠頭）",
       arrivalPort: "名古屋港（金城埠頭）",
-      departureAt: at9(addDays(today, -2)).replace("T09", "T06"),
-      arrivalAt: at9(addDays(today, -2)).replace("T09", "T18"),
+      departureAt: atHour(addDays(today, -2), 6),
+      arrivalAt: atHour(addDays(today, -2), 18),
       cargoKind: "鋼材コイル",
       quantity: "1,200 t",
       counterparty: "瀬戸内海運株式会社",
@@ -1426,8 +1536,8 @@ function dispatchSeed(today: string): SyncEvent[] {
       voyageNo: "V-2026-042",
       departurePort: "名古屋港（金城埠頭）",
       arrivalPort: "阪神港（大阪）",
-      departureAt: at9(today).replace("T09", "T16"),
-      arrivalAt: at9(addDays(today, 1)).replace("T09", "T08"),
+      departureAt: atHour(today, 16),
+      arrivalAt: atHour(addDays(today, 1), 8),
       cargoKind: "鋼材コイル",
       quantity: "900 t",
       counterparty: "瀬戸内海運株式会社",
@@ -1440,13 +1550,13 @@ function dispatchSeed(today: string): SyncEvent[] {
       voyageNo: "V-2026-043",
       departurePort: "阪神港（大阪）",
       arrivalPort: "水島港",
-      departureAt: at9(addDays(today, 1)).replace("T09", "T14"),
-      arrivalAt: at9(addDays(today, 2)).replace("T09", "T06"),
+      departureAt: atHour(addDays(today, 1), 14),
+      arrivalAt: atHour(addDays(today, 2), 6),
       cargoKind: "石材",
       quantity: "1,100 t",
       counterparty: "瀬戸内海運株式会社",
       status: "planned",
-      planningNote: "佐藤の下船予定（21日後）まで余裕あり。燃料は大阪で補給。",
+      planningNote: "中原の下船予定（21日後）まで余裕あり。燃料は大阪で補給。",
     },
     {
       ...mbase("sd-vs-4", at9(today), DEMO_VESSEL_2.id),
@@ -1454,8 +1564,8 @@ function dispatchSeed(today: string): SyncEvent[] {
       voyageNo: "V2-2026-018",
       departurePort: "松山港",
       arrivalPort: "阪神港（神戸）",
-      departureAt: at9(addDays(today, -1)).replace("T09", "T20"),
-      arrivalAt: at9(addDays(today, 1)).replace("T09", "T06"),
+      departureAt: atHour(addDays(today, -1), 20),
+      arrivalAt: atHour(addDays(today, 1), 6),
       cargoKind: "紙製品",
       quantity: "700 t",
       counterparty: "西日本フェリー物流",
@@ -1484,7 +1594,7 @@ function documentSeed(today: string): SyncEvent[] {
       ...mbase("sd-doc-2", at9(addDays(today, -58)), COMPANY_SCOPE_ID),
       kind: "hire_filing",
       title: "雇入届出書（第六号書式）",
-      subjectLabel: "田中 凪 / 第一のーとら丸",
+      subjectLabel: "大城 稜 / 第一昭運丸",
       format: "pdf",
       generatedOn: addDays(today, -58),
       submittedOn: addDays(today, -57),
@@ -1495,7 +1605,7 @@ function documentSeed(today: string): SyncEvent[] {
       ...mbase("sd-doc-3", at9(addDays(today, -58)), COMPANY_SCOPE_ID),
       kind: "crew_list",
       title: "クルーリスト（海員名簿第六表）",
-      subjectLabel: "第一のーとら丸 / 4名",
+      subjectLabel: "第一昭運丸 / 4名",
       format: "pdf",
       generatedOn: addDays(today, -58),
       submittedOn: addDays(today, -57),
@@ -1544,7 +1654,7 @@ function documentSeed(today: string): SyncEvent[] {
       ...mbase("sd-au-1", at9(addDays(today, -40)), COMPANY_SCOPE_ID),
       action: "update",
       entityKind: "crew_master",
-      entityId: "crew-kato",
+      entityId: "crew-takamatsu",
       before: "保険 最終確認日: （未設定）",
       after: `保険 最終確認日: ${addDays(today, -40)}`,
       channel: "shore",
@@ -1564,7 +1674,7 @@ function documentSeed(today: string): SyncEvent[] {
       ...mbase("sd-au-3", at9(addDays(today, -5)), COMPANY_SCOPE_ID),
       action: "view_sensitive",
       entityKind: "crew_master",
-      entityId: "crew-suzuki",
+      entityId: "crew-terada",
       channel: "shore",
       actor: SHORE_PLANNER_ID,
       summary: "既往歴・服薬状況を参照（配乗判断のため）",
@@ -1579,6 +1689,203 @@ function documentSeed(today: string): SyncEvent[] {
 }
 
 /** マスタ・事務エンティティのデモイベント一式 */
+/* ═══════════════ S-16 作業指示・タスク ═══════════════ */
+
+/**
+ * 割り当て済みの作業（デザイン正本 `design/poc_design` の TASK_SEED）。
+ * 「未着手 / 着手中 / 完了」が同時に見えるようにして、S-16 の3列が空にならないようにする。
+ */
+function taskSeed(today: string): SyncEvent[] {
+  const rows: WorkTaskPayload[] = (
+    [
+      ["t1", "crew-takamatsu", "出港前点検の実施と記録", DEMO_VESSEL.id, addDays(today, 0) + "T03:00", "done", "毎出港"],
+      ["t2", "crew-nakahara", "航海日誌の当直記入", DEMO_VESSEL.id, addDays(today, 0) + "T08:00", "doing", "当直ごと"],
+      ["t3", "crew-terada", "主機の異音点検・所見の記録", DEMO_VESSEL.id, addDays(today, 0) + "T12:00", "doing", "臨時"],
+      ["t4", "crew-oshiro", "荷役数量の記録（石灰石）", DEMO_VESSEL.id, addDays(today, 0) + "T15:30", "todo", "荷役ごと"],
+      ["t5", "crew-takamatsu", "前日の日次レコードの承認", DEMO_VESSEL.id, addDays(today, 0) + "T18:00", "todo", "毎日"],
+      ["t6", "crew-morishita", "救命艇操練の実施", DEMO_VESSEL_2.id, addDays(today, 4) + "T10:00", "todo", "月次"],
+      ["t7", "crew-kishimoto", "燃料受入の立会・記録", DEMO_VESSEL_2.id, addDays(today, 1) + "T06:00", "todo", "入港ごと"],
+      ["t8", "crew-terada", "健康証明書の受検予約", DEMO_VESSEL.id, addDays(today, 12), "todo", "個人手続き"],
+    ] as [string, string, string, string, string, "todo" | "doing" | "done", string][]
+  ).map(([id, assigneeCrewId, title, targetVesselId, dueAt, state, cycle]) => ({
+    ...mbase(`sd-task-${id}`, at9(addDays(today, -1)), targetVesselId),
+    targetVesselId,
+    title,
+    assigneeCrewId,
+    dueAt,
+    state,
+    cycle,
+  }));
+  return rows.map((r) => makeRecordEvent("work_task", r, SEED_DEVICE));
+}
+
+/* ═══════════════ S-18 削除・アーカイブ ═══════════════ */
+
+/**
+ * 削除・無効化の跡（デザイン正本の TRASH_ITEMS）。
+ * **何が外れ、何が残るか**を1行で添える。復元期限は 30日後。
+ */
+function trashSeed(today: string): SyncEvent[] {
+  const rows: TrashEntryPayload[] = (
+    [
+      ["tr1", "船員", "crew-retired-01", "旧 機関員（退職）", "disable", "退職として無効化", "打刻・労務記録は保存期間5年のため残ります", -6],
+      ["tr2", "ユーザー", "shore-ex-okada", "岡田 誠（経理・事務／退職）", "disable", "退職として無効化", "ログイン不可。承認・書き出しの監査ログは残ります", -5],
+      ["tr3", "作業タスク", "task-archived-01", "燃料受入の立会・記録（第七豊洋丸）", "delete", "タスクを削除", "完了報告のない未着手タスクでした", -4],
+      ["tr4", "船舶", "vessel-sold-01", "第五昭運丸（199GT・売船）", "archive", "運航終了としてアーカイブ", "過去の配乗・記録簿は参照できます", -9],
+      ["tr5", "当直シフト", "shift-draft-01", "第一昭運丸 3週間前の週", "delete", "配信前の下書きを削除", "船内へは配信されていません", -13],
+    ] as [string, string, string, string, "archive" | "disable" | "delete", string, string, number][]
+  ).map(([id, entityKind, entityId, entityLabel, mode, action, effect, offset]) => ({
+    ...mbase(`sd-trash-${id}`, at9(addDays(today, offset)), COMPANY_SCOPE_ID),
+    entityKind,
+    entityId,
+    entityLabel,
+    mode,
+    action,
+    effect,
+    restorableUntil: addDays(today, offset + 30),
+  }));
+  return rows.map((r) => makeRecordEvent("trash_entry", r, SEED_DEVICE));
+}
+
+/* ───────────── 顔写真（3.1.1。マスタとは別のエンティティ） ───────────── */
+
+/**
+ * デモの顔写真。
+ *
+ * 実在しない人のデモなので**写真の代わりにシルエットを置く**。作り物の顔を並べると
+ * 「この人は誰か」を確かめる画面（配乗ボード・作業割当・共用端末のサインイン）で、
+ * 見た目の印象が判断に混ざってしまうため。ここで確かめたいのは
+ * 「**写真がある人と無い人が、同じ大きさの枠で混ざっても並びが崩れないか**」。
+ *
+ * 全員には付けない。無いときの表示（頭文字と PHOTO の印）が実際に出る状態を、
+ * デモのまま確認できるようにしておく。
+ *
+ * SVG の data URL にしてあるのは、画像ファイルを同梱せずに配信経路（同期イベント）を
+ * そのまま通せるから。実運用では端末で 248×310 まで縮めた JPEG が入る。
+ */
+function silhouette(tone: string): string {
+  const svg =
+    `<svg xmlns="http://www.w3.org/2000/svg" width="248" height="310" viewBox="0 0 248 310">` +
+    `<rect width="248" height="310" fill="${tone}"/>` +
+    `<circle cx="124" cy="116" r="52" fill="#FFFFFF" fill-opacity="0.82"/>` +
+    `<path d="M124 182c-50 0-82 30-88 74a8 8 0 0 0 8 9h160a8 8 0 0 0 8-9c-6-44-38-74-88-74z" fill="#FFFFFF" fill-opacity="0.82"/>` +
+    `</svg>`;
+  return `data:image/svg+xml,${encodeURIComponent(svg)}`;
+}
+
+function crewPhotoSeed(today: string): SyncEvent[] {
+  const t = at9(addDays(today, -58));
+  const rows: CrewPhotoPayload[] = (
+    [
+      // 乗船中の4人のうち2人だけに付ける。残り2人は「頭文字と PHOTO の印」が出る状態を
+      // サインイン画面でそのまま確認できるようにする（デザイン正本の `showSignIn`）
+      ["crew-takamatsu", "#917351"],
+      ["crew-nakahara", "#6F5638"],
+      ["crew-taira", "#99877D"],
+      ["crew-morishita", "#8A7462"],
+    ] as [string, string][]
+  ).map(([crewMemberId, tone]) => {
+    const dataUrl = silhouette(tone);
+    return {
+      ...mbase(`sd-photo-${crewMemberId}`, t, COMPANY_SCOPE_ID),
+      crewMemberId,
+      dataUrl,
+      width: 248,
+      height: 310,
+      bytes: dataUrl.length,
+    };
+  });
+  return rows.map((r) => makeRecordEvent("crew_photo", r, SEED_DEVICE));
+}
+
+/**
+ * 船の写真のデモ（VESSEL-03）。実写の代わりに無彩色の船の影を置く（顔写真のシルエットと同じ考え方）。
+ * 1隻だけに付け、残りの船は「PHOTO」の印が出る状態を一覧でそのまま確かめられるようにする。
+ */
+function vesselSilhouette(): string {
+  const svg =
+    `<svg xmlns="http://www.w3.org/2000/svg" width="480" height="300" viewBox="0 0 480 300">` +
+    `<rect width="480" height="300" fill="#DFE1E0"/>` +
+    `<rect y="205" width="480" height="95" fill="#99877D" fill-opacity="0.35"/>` +
+    `<path d="M60 180h330l40-40H120l-20 40z" fill="#6F5638"/>` +
+    `<path d="M300 140v-55h55v55z" fill="#917351"/>` +
+    `<path d="M315 85v-20h12v20z" fill="#6F5638"/>` +
+    `<path d="M40 180h400l-35 30H75z" fill="#231F20" fill-opacity="0.85"/>` +
+    `</svg>`;
+  return `data:image/svg+xml,${encodeURIComponent(svg)}`;
+}
+
+function vesselPhotoSeed(today: string): SyncEvent[] {
+  const dataUrl = vesselSilhouette();
+  const row: VesselPhotoPayload = {
+    ...mbase("sd-vphoto-vessel-001", at9(addDays(today, -58)), COMPANY_SCOPE_ID),
+    targetVesselId: DEMO_VESSEL.id,
+    dataUrl,
+    width: 480,
+    height: 300,
+    bytes: dataUrl.length,
+  };
+  return [makeRecordEvent("vessel_photo", row, SEED_DEVICE)];
+}
+
+/**
+ * 管理者が足した入力項目のデモ（CREWEDIT-04）。「基本情報」に1つだけ置き、
+ * 「＋ 項目を追加」で足したものがどう並ぶかを S-04 でそのまま確かめられるようにする。
+ */
+function crewFieldDefSeed(today: string): SyncEvent[] {
+  const row: CrewFieldDefPayload = {
+    ...mbase("sd-cfd-uniform", at9(addDays(today, -40)), COMPANY_SCOPE_ID),
+    fieldKey: "cf-0001-uniform-size",
+    category: "basic",
+    label: "作業服のサイズ",
+    inputType: "text",
+    placeholder: "L",
+  };
+  return [makeRecordEvent("crew_field_def", row, SEED_DEVICE)];
+}
+
+/* ───────────── 陸上アプリのユーザーアカウント（S-15） ───────────── */
+
+/**
+ * デモ用の陸上アカウントのうち、**ストアに実体が要るもの**だけを種にする。
+ * 日常のアカウント（白石・谷口ほか）は `server/shore-staff-seed.ts` の定数で足りるが、
+ * 次の2つは「状態」を持つのでイベントとして積む必要がある。
+ *
+ * - 招待中の1件: 招待コードでの新規登録をそのまま試せるようにする
+ *   （サインイン画面の「新規登録」タブの初期値と同じコードにしてある）
+ * - 無効化された1件: S-18 の「ユーザー」の復元がその場で確かめられるようにする
+ */
+function shoreUserSeed(today: string): SyncEvent[] {
+  const rows: ShoreUserPayload[] = [
+    {
+      ...mbase("sd-su-shintani", at9(addDays(today, -5)), COMPANY_SCOPE_ID),
+      userId: "shore-shintani",
+      name: "新谷 実",
+      email: "shintani@shoun-kaiun.co.jp",
+      role: "labor_manager",
+      title: "招待中",
+      status: "invited",
+      scope: "all",
+      inviteCode: "NTR-8F42-QK19",
+      invitedBy: "shore-yamaguchi",
+      invitedAt: at9(addDays(today, -5)),
+    },
+    {
+      ...mbase("sd-su-okada", at9(addDays(today, -5)), COMPANY_SCOPE_ID),
+      userId: "shore-ex-okada",
+      name: "岡田 誠",
+      email: "okada@shoun-kaiun.co.jp",
+      role: "clerk",
+      title: "経理・事務（退職）",
+      status: "disabled",
+      scope: "all",
+      activatedAt: at9(addDays(today, -900)),
+      lastSignInAt: at9(addDays(today, -40)),
+    },
+  ];
+  return rows.map((r) => makeRecordEvent("shore_user", r, SEED_DEVICE));
+}
+
 export function makeMasterSeedEvents(today: string): SyncEvent[] {
   return [
     ...crewMasterSeed(today),
@@ -1598,5 +1905,11 @@ export function makeMasterSeedEvents(today: string): SyncEvent[] {
     ...officeSeed(today),
     ...dispatchSeed(today),
     ...documentSeed(today),
+    ...taskSeed(today),
+    ...crewPhotoSeed(today),
+    ...vesselPhotoSeed(today),
+    ...crewFieldDefSeed(today),
+    ...shoreUserSeed(today),
+    ...trashSeed(today),
   ];
 }

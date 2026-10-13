@@ -15,6 +15,8 @@ import {
   type SyncEvent,
 } from "@/sync-protocol/events";
 import type { RecordKind, RecordPayloadByKind } from "@/sync-protocol/records";
+import { carryOverFields } from "./master-fields";
+import type { WorkTaskPayload } from "@/sync-protocol/masters";
 import { ulid } from "./ids";
 import { getMeta, setMeta, toRecordRow, vesselDb } from "./vessel-db";
 import { isOfflineSim, syncNow } from "./vessel-sync";
@@ -99,6 +101,8 @@ export interface PunchInput {
    * 誤って常用されないよう、画面側では理由（note）を必須にする。
    */
   exceptionKind?: ExceptionalWorkKind;
+  /** 陸上の修正案に同意して入れる打刻なら、その差戻しの ID（LABOR-06） */
+  proposalId?: string;
 }
 
 export async function recordPunch(input: PunchInput): Promise<TimeRecord> {
@@ -123,6 +127,7 @@ export async function recordPunch(input: PunchInput): Promise<TimeRecord> {
     note: input.note,
     // 別枠は区間の開始側にだけ付く（終了打刻は開始の区分に従う。WorkInterval.exceptionKind）
     exceptionKind: input.action === "start" ? input.exceptionKind : undefined,
+    proposalId: input.proposalId,
   };
   await vesselDb.transaction("rw", vesselDb.timeRecords, vesselDb.outbox, async () => {
     await vesselDb.timeRecords.add(record); // 一次記録へ追記（ローカルファースト）
@@ -224,8 +229,13 @@ export async function acknowledgeShiftChanges(until: Date = new Date()): Promise
 }
 
 /** 陸上からのお知らせを確認済みにする（端末状態。お知らせ自体は記録として保持） */
-export async function acknowledgeNotices(until: Date = new Date()): Promise<void> {
-  await setMeta("noticeAckAt", until.toISOString());
+/** お知らせを1件既読にする（詳細を開いたとき。端末内にだけ持つ） */
+export async function markNoticeRead(noticeId: string): Promise<void> {
+  const raw = await getMeta("noticeReadIds");
+  const ids = new Set<string>(raw ? (JSON.parse(raw) as string[]) : []);
+  if (ids.has(noticeId)) return;
+  ids.add(noticeId);
+  await setMeta("noticeReadIds", JSON.stringify([...ids]));
 }
 
 export async function getSelectedCrewId(): Promise<string | undefined> {
@@ -234,4 +244,30 @@ export async function getSelectedCrewId(): Promise<string | undefined> {
 
 export async function setSelectedCrewId(id: string): Promise<void> {
   await setMeta("selectedCrewId", id);
+}
+
+/**
+ * 割り当てられた作業の状態を進める（船内から。追記で表し、前の版は残る。レビュー PUNCH-05）。
+ * 作業指示は陸上・船長が起票し、船内が状態を進める（レジストリの origin: both）。
+ */
+export async function advanceWorkTask(
+  task: WorkTaskPayload,
+  next: WorkTaskPayload["state"],
+  actor: string,
+  doneNote?: string,
+): Promise<WorkTaskPayload> {
+  const now = new Date();
+  const base = await newRecordBase(actor, now, task.id);
+  // 端末の行は種別（kind）を足して持っているので、記録の中身には持ち込まない
+  const { kind: _kind, ...fields } = carryOverFields(task as unknown as Record<string, unknown>);
+  void _kind;
+  const payload = {
+    ...fields,
+    ...base,
+    publishedAt: now.toISOString(),
+    publishedBy: actor,
+    state: next,
+    doneNote: doneNote ?? task.doneNote,
+  } as WorkTaskPayload;
+  return appendRecord("work_task", payload);
 }

@@ -266,7 +266,7 @@ describe("健康アンケート・相談（3.5.3 匿名の保護）", () => {
 
 describe("人事考課（3.1.5）", () => {
   it("総合は5項目の平均で、保存はしない", () => {
-    const sato = evaluations.listEvaluations().find((r) => r.record.crewMemberId === "crew-sato")!;
+    const sato = evaluations.listEvaluations().find((r) => r.record.crewMemberId === "crew-nakahara")!;
     // 4 + 5 + 4 + 4 + 5 = 22 → 4.4
     expect(sato.average).toBeCloseTo(4.4, 5);
     expect(Object.keys(sato.record)).not.toContain("average");
@@ -276,11 +276,11 @@ describe("人事考課（3.1.5）", () => {
     expect(() =>
       evaluations.publishEvaluation(
         {
-          crewMemberId: "crew-tanaka",
+          crewMemberId: "crew-oshiro",
           periodFrom: "2026-01-01",
           periodTo: "2026-06-30",
           scores: { job_skill: 6, safety: 3, teamwork: 3, discipline: 3, growth: 3 },
-          evaluatedBy: "crew-kato",
+          evaluatedBy: "crew-takamatsu",
           disclosedToCrew: false,
         },
         ACTOR,
@@ -289,16 +289,16 @@ describe("人事考課（3.1.5）", () => {
   });
 
   it("訂正しても原本は残り、有効なのは新しい版だけになる", () => {
-    const before = evaluations.listEvaluations().find((r) => r.record.crewMemberId === "crew-sato")!;
+    const before = evaluations.listEvaluations().find((r) => r.record.crewMemberId === "crew-nakahara")!;
     const historyBefore = ms.history("evaluation").length;
     const published = evaluations.publishEvaluation(
       {
-        crewMemberId: "crew-sato",
+        crewMemberId: "crew-nakahara",
         periodFrom: before.record.periodFrom,
         periodTo: before.record.periodTo,
         scores: { job_skill: 5, safety: 5, teamwork: 4, discipline: 4, growth: 5 },
         comment: "訂正: 荷役計画の精度をさらに評価",
-        evaluatedBy: "crew-kato",
+        evaluatedBy: "crew-takamatsu",
         disclosedToCrew: false,
         supersedesId: before.record.id,
       },
@@ -306,7 +306,7 @@ describe("人事考課（3.1.5）", () => {
     );
     expect(published.supersedesId).toBe(before.record.id);
     expect(ms.history("evaluation").length).toBe(historyBefore + 1);
-    const after = evaluations.listEvaluations().filter((r) => r.record.crewMemberId === "crew-sato");
+    const after = evaluations.listEvaluations().filter((r) => r.record.crewMemberId === "crew-nakahara");
     expect(after).toHaveLength(1);
     expect(after[0].average).toBeCloseTo(4.6, 5);
     expect(after[0].record.disclosedToCrew).toBe(false);

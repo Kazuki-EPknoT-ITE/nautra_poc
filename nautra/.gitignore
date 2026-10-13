@@ -1,5 +1,7 @@
 node_modules/
 .next/
+# 開発サーバの出力先（next.config.mjs で本番と分けている）
+.next-dev/
 out/
 .data/
 *.tsbuildinfo
@@ -8,3 +10,6 @@ next-env.d.ts
 # E2E の依存とスクリーンショット（検証成果物）
 e2e/node_modules/
 e2e/shots/
+shots/
+# 和文フォントの実体（scripts/copy-fonts.mjs が node_modules から用意する。約2MB）
+public/fonts/

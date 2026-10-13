@@ -2,26 +2,32 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
-import { isBiometricAvailable, registerBiometric } from "@/lib/biometric-auth";
 import { cn } from "@/lib/cn";
 import { CREW_MEMBERS, type CrewMember } from "@/lib/crew";
 import { useSessionCrew } from "@/lib/vessel-hooks";
-import {
-  getBiometricCredentialId,
-  saveBiometricCredentialId,
-  signIn,
-  signInWithBiometric,
-} from "@/lib/vessel-session";
-import { Avatar, Button, CardBody, CardHeader, SurfaceCard } from "@/ui";
+import { signIn } from "@/lib/vessel-session";
+import { FlashToast } from "@/ui";
+import { CrewPickerGrid, LoginCard, PinDots } from "./_components/login-body";
 
 const PIN_LENGTH = 4;
+/** デザインの `pinKeys`（数字 → クリア → 0 → 消す の 3×4） */
 const KEYS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "clear", "0", "back"] as const;
 
 /**
- * 船内サインイン（基本設計書 11.3）。
- * 共用端末での本人特定は「船員を顔写真リストから選択 + PIN」方式とし、個人のクラウド
- * セッションに依存させない。セッションは端末内にのみ保持するため、通信断でも成立する。
- * サインインしたロールに応じて、以降の画面の表示・操作可能範囲が変わる（11.2）。
+ * 船内サインイン（基本設計書 11.3 / デザイン正本 `design/poc_design` の `showSignIn`）。
+ *
+ * 共用端末での本人特定は「船員を顔写真リストから選択 + PIN」。セッションは端末内にのみ
+ * 保持するため、通信断でも成立する。サインインしたロールに応じて、以降の画面の
+ * 表示・操作可能範囲が変わる（11.2）。
+ *
+ * 版組はデザインの実測どおり: 760px の中央寄せ、左に「1. ユーザーを選択」・
+ * 右に 356px の「2. PIN（4桁）を入力」。画面の説明文は置かない（手順の番号と
+ * PIN 欄の案内だけで足りる）。
+ *
+ * 船員を選ぶと左に「顔認証を使う（任意）」の欄が出る（デザイン正本の `bioVisible`）。
+ * **本番は iPad のカメラによる顔認証だけでサインインできるようにする予定**で、いまは
+ * デザイン上の欄だけを置いている。押しても PIN を飛ばしてサインインはさせない
+ * （照合の仕組みが無いまま通すと、誰でも他人として入れてしまうため）。指紋は扱わない。
  */
 export default function VesselLoginPage() {
   const router = useRouter();
@@ -32,79 +38,13 @@ export default function VesselLoginPage() {
   const [pin, setPin] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  /** 端末が顔・指紋に対応しているか（未判定は null） */
-  const [bioAvailable, setBioAvailable] = useState<boolean | null>(null);
-  /** 選んだ船員がこの端末に生体を登録済みか */
-  const [bioRegistered, setBioRegistered] = useState(false);
-  const [bioNotice, setBioNotice] = useState<string | null>(null);
+  const [flash, setFlash] = useState<string | null>(null);
+  const clearFlash = useCallback(() => setFlash(null), []);
 
-  // サインイン済みならメニューへ
+  // サインイン済みならホームへ
   useEffect(() => {
     if (session) router.replace("/vessel");
   }, [session, router]);
-
-  // 端末の対応状況は一度だけ調べる（対応していなければ生体の導線を出さない）
-  useEffect(() => {
-    let alive = true;
-    void isBiometricAvailable().then((ok) => {
-      if (alive) setBioAvailable(ok);
-    });
-    return () => {
-      alive = false;
-    };
-  }, []);
-
-  // 選んだ船員の登録状況を読む（登録済みなら「顔・指紋でサインイン」を出す）
-  useEffect(() => {
-    let alive = true;
-    if (!selected) {
-      setBioRegistered(false);
-      return;
-    }
-    void getBiometricCredentialId(selected.id).then((id) => {
-      if (alive) setBioRegistered(Boolean(id));
-    });
-    return () => {
-      alive = false;
-    };
-  }, [selected]);
-
-  /** 顔・指紋でサインインする（端末が本人確認し、生体情報は端末から出ない） */
-  const submitBiometric = useCallback(async () => {
-    if (!selected) return;
-    setBusy(true);
-    setError(null);
-    try {
-      const result = await signInWithBiometric(selected.id);
-      if (result.ok) router.replace("/vessel");
-      else setError(result.error ?? "確認できませんでした");
-    } finally {
-      setBusy(false);
-    }
-  }, [selected, router]);
-
-  /** この端末に顔・指紋を登録する（登録後も PIN は使えるままにする） */
-  async function register() {
-    if (!selected) return;
-    setBusy(true);
-    setError(null);
-    setBioNotice(null);
-    try {
-      const result = await registerBiometric({
-        crewMemberId: selected.id,
-        crewName: selected.name,
-      });
-      if (result.ok && result.credentialId) {
-        await saveBiometricCredentialId(selected.id, result.credentialId);
-        setBioRegistered(true);
-        setBioNotice("この端末に登録しました。次からは顔・指紋でサインインできます。");
-      } else {
-        setError(result.error ?? "登録できませんでした");
-      }
-    } finally {
-      setBusy(false);
-    }
-  }
 
   async function submit(nextPin: string) {
     if (!selected) return;
@@ -134,165 +74,116 @@ export default function VesselLoginPage() {
     });
   }
 
+  /** デザインの `pinDemoHint`（区切りは全角スラッシュ） */
+  const demoPins = CREW_MEMBERS.map((c) => `${c.name.split(" ")[0]} ${c.demoPin}`).join(" ／ ");
+
   return (
-    <div className="mx-auto flex max-w-3xl flex-col gap-5">
-      <h1 className="text-balance text-2xl font-bold">サインイン</h1>
+    <div className="mx-auto flex max-w-[760px] flex-col gap-3.5">
+      <h1 className="m-0 text-3xl font-bold text-foreground-900">サインイン</h1>
 
       {/* 放置で自動サインアウトしたときは、故障と間違われないよう理由を出す */}
       {idle ? (
-        <p className="ui-inset p-3 text-base">
+        <p className="m-0 rounded-small bg-[color:var(--accent-bg)] px-[15px] py-[13px] text-base leading-[1.7] text-foreground-700">
           <span aria-hidden="true">⏱ </span>
           しばらく操作がなかったため、サインアウトしました。
-          <span className="text-foreground-600">
+          <span className="text-foreground-500">
             {" "}
             共用の端末で、次に使う人に前の人の記録が見えないようにするためです。記録は消えていません。
           </span>
         </p>
       ) : null}
 
-      <SurfaceCard>
-        <CardHeader className="px-5 pb-2 pt-5 text-base font-bold">
-          1. 自分を選ぶ
-        </CardHeader>
-        <CardBody className="px-5 pb-5">
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4" role="radiogroup" aria-label="船員の選択">
-            {CREW_MEMBERS.map((c) => {
-              const active = selected?.id === c.id;
+      <div className="grid items-start gap-3.5 lg:grid-cols-[minmax(0,1fr)_356px]">
+        <div className="flex flex-col gap-3.5">
+          <LoginCard title="1. ユーザーを選択">
+            <CrewPickerGrid
+              selectedId={selected?.id ?? null}
+              onSelect={(c) => {
+                setSelected(c);
+                setPin("");
+                setError(null);
+              }}
+            />
+          </LoginCard>
+
+          {/* 顔認証（デザイン正本の bioVisible / bioBtnStyle）。本番は iPad のカメラで照合する予定で、
+              いまは欄だけ。幅は内容ぶん（カード幅いっぱいにすると PIN と同じ重さの操作に見える） */}
+          {selected ? (
+            <LoginCard title="顔認証を使う（任意）">
+              <button
+                type="button"
+                onClick={() =>
+                  setFlash("顔認証は本番で iPad のカメラに対応します。いまは PIN でサインインしてください。")
+                }
+                className="min-h-14 rounded-small border border-[#333333] bg-content1 px-6 text-xl font-bold text-foreground-800 transition-colors hover:bg-content2"
+              >
+                この端末に顔を登録する
+              </button>
+            </LoginCard>
+          ) : null}
+        </div>
+
+        <div className="ui-card flex flex-col items-center px-[18px] pb-[18px] pt-4">
+          <h2 className="m-0 self-start text-xl font-bold text-foreground-900">2. PIN（4桁）を入力</h2>
+
+          <div className="mt-3">
+            <PinDots
+              filled={pin.length}
+              length={PIN_LENGTH}
+              error={Boolean(error)}
+              active={Boolean(selected)}
+            />
+          </div>
+
+          {/* 案内は1行ぶんの高さを常に確保する（出たり消えたりで枡が動かないように）。
+              打ち始めたら消す——数字を追うのに文章は邪魔になる（デザイン正本の `pinMessage`） */}
+          <p
+            className={cn(
+              "m-0 mt-3 min-h-[22px] text-center text-lg",
+              error ? "font-bold text-danger" : "text-foreground-500",
+            )}
+            aria-live="polite"
+          >
+            {error
+              ? `✕ ${error}`
+              : !selected
+                ? "先に自分を選んでください。"
+                : pin.length === 0
+                  ? `${selected.name} として、4桁のPINを入力してください`
+                  : ""}
+          </p>
+
+          {/* 数字はブロンズの塗り＋等幅、消す系は白地。押す対象の主従を塗りで分ける */}
+          <div className="mt-2.5 grid w-full grid-cols-3 gap-2">
+            {KEYS.map((k) => {
+              const isNum = k !== "clear" && k !== "back";
               return (
                 <button
-                  key={c.id}
+                  key={k}
                   type="button"
-                  role="radio"
-                  aria-checked={active}
-                  onClick={() => {
-                    setSelected(c);
-                    setPin("");
-                    setError(null);
-                  }}
+                  disabled={!selected || busy}
+                  aria-label={k === "clear" ? "クリア" : k === "back" ? "1文字消す" : k}
+                  onClick={() => press(k)}
                   className={cn(
-                    "ui-card flex min-h-32 flex-col items-center justify-center gap-1 px-3 py-4",
-                    active ? "border-2 border-primary bg-primary/10" : "border-2 border-transparent",
+                    "min-h-[60px] rounded-small border transition-colors disabled:opacity-50",
+                    isNum
+                      ? "border-primary bg-primary font-mono text-[24px] font-semibold text-primary-foreground hover:bg-primary-600"
+                      : "border-[var(--ui-hairline-strong)] bg-content1 text-base font-medium text-foreground-800 hover:bg-content2",
                   )}
                 >
-                  <Avatar
-                    name={c.initial}
-                    color={active ? "primary" : "default"}
-                    size="lg"
-                    className="text-xl font-bold"
-                  />
-                  <span className="text-base font-semibold">
-                    {active ? <span aria-hidden="true">✓ </span> : null}
-                    {c.name}
-                  </span>
-                  <span className="text-sm text-foreground-600">{c.position}</span>
+                  {k === "clear" ? "クリア" : k === "back" ? "← 消す" : k}
                 </button>
               );
             })}
           </div>
-        </CardBody>
-      </SurfaceCard>
 
-      {/* 生体認証（3.2.1 の認証方式の選択制）。対応端末でのみ出す。
-          登録済みなら1タップでサインインでき、未登録なら PIN のあとで登録できる */}
-      {bioAvailable && selected ? (
-        <SurfaceCard>
-          <CardHeader className="px-5 pb-2 pt-5 text-base font-bold">
-            {bioRegistered ? "2. 顔・指紋でサインイン" : "顔・指紋を使う（任意）"}
-          </CardHeader>
-          <CardBody className="flex flex-col items-start gap-3 px-5 pb-5">
-            {bioRegistered ? (
-              <>
-                <Button
-                  color="primary"
-                  size="lg"
-                  className="min-h-14 w-full text-lg font-bold sm:w-auto sm:px-10"
-                  isDisabled={busy}
-                  onPress={() => void submitBiometric()}
-                >
-                  {selected.name} として顔・指紋で入る
-                </Button>
-                <p className="text-sm text-foreground-600">
-                  うまくいかないときは、下の PIN でサインインできます。
-                </p>
-              </>
-            ) : (
-              <>
-                <Button
-                  variant="bordered"
-                  size="lg"
-                  className="min-h-14 border-[var(--ui-hairline-strong)]"
-                  isDisabled={busy}
-                  onPress={() => void register()}
-                >
-                  この端末に顔・指紋を登録する
-                </Button>
-                <p className="text-sm text-foreground-600">
-                  登録すると、次から PIN を打たずに入れます。登録後も PIN は使えます。
-                </p>
-              </>
-            )}
-            {bioNotice ? <p className="text-sm font-semibold">✓ {bioNotice}</p> : null}
-            <p className="text-xs text-foreground-600">
-              顔・指紋の情報はこの端末の中だけで照合され、アプリにも陸上にも送られません。
-            </p>
-          </CardBody>
-        </SurfaceCard>
-      ) : null}
-
-      <SurfaceCard>
-        <CardHeader className="px-5 pb-2 pt-5 text-base font-bold">
-          {bioAvailable && selected && bioRegistered ? "3. PIN（4桁）を入力" : "2. PIN（4桁）を入力"}
-        </CardHeader>
-        <CardBody className="flex flex-col items-center gap-4 px-5 pb-5">
-          <div className="flex items-center gap-3" aria-label="入力済みの桁数" aria-live="polite">
-            {Array.from({ length: PIN_LENGTH }).map((_, i) => (
-              <span
-                key={i}
-                className={cn(
-                  "size-5 rounded-full border-2 border-foreground-400",
-                  i < pin.length && "bg-foreground",
-                )}
-              />
-            ))}
-          </div>
-
-          <div className="grid w-full max-w-xs grid-cols-3 gap-2">
-            {KEYS.map((k) => (
-              <Button
-                key={k}
-                variant={k === "clear" || k === "back" ? "bordered" : "solid"}
-                color={k === "clear" || k === "back" ? "default" : "primary"}
-                radius="md"
-                isDisabled={!selected || busy}
-                aria-label={k === "clear" ? "クリア" : k === "back" ? "1文字消す" : k}
-                className={cn(
-                  "min-h-14 text-xl font-bold",
-                  (k === "clear" || k === "back") &&
-                    "border-[var(--ui-hairline-strong)] text-base text-foreground",
-                )}
-                onPress={() => press(k)}
-              >
-                {k === "clear" ? "クリア" : k === "back" ? "← 消す" : k}
-              </Button>
-            ))}
-          </div>
-
-          {!selected ? (
-            <p className="text-foreground-600">先に自分を選んでください。</p>
-          ) : null}
-          {error ? <p className="font-semibold text-danger">✕ {error}</p> : null}
-          <p className="text-sm text-foreground-600">
-            デモ用 PIN: 加藤 1111 / 佐藤 2222 / 鈴木 3333 / 田中 4444
+          <p className="m-0 mt-3 text-center font-mono text-xs leading-relaxed text-foreground-500">
+            デモ用 PIN: {demoPins}
           </p>
-        </CardBody>
-      </SurfaceCard>
+        </div>
+      </div>
 
-      <p className="text-pretty text-xs text-foreground-600">
-        共用端末での本人特定は「顔写真リストから選択 + PIN」方式です（基本設計書 11.3）。
-        端末が対応していれば、顔・指紋での本人確認も選べます（要件定義書 3.2.1 の認証方式は
-        運用に応じて選べる方針。IC カードは本番で追加）。
-        セッションは端末内にのみ保持され、通信断でもサインイン・記録ができます。
-      </p>
+      <FlashToast message={flash} onDone={clearFlash} />
     </div>
   );
 }

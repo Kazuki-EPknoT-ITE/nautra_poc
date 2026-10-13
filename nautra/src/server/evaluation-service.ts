@@ -7,7 +7,7 @@ import {
   publishMaster,
   writeAuditLog,
 } from "./master-service";
-import { SHORE_STAFF_ACCOUNTS } from "./shore-session";
+import { shoreUserById } from "./shore-user-service";
 
 /**
  * S-13 評価・人事考課のドメインサービス（要件定義書 3.1.5）。
@@ -36,7 +36,7 @@ export interface EvaluationRow {
 /** 記録者ID → 表示名（船員マスタ → 陸上スタッフ → ID の順で解決する） */
 export function personLabel(id: string | undefined): string {
   if (!id) return "—";
-  const staff = SHORE_STAFF_ACCOUNTS.find((s) => s.id === id);
+  const staff = shoreUserById(id);
   if (staff) return staff.name;
   return crewNameOf(id);
 }

@@ -1,7 +1,12 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { updateCrewMaster } from "@/server/crew-master-service";
+import { redirect } from "next/navigation";
+import { createCrewMaster, retireCrewMaster, updateCrewMaster } from "@/server/crew-master-service";
+import { saveCrewPhoto } from "@/server/crew-photo-service";
+import { addCrewField, removeCrewField, updateCrewField, type CrewFieldInput } from "@/server/crew-field-service";
+import { crewMasterOf } from "@/server/master-service";
+import { recordDeletion } from "@/server/trash-service";
 import { hasShorePermission, requireShore } from "@/server/shore-session";
 import type { InsuranceEntry, InsuranceKind } from "@/sync-protocol/records";
 import { INSURANCE_KINDS } from "@/sync-protocol/records";
@@ -14,6 +19,15 @@ export interface CrewMasterFormState {
 }
 
 const s = (formData: FormData, key: string) => String(formData.get(key) ?? "");
+
+/** 管理者が足した項目の値（欄の name は `cf.<項目キー>`） */
+function customFieldsFrom(formData: FormData): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [key, value] of formData.entries()) {
+    if (key.startsWith("cf.") && typeof value === "string") out[key.slice(3)] = value;
+  }
+  return out;
+}
 
 /**
  * S-04 船員マスタの保存（Server Action）。
@@ -64,6 +78,7 @@ export async function saveCrewMasterAction(
         medicalHistory: canEditSensitive ? s(formData, "medicalHistory") : undefined,
         medication: canEditSensitive ? s(formData, "medication") : undefined,
         insurances,
+        customFields: customFieldsFrom(formData),
       },
     });
 
@@ -77,5 +92,190 @@ export async function saveCrewMasterAction(
     };
   } catch (e) {
     return { ok: false, message: e instanceof Error ? e.message : String(e), changed: [] };
+  }
+}
+
+/**
+ * S-04 船員の新規登録（Server Action）。
+ *
+ * 編集と**同じフォーム・同じ検証**を通す（12.3「更新の導線は1つ」を新規にも適用する）。
+ * 登録後は続けて資格・証書を入れられるよう、そのままカルテへ送る。
+ */
+export async function createCrewMasterAction(
+  _prev: CrewMasterFormState,
+  formData: FormData,
+): Promise<CrewMasterFormState> {
+  let created = "";
+  try {
+    const guard = await requireShore("edit_crew_master");
+    if (!guard.ok) throw new Error("船員を登録する権限がありません");
+    const canEditSensitive = await hasShorePermission("view_sensitive_health");
+
+    const insurances = INSURANCE_KINDS.map((kind: InsuranceKind) => ({
+      kind,
+      number: s(formData, `ins.${kind}.number`),
+      acquiredOn: s(formData, `ins.${kind}.acquiredOn`),
+      lastVerifiedOn: s(formData, `ins.${kind}.lastVerifiedOn`),
+      verifyMethod: (s(formData, `ins.${kind}.verifyMethod`) ||
+        undefined) as InsuranceEntry["verifyMethod"],
+    }));
+
+    const { crewMemberId } = createCrewMaster({
+      actor: guard.staff.id,
+      canEditSensitive,
+      form: {
+        name: s(formData, "name"),
+        nameKana: s(formData, "nameKana"),
+        birthDate: s(formData, "birthDate"),
+        seamanBookNo: s(formData, "seamanBookNo"),
+        address: s(formData, "address"),
+        bloodType: s(formData, "bloodType"),
+        phone: s(formData, "phone"),
+        position: s(formData, "position"),
+        employmentType: s(formData, "employmentType"),
+        hiredOn: s(formData, "hiredOn"),
+        emergencyContactName: s(formData, "emergencyContactName"),
+        emergencyContactRelation: s(formData, "emergencyContactRelation"),
+        emergencyContactPhone: s(formData, "emergencyContactPhone"),
+        familyNote: s(formData, "familyNote"),
+        medicalHistory: canEditSensitive ? s(formData, "medicalHistory") : undefined,
+        medication: canEditSensitive ? s(formData, "medication") : undefined,
+        insurances,
+        customFields: customFieldsFrom(formData),
+      },
+    });
+
+    // 新規登録のときだけ、写真も一緒に受け取って保存する（採番のあとでないと紐づかない）
+    const photoDataUrl = s(formData, "photoDataUrl");
+    if (photoDataUrl) saveCrewPhoto({ crewMemberId, dataUrl: photoDataUrl, actor: guard.staff.id });
+
+    revalidatePath("/shore/crew");
+    revalidatePath("/shore/manning");
+    created = crewMemberId;
+  } catch (e) {
+    return { ok: false, message: e instanceof Error ? e.message : String(e), changed: [] };
+  }
+
+  // redirect は内部で例外を投げるため try の外で呼ぶ（catch に飲まれないようにする）
+  redirect(`/shore/crew/${created}/credentials`);
+}
+
+/**
+ * S-04 船員の無効化（退職・登録抹消）。
+ *
+ * マスタは追記型なので「消す」操作は無い。`retiredOn` を入れた新しい版を配信し、
+ * あわせて S-18 の一覧に跡を残す（30日以内は戻せる）。打刻・日次レコードは
+ * 改変できないため必ず残り、消えるのは配乗・当直・未完了タスクからの紐付けだけ。
+ */
+export async function retireCrewAction(
+  crewMemberId: string,
+  mode: "archive" | "delete",
+): Promise<{ ok: boolean; message: string }> {
+  const guard = await requireShore("edit_crew_master");
+  if (!guard.ok) return { ok: false, message: "船員マスタを更新する権限がありません" };
+
+  const current = crewMasterOf(crewMemberId);
+  if (!current) return { ok: false, message: "この船員のマスタが見つかりません" };
+  if (current.retiredOn) return { ok: false, message: `${current.name} はすでに無効化されています` };
+
+  try {
+    retireCrewMaster({ crewMemberId, actor: guard.staff.id });
+    recordDeletion({
+      entityKind: "船員",
+      entityId: crewMemberId,
+      entityLabel: `${current.name}（${current.position ?? "—"}）`,
+      mode,
+      action: mode === "delete" ? "登録を削除" : "退職として無効化",
+      effect: "打刻・労務記録は保存期間5年のため残ります",
+      actor: guard.staff.id,
+    });
+    revalidatePath("/shore/crew");
+    revalidatePath(`/shore/crew/${crewMemberId}`);
+    revalidatePath("/shore/manning");
+    revalidatePath("/shore/trash");
+    return {
+      ok: true,
+      message: `${current.name} を無効化しました（30日以内なら削除・アーカイブから戻せます）`,
+    };
+  } catch (e) {
+    return { ok: false, message: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+/**
+ * S-04 顔写真の保存。
+ *
+ * マスタの保存とは**別のアクション**にする。写真は別のエンティティ（`crew_photo`）で
+ * 持っているので、同じフォームから送っても書き込み先が違う。分けておくと
+ * 「住所を直したら写真の版も増える」ことが起きない。
+ */
+export async function saveCrewPhotoAction(
+  crewMemberId: string,
+  dataUrl: string,
+): Promise<{ ok: boolean; message: string }> {
+  const guard = await requireShore("edit_crew_master");
+  if (!guard.ok) return { ok: false, message: "顔写真を登録する権限がありません" };
+  try {
+    const saved = saveCrewPhoto({ crewMemberId, dataUrl, actor: guard.staff.id });
+    revalidatePath(`/shore/crew/${crewMemberId}`);
+    revalidatePath(`/shore/crew/${crewMemberId}/edit`);
+    revalidatePath("/shore/crew");
+    revalidatePath("/shore/manning");
+    if (!saved) return { ok: true, message: "顔写真は変わっていません" };
+    return {
+      ok: true,
+      message: dataUrl.trim() ? "顔写真を登録しました" : "顔写真を外しました",
+    };
+  } catch (e) {
+    return { ok: false, message: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+/* ═══════════════ 項目の追加・変更・削除（レビュー CREWEDIT-04） ═══════════════ */
+
+/**
+ * 「基本情報」などの枠に入力項目を足す・直す・外す（管理者だけ）。
+ * 欄の定義だけを扱い、船員マスタの値はこれまでどおり保存ボタンの経路で書く（12.3）。
+ */
+async function fieldActor(): Promise<string> {
+  const guard = await requireShore("edit_crew_master");
+  if (!guard.ok) throw new Error("項目を変更する権限がありません（管理者のみ）");
+  return guard.staff.id;
+}
+
+function revalidateCrewForms() {
+  revalidatePath("/shore/crew", "layout");
+}
+
+export async function addCrewFieldAction(input: CrewFieldInput): Promise<{ ok: boolean; message: string }> {
+  try {
+    const f = addCrewField(input, await fieldActor());
+    revalidateCrewForms();
+    return { ok: true, message: `「${f.label}」を追加しました` };
+  } catch (e) {
+    return { ok: false, message: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+export async function updateCrewFieldAction(
+  fieldKey: string,
+  input: CrewFieldInput,
+): Promise<{ ok: boolean; message: string }> {
+  try {
+    updateCrewField(fieldKey, input, await fieldActor());
+    revalidateCrewForms();
+    return { ok: true, message: "項目を変更しました" };
+  } catch (e) {
+    return { ok: false, message: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+export async function removeCrewFieldAction(fieldKey: string): Promise<{ ok: boolean; message: string }> {
+  try {
+    removeCrewField(fieldKey, await fieldActor());
+    revalidateCrewForms();
+    return { ok: true, message: "項目を外しました（入力済みの値は履歴に残ります）" };
+  } catch (e) {
+    return { ok: false, message: e instanceof Error ? e.message : String(e) };
   }
 }

@@ -7,6 +7,8 @@ import {
   SENSITIVE_CREW_FIELDS,
   type FieldChange,
 } from "@/lib/crew-master-diff";
+import { isSensitiveCategory, validateCustomFields } from "@/lib/crew-fields";
+import { ulid } from "@/lib/ids";
 import { carryOverFields } from "@/lib/master-fields";
 import { DEFAULT_CREDENTIAL_RULE_SET } from "@/rules/credential-rules";
 import type {
@@ -30,6 +32,7 @@ import {
   todayLocal,
   writeAuditLog,
 } from "./master-service";
+import { listCrewFields } from "./crew-field-service";
 
 /**
  * S-04 船員マスタ編集の業務サービス（要件定義書 3.1.1 / 3.1.3 / 12.2〜12.4 / 12.6）。
@@ -147,6 +150,28 @@ export interface CrewMasterFormInput {
     lastVerifiedOn?: string;
     verifyMethod?: InsuranceEntry["verifyMethod"];
   }[];
+  /** 管理者が足した項目の値（項目キー → 値。CREWEDIT-04） */
+  customFields?: Record<string, string>;
+}
+
+/** 足した項目の値を検査し、権限で見られない項目（健康の枠）は今の値を引き継ぐ */
+function mergeCustomFields(
+  current: Record<string, string> | undefined,
+  sent: Record<string, string> | undefined,
+  canEditSensitive: boolean,
+): { values: Record<string, string> | undefined; defs: { fieldKey: string; label: string; sensitive: boolean }[] } {
+  const fields = listCrewFields();
+  const checked = validateCustomFields(fields, sent ?? {}, canEditSensitive);
+  const out: Record<string, string> = { ...(current ?? {}) };
+  for (const f of fields) {
+    if (isSensitiveCategory(f.category) && !canEditSensitive) continue; // 見られない人の保存で消さない
+    if (checked[f.fieldKey] === undefined) delete out[f.fieldKey];
+    else out[f.fieldKey] = checked[f.fieldKey]!;
+  }
+  return {
+    values: Object.keys(out).length > 0 ? out : undefined,
+    defs: fields.map((f) => ({ fieldKey: f.fieldKey, label: f.label, sensitive: isSensitiveCategory(f.category) })),
+  };
 }
 
 export interface CrewMasterUpdateResult {
@@ -216,8 +241,10 @@ export function updateCrewMaster(input: {
     medication: input.canEditSensitive ? norm(f.medication) : current.medication,
     insurances,
   };
+  const custom = mergeCustomFields(current.customFields, f.customFields, input.canEditSensitive);
+  next.customFields = custom.values;
 
-  const changes = diffCrewMaster(current, next);
+  const changes = diffCrewMaster(current, next, custom.defs);
   if (changes.length === 0) throw new Error("変更された項目がありません");
 
   const published = publishMaster("crew_master", next, {
@@ -241,6 +268,75 @@ export function updateCrewMaster(input: {
   });
 
   return { published, changes };
+}
+
+/**
+ * 船員を新しく登録する（S-04 の「＋ 船員を登録」）。
+ *
+ * 更新と同じ1画面・同じフォームから行う（12.3 の「更新の導線は1つ」を、新規でも守る）。
+ * ID は氏名から作らず採番する。改姓・同姓同名で衝突しないようにするため。
+ */
+export function createCrewMaster(input: {
+  form: CrewMasterFormInput;
+  actor: string;
+  canEditSensitive: boolean;
+  now?: Date;
+}): { published: CrewMasterPayload; crewMemberId: string } {
+  const f = input.form;
+  if (!norm(f.name)) throw new Error("氏名を入力してください");
+  if (!norm(f.birthDate)) throw new Error("生年月日を入力してください");
+
+  const crewMemberId = `crew-${ulid().toLowerCase()}`;
+  const insurances: InsuranceEntry[] = INSURANCE_KINDS.map((kind) => {
+    const sent = f.insurances.find((i) => i.kind === kind);
+    const lastVerifiedOn = norm(sent?.lastVerifiedOn);
+    return {
+      kind,
+      number: norm(sent?.number),
+      acquiredOn: norm(sent?.acquiredOn),
+      lastVerifiedOn,
+      verifyMethod: sent?.verifyMethod,
+      verifiedBy: lastVerifiedOn ? input.actor : undefined,
+    };
+  });
+
+  const published = publishMaster(
+    "crew_master",
+    {
+      crewMemberId,
+      name: norm(f.name),
+      nameKana: norm(f.nameKana),
+      birthDate: norm(f.birthDate),
+      seamanBookNo: norm(f.seamanBookNo),
+      address: norm(f.address),
+      bloodType: norm(f.bloodType),
+      phone: norm(f.phone),
+      photo: norm(f.name)?.slice(0, 1),
+        position: norm(f.position),
+      employmentType: norm(f.employmentType),
+      hiredOn: norm(f.hiredOn),
+      emergencyContactName: norm(f.emergencyContactName),
+      emergencyContactRelation: norm(f.emergencyContactRelation),
+      emergencyContactPhone: norm(f.emergencyContactPhone),
+      familyNote: norm(f.familyNote),
+      medicalHistory: input.canEditSensitive ? norm(f.medicalHistory) : undefined,
+      medication: input.canEditSensitive ? norm(f.medication) : undefined,
+      insurances,
+      customFields: mergeCustomFields(undefined, f.customFields, input.canEditSensitive).values,
+    },
+    { vesselId: COMPANY_SCOPE_ID, actor: input.actor, now: input.now },
+  );
+
+  writeAuditLog({
+    action: "create",
+    entityKind: "crew_master",
+    entityId: crewMemberId,
+    actor: input.actor,
+    summary: `${norm(f.name)} を船員として登録`,
+    now: input.now,
+  });
+
+  return { published, crewMemberId };
 }
 
 /* ═══════════════ 資格・証書（12.4 鮮度管理の解消操作を含む） ═══════════════ */
@@ -363,5 +459,66 @@ export function logSensitiveView(input: {
     actor: input.actor,
     summary: `${input.crewName} の要配慮情報（既往歴・服薬状況）を ${input.screen} で表示`,
     now: input.now,
+  });
+}
+
+/**
+ * 船員を無効化する（退職・登録抹消。12.3 追記型）。
+ *
+ * 削除ではなく `retiredOn` を入れた**新しい版**を配信する。過去の打刻・日次レコード・
+ * 届出はそのまま残り、一覧・配乗の候補から外れるだけになる。
+ */
+export function retireCrewMaster(input: {
+  crewMemberId: string;
+  actor: string;
+  retiredOn?: string;
+  now?: Date;
+}): CrewMasterPayload {
+  const current = crewMasterOf(input.crewMemberId);
+  if (!current) throw new Error("この船員のマスタが見つかりません。画面を開き直してください");
+  if (current.retiredOn) throw new Error("この船員はすでに無効化されています");
+
+  const now = input.now ?? new Date();
+  const retiredOn = input.retiredOn ?? todayLocal(now);
+  const published = publishMaster(
+    "crew_master",
+    { ...carryOverFields(current as unknown as Record<string, unknown>), retiredOn },
+    { supersedesId: current.id, vesselId: COMPANY_SCOPE_ID, actor: input.actor, now },
+  );
+
+  writeAuditLog({
+    action: "update",
+    entityKind: "crew_master",
+    entityId: input.crewMemberId,
+    before: "在籍",
+    after: `無効化（${retiredOn}）`,
+    actor: input.actor,
+    summary: `${current.name} を退職・無効化した`,
+    now,
+  });
+  return published;
+}
+
+/** 無効化を取り消す（S-18 からの復元）。これも追記で表す */
+export function unretireCrewMaster(crewMemberId: string, actor: string, now = new Date()): void {
+  const current = crewMasterOf(crewMemberId);
+  if (!current || !current.retiredOn) return;
+  const fields = carryOverFields(current as unknown as Record<string, unknown>);
+  delete fields.retiredOn;
+  publishMaster("crew_master", fields, {
+    supersedesId: current.id,
+    vesselId: COMPANY_SCOPE_ID,
+    actor,
+    now,
+  });
+  writeAuditLog({
+    action: "update",
+    entityKind: "crew_master",
+    entityId: crewMemberId,
+    before: `無効化（${current.retiredOn}）`,
+    after: "在籍",
+    actor,
+    summary: `${current.name} の無効化を取り消した`,
+    now,
   });
 }

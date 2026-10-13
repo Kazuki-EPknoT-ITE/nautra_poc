@@ -1,5 +1,6 @@
 "use client";
 
+import { latestExcludingTrashed, trashedIdsOf } from "@/lib/trash";
 import { useEffect, useMemo, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import type { TimeRecord } from "@/domain/labor-law/types";
@@ -111,18 +112,29 @@ export function useNotices(): {
 } {
   const all = useRecords("notice");
   const ackAt = useLiveQuery(() => getMeta("noticeAckAt"), [], undefined);
+  const readRaw = useLiveQuery(() => getMeta("noticeReadIds"), [], undefined);
   return useMemo(() => {
     const notices = effectiveNotices(all);
-    return { notices, unread: unreadNotices(notices, ackAt), ackAt };
-  }, [all, ackAt]);
+    const readIds = new Set<string>(readRaw ? (JSON.parse(readRaw) as string[]) : []);
+    return { notices, unread: unreadNotices(notices, ackAt, readIds), ackAt };
+  }, [all, ackAt, readRaw]);
 }
 
 /** 有効なシフト計画（訂正で無効化されたものを除く）と変更通知の集計（V-08） */
 export function useShiftPlans() {
-  const all = useRecords("shift_plan");
+  const recorded = useRecords("shift_plan");
+  // 陸上の配置表で外した当直（S-18 のゴミ箱）は船内でも出さない
+  const trash = useRecords("trash_entry");
   const ackAt = useLiveQuery(() => getMeta("shiftAckAt"), [], undefined);
+  const rejectedRaw = useLiveQuery(() => getMeta("serverQuarantinedIds"), [], undefined);
   return useMemo(() => {
-    const effective = latestBySupersedes(all) as (ShiftPlanPayload & { kind: "shift_plan" })[];
+    // 陸上で受け付けられなかった計画（船長以外の記録とみなされた等）は、端末だけで有効にしない（SHIFT-04）
+    const rejectedIds = new Set<string>(rejectedRaw ? (JSON.parse(rejectedRaw) as string[]) : []);
+    const rejected = recorded.filter((p) => rejectedIds.has(p.id));
+    const removed = trashedIdsOf(trash, "当直シフト");
+    const accepted = recorded.filter((p) => !rejectedIds.has(p.id));
+    const effective = latestExcludingTrashed(accepted, removed) as (ShiftPlanPayload & { kind: "shift_plan" })[];
+    const all = accepted.filter((p) => !removed.has(p.id));
     const watches = effective.filter((p) => p.planType === "watch");
     const stations = effective.filter((p) => p.planType === "station");
     // 変更通知 = 既存計画を置き換えた配信。確認日時（端末状態）より新しいものを未読とする
@@ -133,8 +145,9 @@ export function useShiftPlans() {
     const byId = new Map(all.map((p) => [p.id, p]));
     // 自動解決不能な競合（同一原本を複数の変更が置き換えた分岐）。双方保持し「要確認」として提示（8.3）
     const conflicts = findSupersedeConflicts(all);
-    return { all, watches, stations, changes, unread, byId, ackAt, conflicts };
-  }, [all, ackAt]);
+    const conflictIds = new Set(conflicts.flatMap((c) => c.candidates.map((x) => x.id)));
+    return { all, watches, stations, changes, unread, byId, ackAt, conflicts, conflictIds, rejected };
+  }, [recorded, trash, ackAt, rejectedRaw]);
 }
 
 /** 端末内の競合件数（supersedes 分岐）= 船内記録・シフト計画の全種別を対象に算出 */
@@ -209,4 +222,35 @@ export function useNowTick(intervalMs = 30_000): Date {
     return () => clearInterval(timer);
   }, [intervalMs]);
   return now;
+}
+
+/**
+ * 配信済みの船員マスタから顔写真を引く（共用端末は「顔で選ぶ」ほうが速い）。
+ * 未配信・未登録なら undefined を返し、画面は頭文字の枠で描く。
+ */
+export function useCrewPhotos(): Map<string, string> {
+  const rows = useRecords("crew_photo");
+  return useMemo(() => {
+    const map = new Map<string, string>();
+    // 同じ船員の版が複数届いていても、いちばん新しい1件だけを使う
+    for (const r of latestBySupersedes(rows)) {
+      if (!r.removed && r.dataUrl) map.set(r.crewMemberId, r.dataUrl);
+    }
+    return map;
+  }, [rows]);
+}
+
+/**
+ * 自分に割り当てられた、まだ終わっていない作業（作業指示。レビュー PUNCH-05）。
+ * 陸上・船長が割り当てたものが同期で届く。外された作業（ゴミ箱）は出さない。期限の早い順。
+ */
+export function useMyTasks(crewMemberId: string) {
+  const tasks = useRecords("work_task");
+  const trash = useRecords("trash_entry");
+  return useMemo(() => {
+    const removed = trashedIdsOf(trash, "作業タスク");
+    return latestBySupersedes(tasks)
+      .filter((t) => t.assigneeCrewId === crewMemberId && t.state !== "done" && !removed.has(t.id))
+      .sort((a, b) => (a.dueAt ?? "9999").localeCompare(b.dueAt ?? "9999"));
+  }, [tasks, trash, crewMemberId]);
 }
