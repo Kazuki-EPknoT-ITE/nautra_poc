@@ -316,7 +316,10 @@
   セッションは端末内（IndexedDB meta）にのみ保持する（基本設計書 11.3。通信断でも成立）。
   実装は `src/lib/vessel-session.ts` と `/vessel/login`、ガードは `(vessel)/vessel/layout.tsx`。
 - 権限判定は `src/domain/authz/roles.ts` の表が唯一の情報源。画面に条件分岐を散らさず、
-  `usePermission()` / `PermissionGate` / `ReadOnlyNote`（`_components/permission-gate.tsx`）経由で使う。
+  `usePermission()` / `PermissionGate`（`_components/permission-gate.tsx`）経由で使う。
+  **書けない人には記録の入口を出さない**（レビュー 0-9・利用者の指摘）。「🔒 参照のみ」の案内（旧 `ReadOnlyNote`）は置かない。
+  航海日誌は書けない人（甲板部員・機関長）には「記録する」タブを出さず過去の日誌だけ。点検・保守は出港前点検などを全員が書けるのでタブは残し、
+  機器の保守を書けない人には機器の札を押せない「機器の状態」として見せる。
 - ロールと主な差分（基本設計書 11.2 の権限マトリクスを船内画面に展開）:
   - 船長 captain: 全機能 + 日次労務の承認・差戻し + 対象船員の切替（他船員の参照）
   - 航海士 deck_officer: 航海日誌の記入。保守記録は参照のみ

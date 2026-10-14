@@ -216,7 +216,17 @@ check(
   const w = ledgerText.indexOf("働いた時間");
   check("船内: 労働は「まとめて見る」をいちばん上に置き、その下に判定と残り時間", firstRegion === "まとめて見る" && m >= 0 && m < w, String(firstRegion));
 }
-check("船内: 作業ごとの時間の下に合計が出る（説明の文は置かない。レビュー WORK-05）", /合計/.test(ledgerText) && !/名前を押すと/.test(ledgerText));
+{
+  // 内訳は今日の労働が1分以上あるときだけ出る（日付が変わった直後は、打ったばかりの打刻しかなく 0 分）
+  const breakdown = v.getByRole("region", { name: "作業種別ごとの内訳" });
+  const shown = (await breakdown.count()) > 0;
+  const bdText = shown ? await breakdown.innerText() : "";
+  check(
+    "船内: 作業ごとの時間の下に合計が出る（説明の文は置かない。レビュー WORK-05）",
+    (!shown || /合計/.test(bdText)) && !/名前を押すと/.test(ledgerText),
+    shown ? "内訳あり" : "今日の労働が0分のため内訳なし",
+  );
+}
 
 // 航海日誌: 「日誌を記録する」で書き、「過去の日誌」でキーワードと期間で探せる（レビュー LOG-02/03）
 await v.goto(`${BASE}/vessel/logbook`, { waitUntil: "networkidle" });
@@ -270,6 +280,36 @@ if (await syncBtn.count()) {
   await v.waitForTimeout(2500);
 }
 check("船内: 同期を実行できる", true);
+
+// 書けない人には記録の入口を出さない（レビュー 0-9）: 甲板員は航海日誌を見るだけ、機器の保守は状態を見るだけ
+{
+  const rCtx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const rp = await rCtx.newPage();
+  await rp.goto(`${BASE}/vessel/login`, { waitUntil: "networkidle" });
+  await rp.getByRole("radio", { name: /大城/ }).click();
+  for (const d of ["4", "4", "4", "4"]) await rp.getByRole("button", { name: d, exact: true }).click();
+  await rp.waitForURL(`${BASE}/vessel`, { timeout: 30000 });
+  await rp.goto(`${BASE}/vessel/logbook`, { waitUntil: "networkidle" });
+  await rp.waitForTimeout(800);
+  const logText = await rp.locator("main").innerText();
+  const logTabs = await rp.getByRole("tab", { name: /日誌を記録する/ }).count();
+  const logTiles = await rp.getByRole("button", { name: /特記事項|出港|入港/ }).count();
+  const logSearch = await rp.getByRole("searchbox", { name: "キーワード" }).count();
+  check(
+    "船内: 甲板員の航海日誌は過去の日誌だけ（記録のタブ・入口・「参照のみ」の案内を出さない）",
+    logTabs === 0 && logTiles === 0 && logSearch === 1 && !/参照のみ|権限がありません/.test(logText),
+  );
+  await rp.goto(`${BASE}/vessel/maintenance`, { waitUntil: "networkidle" });
+  await rp.waitForTimeout(800);
+  const mText = await rp.locator("main").innerText();
+  const eqButtons = await rp.getByRole("region", { name: "機器別の最新状態" }).getByRole("button").count();
+  check(
+    "船内: 甲板員の点検は出港前点検などを記録でき、機器は状態を見るだけ（押せる札にしない）",
+    (await rp.getByRole("tab", { name: /点検を記録する/ }).count()) === 1 && eqButtons === 0 && /機器の状態/.test(mText) && !/参照のみ/.test(mText),
+    `機器のボタン ${eqButtons}`,
+  );
+  await rCtx.close();
+}
 
 // 船内承認（船長）: 「承認待ち」と「承認済み」に分かれ、承認すると承認済みへ移る（レビュー APPR-04）
 {

@@ -36,7 +36,6 @@ import {
   usePastList,
   type RecordMode,
 } from "../_components/record-mode";
-import { ReadOnlyNote } from "../_components/permission-gate";
 import { isFilterActive } from "@/lib/record-filter";
 
 const WEATHER = ["晴", "曇", "雨", "霧", "雪", "雷雨"];
@@ -115,7 +114,9 @@ export default function LogbookPage() {
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
 
-  const [mode, setMode] = useState<RecordMode>("record");
+  const [pickedMode, setMode] = useState<RecordMode>("record");
+  // 書けない人（甲板部員・機関長）には記録の入口を出さず、過去の日誌だけを見せる（レビュー 0-9: 権限のないものは出さない）
+  const mode: RecordMode = canWrite ? pickedMode : "past";
   const effective = useMemo(() => latestBySupersedes(logs), [logs]);
   // 過去の日誌は期間とキーワードで探す（レビュー LOG-03）。種別・港・船位・海象・特記・追加項目・記録者が対象
   const past = usePastList(
@@ -283,7 +284,9 @@ export default function LogbookPage() {
   return (
     <div className="flex flex-col gap-4">
       <GroupHeader group="03" />
-      <RecordModeTabs mode={mode} onChange={setMode} recordLabel="日誌を記録する" pastLabel="過去の日誌" />
+      {canWrite ? (
+        <RecordModeTabs mode={mode} onChange={setMode} recordLabel="日誌を記録する" pastLabel="過去の日誌" />
+      ) : null}
 
       {done ? (
         <Chip variant="flat" radius="sm" className="h-auto whitespace-normal py-1">
@@ -291,7 +294,7 @@ export default function LogbookPage() {
         </Chip>
       ) : null}
 
-      {mode === "record" && canWrite ? (
+      {mode === "record" ? (
       <>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         {VOYAGE_LOG_TYPES.map((lt) => {
@@ -317,9 +320,6 @@ export default function LogbookPage() {
         </Button>
       ) : null}
       </>
-      ) : null}
-      {mode === "record" && !canWrite ? (
-        <ReadOnlyNote note="航海日誌の記入は船長・航海士が行います。" />
       ) : null}
 
       {mode === "past" ? (

@@ -27,7 +27,6 @@ import { useModalProps } from "@/ui";
 import { Button, Card, CardBody, Chip, Input, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, Radio, RadioGroup, Textarea, useDisclosure } from "@/ui/heroui";
 import { ChecklistResultRow, ChecklistSection } from "../_components/checklist-section";
 import { GroupHeader } from "../_components/group-header";
-import { ReadOnlyNote } from "../_components/permission-gate";
 import {
   PastEmpty,
   PastFilterBar,
@@ -188,18 +187,18 @@ export default function MaintenancePage() {
       {/* 船の点検表（出港前点検・安全パトロール）。項目は上司・陸上から配信される */}
       <ChecklistSection onDone={setDone} />
 
-      <h2 className="text-base font-bold text-foreground-600">機器の日常点検・保守</h2>
-      {canWrite ? null : <ReadOnlyNote note="機器の日常点検・保守の記録は船長・機関長が行います。" />}
+      <h2 className="text-base font-bold text-foreground-600">{canWrite ? "機器の日常点検・保守" : "機器の状態"}</h2>
 
       <section aria-label="機器別の最新状態" className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         {EQUIPMENT_KINDS.map((eq) => {
           const latest = latestMap.get(eq);
           const style = latest ? COND_STYLE[latest.condition] : null;
+          // 書けない人には押せる見た目にしない（押しても何も起きないボタンを置かない）
+          const Tag = canWrite ? "button" : "div";
           return (
-            <button
+            <Tag
               key={eq}
-              type="button"
-              onClick={() => open(eq)}
+              {...(canWrite ? { type: "button" as const, onClick: () => open(eq) } : {})}
               className={cn(
                 "ui-card flex min-h-24 flex-col items-start gap-1 border-2 p-3 text-left",
                 latest?.condition === "defect"
@@ -222,7 +221,7 @@ export default function MaintenancePage() {
               ) : (
                 <span className="text-xs text-foreground-600">記録なし</span>
               )}
-            </button>
+            </Tag>
           );
         })}
       </section>
