@@ -23,7 +23,7 @@ import { RecordTile } from "../_components/record-tile";
 import {
   PastEmpty,
   PastFilterBar,
-  RecordModeTabs,
+  RecordModeSwitch,
   ShowMoreButton,
   usePastList,
   type RecordMode,
@@ -155,7 +155,7 @@ export default function SafetyPage() {
       <GroupHeader group="05" subtitle="操練・検知" />
       <SubTabs label="安全の切り替え" items={SAFETY_SUB_TABS} />
 
-      <RecordModeTabs mode={mode} onChange={setMode} recordLabel="記録する" pastLabel="過去の記録" />
+      <RecordModeSwitch mode={mode} onChange={setMode} pastLabel="過去の記録" />
 
       {done ? (
         <Chip variant="flat" radius="sm" className="h-auto whitespace-normal py-1">

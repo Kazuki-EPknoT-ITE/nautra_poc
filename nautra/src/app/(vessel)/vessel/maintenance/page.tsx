@@ -26,11 +26,12 @@ import {
 import { useModalProps } from "@/ui";
 import { Button, Card, CardBody, Chip, Input, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, Radio, RadioGroup, Textarea, useDisclosure } from "@/ui/heroui";
 import { ChecklistResultRow, ChecklistSection } from "../_components/checklist-section";
+import { RecordMark } from "../_components/record-tile";
 import { GroupHeader } from "../_components/group-header";
 import {
   PastEmpty,
   PastFilterBar,
-  RecordModeTabs,
+  RecordModeSwitch,
   ShowMoreButton,
   usePastList,
   type RecordMode,
@@ -174,7 +175,7 @@ export default function MaintenancePage() {
         }
       />
 
-      <RecordModeTabs mode={mode} onChange={setMode} recordLabel="点検を記録する" pastLabel="過去の点検" />
+      <RecordModeSwitch mode={mode} onChange={setMode} pastLabel="過去の点検" />
 
       {done ? (
         <Chip variant="flat" radius="sm" className="h-auto whitespace-normal py-1">
@@ -200,14 +201,18 @@ export default function MaintenancePage() {
               key={eq}
               {...(canWrite ? { type: "button" as const, onClick: () => open(eq) } : {})}
               className={cn(
-                "ui-card flex min-h-24 flex-col items-start gap-1 border-2 p-3 text-left",
+                "ui-card relative flex min-h-24 flex-col items-start gap-1 border-2 p-3 text-left",
+                canWrite && "record-tile pr-14",
                 latest?.condition === "defect"
-                  ? "border-danger"
+                  ? "!border-danger"
                   : latest?.condition === "attention"
-                    ? "border-warning"
-                    : "border-transparent",
+                    ? "!border-warning"
+                    : canWrite
+                      ? null
+                      : "border-transparent",
               )}
             >
+              {canWrite ? <RecordMark className="absolute right-2 top-2" /> : null}
               <span className="text-balance font-bold leading-tight">{tr("equipment", eq)}</span>
               {latest && style ? (
                 <>

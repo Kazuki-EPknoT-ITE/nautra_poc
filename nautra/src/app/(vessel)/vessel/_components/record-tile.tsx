@@ -23,20 +23,34 @@ export function RecordTile({
   onPress: () => void;
   disabled?: boolean;
 }) {
+  // 押すと記録が始まることを、輪郭とブロンズの「＋」の印で見せる（利用者の指摘 2026-10-14:
+  // 札がただの表示に見え、上の切り替えを押して入力を探していた）
   return (
     <button
       type="button"
       onClick={onPress}
       disabled={disabled}
       className={cn(
-        "ui-card flex flex-col justify-center gap-1 border-2 border-transparent p-4",
-        icon ? "min-h-[160px] items-center text-center" : "min-h-20 items-start text-left",
+        "ui-card record-tile relative flex gap-3 p-4",
+        icon ? "min-h-[160px] flex-col items-center justify-center text-center" : "min-h-20 items-center text-left",
         disabled && "opacity-50",
       )}
     >
       {icon ? <LineIcon name={icon} size={56} className="mb-1 text-primary" /> : null}
-      <span className={cn("font-bold leading-tight", icon ? "text-xl" : "text-lg")}>{label}</span>
-      {sublabel ? <span className="text-sm text-foreground-600">{sublabel}</span> : null}
+      <span className={cn("flex min-w-0 flex-col gap-1", !icon && "flex-1")}>
+        <span className={cn("text-balance font-bold leading-tight", icon ? "text-xl" : "text-lg")}>{label}</span>
+        {sublabel ? <span className="text-sm text-foreground-600">{sublabel}</span> : null}
+      </span>
+      <RecordMark className={icon ? "absolute right-2 top-2" : undefined} />
     </button>
+  );
+}
+
+/** 記録を始める札の印（ブロンズの輪郭の中に「＋」）。機器の札など RecordTile 以外の入口にも付ける */
+export function RecordMark({ className }: { className?: string }) {
+  return (
+    <span aria-hidden="true" className={cn("record-mark", className)}>
+      <LineIcon name="plus" size={20} />
+    </span>
   );
 }

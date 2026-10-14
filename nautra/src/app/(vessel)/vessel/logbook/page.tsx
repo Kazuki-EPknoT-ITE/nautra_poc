@@ -31,7 +31,7 @@ import { RecordTile } from "../_components/record-tile";
 import {
   PastEmpty,
   PastFilterBar,
-  RecordModeTabs,
+  RecordModeSwitch,
   ShowMoreButton,
   usePastList,
   type RecordMode,
@@ -285,7 +285,7 @@ export default function LogbookPage() {
     <div className="flex flex-col gap-4">
       <GroupHeader group="03" />
       {canWrite ? (
-        <RecordModeTabs mode={mode} onChange={setMode} recordLabel="日誌を記録する" pastLabel="過去の日誌" />
+        <RecordModeSwitch mode={mode} onChange={setMode} pastLabel="過去の日誌" />
       ) : null}
 
       {done ? (

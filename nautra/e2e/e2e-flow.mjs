@@ -180,7 +180,7 @@ await v.waitForTimeout(600);
 await v.goto(`${BASE}/vessel/work`, { waitUntil: "networkidle" });
 check("船内: 作業記録の入口は絵のタイル（4つ）", (await v.locator("main button svg").count()) >= 4);
 // 過去の記録の待機時間（レビュー TASKREC-02・photo_6）: 文の説明を置かず、絵と数字と7日の棒で
-await v.getByRole("tab", { name: /過去の記録/ }).click().catch(() => v.getByRole("button", { name: /過去の記録/ }).click());
+await v.getByRole("button", { name: /過去の記録を見る/ }).click();
 await v.waitForTimeout(400);
 {
   const card = v.getByRole("region", { name: /スタンバイ待機時間/ });
@@ -228,9 +228,16 @@ check(
   );
 }
 
-// 航海日誌: 「日誌を記録する」で書き、「過去の日誌」でキーワードと期間で探せる（レビュー LOG-02/03）
+// 航海日誌: 記録の札で書き、「過去の日誌を見る」でキーワードと期間で探せる（レビュー LOG-02/03）
 await v.goto(`${BASE}/vessel/logbook`, { waitUntil: "networkidle" });
 await v.waitForTimeout(600);
+// 記録を始めるのは札だけ。「記録する／過去」の塗りのタブは置かない（利用者の指摘 2026-10-14: タブを押して入力を探していた）
+check(
+  "船内: 日誌の記録は札から始め、記録する／過去のタブを置かない",
+  (await v.locator("main").getByRole("tab").count()) === 0 &&
+    (await v.getByRole("button", { name: /^出港/ }).count()) === 1 &&
+    (await v.getByRole("button", { name: /過去の日誌を見る/ }).count()) === 1,
+);
 const remarkWord = `E2E特記${Date.now()}`;
 await v.getByRole("button", { name: /特記事項/ }).first().click();
 await v.getByLabel(/特記事項（海難/).fill(remarkWord);
@@ -238,14 +245,19 @@ await v.getByRole("button", { name: /^記録する$/ }).click();
 await v.waitForTimeout(800);
 const logRecordText = await v.locator("main").innerText();
 check(
-  "船内: 日誌を記録するタブには過去の一覧を出さない",
+  "船内: 日誌の記録の面には過去の一覧を出さない",
   /特記事項 を記録しました/.test(logRecordText) && !/訂正記録を追記/.test(logRecordText),
 );
-await v.getByRole("tab", { name: /過去の日誌/ }).click();
+await v.getByRole("button", { name: /過去の日誌を見る/ }).click();
 await v.getByRole("searchbox", { name: "キーワード" }).fill(remarkWord);
 await v.waitForTimeout(400);
 const logPastText = await v.locator("main").innerText();
 check("船内: 過去の日誌をキーワードで探せる", logPastText.includes(remarkWord) && /\b1件/.test(logPastText));
+await v.getByRole("button", { name: /記録に戻る/ }).click();
+check("船内: 過去の日誌から「記録に戻る」で記録の札へ戻れる", (await v.getByRole("button", { name: /^特記事項/ }).count()) === 1);
+await v.getByRole("button", { name: /過去の日誌を見る/ }).click();
+await v.getByRole("searchbox", { name: "キーワード" }).fill(remarkWord);
+await v.waitForTimeout(400);
 const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 const yesterday = new Date(Date.now() - 86400000);
 await v.getByLabel("いつまで").fill(ymd(yesterday));
@@ -292,7 +304,7 @@ check("船内: 同期を実行できる", true);
   await rp.goto(`${BASE}/vessel/logbook`, { waitUntil: "networkidle" });
   await rp.waitForTimeout(800);
   const logText = await rp.locator("main").innerText();
-  const logTabs = await rp.getByRole("tab", { name: /日誌を記録する/ }).count();
+  const logTabs = await rp.getByRole("button", { name: /過去の日誌を見る|記録に戻る/ }).count();
   const logTiles = await rp.getByRole("button", { name: /特記事項|出港|入港/ }).count();
   const logSearch = await rp.getByRole("searchbox", { name: "キーワード" }).count();
   check(
@@ -305,7 +317,7 @@ check("船内: 同期を実行できる", true);
   const eqButtons = await rp.getByRole("region", { name: "機器別の最新状態" }).getByRole("button").count();
   check(
     "船内: 甲板員の点検は出港前点検などを記録でき、機器は状態を見るだけ（押せる札にしない）",
-    (await rp.getByRole("tab", { name: /点検を記録する/ }).count()) === 1 && eqButtons === 0 && /機器の状態/.test(mText) && !/参照のみ/.test(mText),
+    (await rp.getByRole("button", { name: /過去の点検を見る/ }).count()) === 1 && eqButtons === 0 && /機器の状態/.test(mText) && !/参照のみ/.test(mText),
     `機器のボタン ${eqButtons}`,
   );
   await rCtx.close();

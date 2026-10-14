@@ -24,7 +24,7 @@ import { RecordTile } from "../_components/record-tile";
 import {
   PastEmpty,
   PastFilterBar,
-  RecordModeTabs,
+  RecordModeSwitch,
   ShowMoreButton,
   usePastList,
   type RecordMode,
@@ -210,7 +210,7 @@ export default function WorkPage() {
   return (
     <div className="flex flex-col gap-4">
       <GroupHeader group="05" subtitle="作業・待機" />
-      <RecordModeTabs mode={mode} onChange={setMode} recordLabel="作業を記録する" pastLabel="過去の記録" />
+      <RecordModeSwitch mode={mode} onChange={setMode} pastLabel="過去の記録" />
 
       {done ? (
         <Chip variant="flat" radius="sm" className="h-auto whitespace-normal py-1">

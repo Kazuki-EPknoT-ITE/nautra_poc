@@ -15,7 +15,10 @@ export type LineIconName =
   | "rest"
   | "fuel"
   | "handover"
-  | "calendar";
+  | "calendar"
+  | "plus"
+  | "list"
+  | "back";
 
 const PATHS: Record<LineIconName, React.ReactNode> = {
   // 舵輪（航海当直）
@@ -76,6 +79,12 @@ const PATHS: Record<LineIconName, React.ReactNode> = {
       <path d="M8 14h2M14 14h2M8 17.5h2" />
     </>
   ),
+  // 足す（記録を始める札の印）
+  plus: <path d="M12 5v14M5 12h14" />,
+  // 綴じた記録の並び（過去の記録を見る）
+  list: <path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01" />,
+  // 戻る
+  back: <path d="M15 5l-7 7 7 7" />,
 };
 
 export function LineIcon({ name, size = 32, className }: { name: LineIconName; size?: number; className?: string }) {
