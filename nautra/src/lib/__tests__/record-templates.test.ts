@@ -167,10 +167,10 @@ describe("航海日誌の項目を自由に直す（足す・直す・外す・�
   });
 
   it("空の項目名・重なる項目名・選択肢が2つ未満は配信しない", () => {
-    expect(() => buildTemplateRevision({ ...common, template: base, items: [{ label: " ", inputType: "text" }] })).toThrow("項目名が空");
+    expect(() => buildTemplateRevision({ ...common, template: base, items: [{ label: " ", inputType: "text" }] })).toThrow("項目名が入っていない行");
     expect(() =>
       buildTemplateRevision({ ...common, template: base, items: [{ label: "A", inputType: "text" }, { label: "A", inputType: "number" }] }),
-    ).toThrow("重なっています");
+    ).toThrow("項目名が2つあります");
     expect(() =>
       buildTemplateRevision({ ...common, template: base, items: [{ label: "風向", inputType: "choice", options: ["北"] }] }),
     ).toThrow("2つ以上");
@@ -197,9 +197,9 @@ describe("航海日誌の項目を自由に直す（足す・直す・外す・�
       { key: "draft", label: "喫水", group: "出港", inputType: "choice" as const, options: ["満載", "空船"], required: true },
       { key: "lines", label: "係留索解放", group: "出港", inputType: "time" as const, required: false },
     ];
-    expect(() => collectTemplateValues(items, { draft: "満載" })).toThrow("燃料残量"); // 旧版の数値は必須のまま
-    expect(() => collectTemplateValues(items, { fuel: "abc", draft: "満載" })).toThrow("数値");
-    expect(() => collectTemplateValues(items, { fuel: "12", draft: "半載" })).toThrow("選択肢");
+    expect(() => collectTemplateValues(items, { draft: "満載" })).toThrow("「燃料残量」が空欄です"); // 旧版の数値は必須のまま
+    expect(() => collectTemplateValues(items, { fuel: "abc", draft: "満載" })).toThrow("数字を入れてください");
+    expect(() => collectTemplateValues(items, { fuel: "12", draft: "半載" })).toThrow("選べる答えの中から");
     const out = collectTemplateValues(items, { fuel: "12.5", draft: "満載", lines: "08:30" });
     expect(out.map((v) => [v.key, v.value])).toEqual([
       ["fuel", 12.5],

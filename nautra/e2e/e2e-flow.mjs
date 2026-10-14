@@ -239,7 +239,7 @@ check(
     (await v.getByRole("button", { name: /過去の日誌を見る/ }).count()) === 1,
 );
 // 項目・種類を作れるのは船長だけ（航海士は記録はできるが、作る札は出ない）
-check("船内: 航海士には「記録の種類を作る」の札を出さない", (await v.getByRole("button", { name: /記録の種類を作る/ }).count()) === 0);
+check("船内: 航海士には「日誌の種類を増やす」の札を出さない", (await v.getByRole("button", { name: /日誌の種類を増やす/ }).count()) === 0);
 const remarkWord = `E2E特記${Date.now()}`;
 await v.getByRole("button", { name: /特記事項/ }).first().click();
 await v.getByLabel(/特記事項（海難/).fill(remarkWord);
@@ -369,33 +369,33 @@ check("船内: 同期を実行できる", true);
   await cp.goto(`${BASE}/vessel/logbook`, { waitUntil: "networkidle" });
   await cp.waitForTimeout(800);
   const typeName = `E2E種類${Date.now() % 100000}`;
-  await cp.getByRole("button", { name: /記録の種類を作る/ }).click();
-  await cp.getByLabel("名前").fill(typeName);
-  await cp.getByRole("button", { name: "作って項目を足す" }).click();
+  await cp.getByRole("button", { name: /日誌の種類を増やす/ }).click();
+  await cp.getByLabel("種類の名前").fill(typeName);
+  await cp.getByRole("button", { name: "作って記録する項目を決める" }).click();
   const dlg = cp.getByRole("dialog");
-  const editor = dlg.getByRole("region", { name: "記録項目の編集" });
+  const editor = dlg.getByRole("region", { name: "記録する項目の編集" });
   await editor.waitFor({ timeout: 5000 });
-  await editor.getByLabel("1番目の項目名").fill("到着時刻");
-  await editor.getByRole("radio", { name: "時刻" }).first().click();
-  await editor.getByLabel("必須").first().check();
-  await editor.getByRole("button", { name: "項目を足す" }).click();
-  await editor.getByLabel("2番目の項目名").fill("天気");
-  await editor.getByRole("radio", { name: "選択肢" }).nth(1).click();
-  await editor.getByLabel("選択肢", { exact: true }).fill("晴、雨");
-  await editor.getByRole("button", { name: "項目を配信する" }).click();
+  await editor.getByLabel("1つ目の項目名").fill("到着時刻");
+  await editor.getByRole("radio", { name: "時刻を入れる" }).first().click();
+  await editor.getByLabel(/空欄では記録できないようにする/).first().check();
+  await editor.getByRole("button", { name: "項目をもう1つ増やす" }).click();
+  await editor.getByLabel("2つ目の項目名").fill("天気");
+  await editor.getByRole("radio", { name: "選んで答える" }).nth(1).click();
+  await editor.getByLabel("選べる答え").fill("晴、雨");
+  await editor.getByRole("button", { name: "この内容で保存する" }).click();
   await cp.waitForTimeout(800);
   check(
     "船内: 作った種類の入力画面の中で、時刻・選択肢の項目を足すとその場で入力欄になる",
-    (await dlg.getByRole("region", { name: "記録項目の編集" }).count()) === 0 &&
+    (await dlg.getByRole("region", { name: "記録する項目の編集" }).count()) === 0 &&
       (await dlg.getByLabel("到着時刻").count()) === 1 &&
       (await dlg.getByRole("radio", { name: "雨" }).count()) === 1,
   );
-  await dlg.getByRole("button", { name: "記録する" }).click();
+  await dlg.getByRole("button", { name: "記録する", exact: true }).click();
   await cp.waitForTimeout(300);
-  check("船内: 必須の項目が空欄なら記録しない", /「到着時刻」を入力してください/.test(await dlg.innerText()));
+  check("船内: 必須の項目が空欄なら記録しない（何が空欄で、どうすればよいかを出す）", /「到着時刻」が空欄です。入れてから記録してください/.test(await dlg.innerText()));
   await dlg.getByLabel("到着時刻").fill("09:15");
   await dlg.getByRole("radio", { name: "晴" }).click();
-  await dlg.getByRole("button", { name: "記録する" }).click();
+  await dlg.getByRole("button", { name: "記録する", exact: true }).click();
   await cp.waitForTimeout(800);
   check("船内: 作った種類で記録できる", new RegExp(`${typeName} を記録しました`).test(await cp.locator("main").innerText()));
   await cp.getByRole("button", { name: /過去の日誌を見る/ }).click();
@@ -405,14 +405,14 @@ check("船内: 同期を実行できる", true);
   check("船内: 作った種類の記録が過去の日誌に項目つきで出る", customPast.includes(typeName) && /到着時刻: 09:15/.test(customPast) && /天気: 晴/.test(customPast));
   await cp.getByRole("button", { name: /記録に戻る/ }).click();
   await cp.getByRole("button", { name: new RegExp(`^${typeName}`) }).click();
-  await dlg.getByRole("button", { name: "項目を直す・外す・並べ替える" }).click();
-  await dlg.getByRole("button", { name: "この種類をしまう" }).click();
-  await dlg.getByRole("button", { name: "しまう", exact: true }).click();
+  await dlg.getByRole("button", { name: "項目を編集する" }).click();
+  await dlg.getByRole("button", { name: "この種類を使わなくする" }).click();
+  await dlg.getByRole("button", { name: "使わなくする", exact: true }).click();
   await cp.waitForTimeout(800);
   check(
-    "船内: しまった種類は札が消え、過去の記録は残る",
+    "船内: 使わなくした種類は札が消え、過去の記録は残る",
     (await cp.getByRole("button", { name: new RegExp(`^${typeName}`) }).count()) === 0 &&
-      /をしまいました/.test(await cp.locator("main").innerText()),
+      /を使わなくしました/.test(await cp.locator("main").innerText()),
   );
   // しまった版がサーバへ届くのを待つ（送る前に閉じると、テストで作った種類がほかの端末に札として残る）
   const serverRetired = async () => {
@@ -432,7 +432,7 @@ check("船内: 同期を実行できる", true);
     await cp.waitForTimeout(500);
     retiredOnServer = await serverRetired().catch(() => false);
   }
-  check("船内: しまった種類は陸上（サーバ）にも届く", retiredOnServer);
+  check("船内: 使わなくした種類は陸上（サーバ）にも届く", retiredOnServer);
   await capCtx.close();
 }
 

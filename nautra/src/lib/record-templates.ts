@@ -209,20 +209,20 @@ export interface ReviseTemplateInput {
 export function buildTemplateRevision(input: ReviseTemplateInput): RecordTemplatePayload {
   const now = input.now ?? new Date();
   const name = input.name?.trim() ?? input.template.name;
-  if (!name) throw new Error("記録の種類の名前を入力してください");
+  if (!name) throw new Error("種類の名前を入れてください");
   const labels = new Set<string>();
   let n = 0;
   const items: TemplateItem[] = input.items.map((d) => {
     const label = d.label.trim();
-    if (!label) throw new Error("項目名が空の行があります");
-    if (labels.has(label)) throw new Error(`項目名「${label}」が重なっています`);
+    if (!label) throw new Error("項目名が入っていない行があります。項目名を入れるか、「この項目を外す」で消してください");
+    if (labels.has(label)) throw new Error(`「${label}」という項目名が2つあります。どちらかの名前を変えてください`);
     labels.add(label);
     // 新しい項目の key は版の ID（ULID）から作る。項目数から作ると、外した項目の key が後で別の項目に
     // 付き直し、古い記録を訂正したときに古い値が別の項目へ入ってしまう（sync-reviewer の指摘）。
     // 船長と陸上が同じ版へ同時に足しても重ならない
     const key = d.key ?? `item_${input.id.slice(-10).toLowerCase()}_${++n}`;
     const options = d.inputType === "choice" ? (d.options ?? []).map((o) => o.trim()).filter(Boolean) : undefined;
-    if (options && new Set(options).size < 2) throw new Error(`「${label}」の選択肢を2つ以上入力してください`);
+    if (options && new Set(options).size < 2) throw new Error(`「${label}」の選べる答えを「、」で区切って2つ以上入れてください`);
     return {
       key,
       label,
@@ -278,19 +278,19 @@ export function collectTemplateValues(items: TemplateItem[], raw: Record<string,
       continue;
     }
     if (!v) {
-      if (isItemRequired(it)) throw new Error(`「${it.label}」を入力してください`);
+      if (isItemRequired(it)) throw new Error(`「${it.label}」が空欄です。入れてから記録してください`);
       continue;
     }
     if (it.inputType === "number") {
       const n = parseOptionalNumber(v);
-      if (n === undefined) throw new Error(`「${it.label}」に数値を入力してください`);
+      if (n === undefined) throw new Error(`「${it.label}」には数字を入れてください`);
       out.push({ ...base, result: "na", value: n, unit: it.unit });
       continue;
     }
     if (it.inputType === "choice" && it.options && !it.options.includes(v)) {
-      throw new Error(`「${it.label}」は選択肢から選んでください`);
+      throw new Error(`「${it.label}」は選べる答えの中から選んでください`);
     }
-    if (it.inputType === "time" && !/^\d{2}:\d{2}$/.test(v)) throw new Error(`「${it.label}」に時刻を入力してください`);
+    if (it.inputType === "time" && !/^\d{2}:\d{2}$/.test(v)) throw new Error(`「${it.label}」には時刻を入れてください`);
     out.push({ ...base, result: "na", value: v });
   }
   return out;

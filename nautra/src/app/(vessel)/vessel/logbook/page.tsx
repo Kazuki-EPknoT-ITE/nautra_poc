@@ -138,7 +138,7 @@ export default function LogbookPage() {
   const [extra, setExtra] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
-  /** 入力画面の中で項目を編集しているか（「＋ 項目を足す」から開いたら空の行を足して始める） */
+  /** 入力画面の中で項目を編集しているか（「＋ 記録する項目を増やす」から開いたら空の行を足して始める） */
   const [editing, setEditing] = useState<{ startWithNewRow: boolean } | null>(null);
   /** 作ったばかりで、まだ一覧に届いていない種類（作ってすぐ項目を足せるように） */
   const [created, setCreated] = useState<Record<string, RecordTemplatePayload>>({});
@@ -250,7 +250,7 @@ export default function LogbookPage() {
     await appendRecord("record_template", next);
     if (isCustom) setCreated((c) => ({ ...c, [next.templateKey]: next }));
     setEditing(null);
-    setDone(`「${isCustom ? next.name : kindLabel}」の記録項目を配信しました（${next.items.length}項目）`);
+    setDone(`「${isCustom ? next.name : kindLabel}」の記録する項目を保存しました（全員の端末に届きます）`);
   }
 
   /** 船長・陸上が作った種類をしまう（新しい記録では選べなくなる。過去の記録は残る） */
@@ -271,7 +271,7 @@ export default function LogbookPage() {
     setCreated((c) => ({ ...c, [next.templateKey]: next }));
     setEditing(null);
     modal.onClose();
-    setDone(`記録の種類「${formTemplate.name}」をしまいました（過去の記録は残ります）`);
+    setDone(`「${formTemplate.name}」を使わなくしました（これまでの記録は残ります）`);
   }
 
   // ── 記録の種類を作る（船長。陸上からも配信できる） ──
@@ -284,9 +284,9 @@ export default function LogbookPage() {
     try {
       if (!session) throw new Error("サインインが必要です");
       const name = typeName.trim();
-      if (!name) throw new Error("名前を入力してください");
+      if (!name) throw new Error("種類の名前を入れてください");
       const taken = [...VOYAGE_LOG_TYPES.map((lt) => t.voyageLogType[lt]), ...customTypes.map((c) => c.name)];
-      if (taken.includes(name)) throw new Error(`「${name}」はもうあります`);
+      if (taken.includes(name)) throw new Error(`「${name}」という種類はもうあります。別の名前にしてください`);
       const b = await newRecordBase(session.id);
       const key = `${CUSTOM_LOG_PREFIX}${b.id}`;
       const next = buildTemplateRevision({
@@ -382,7 +382,7 @@ export default function LogbookPage() {
             <RecordTile
               key={lt}
               label={t.voyageLogType[lt]}
-              sublabel={tpl && tpl.items.length > 0 ? `追加項目 ${tpl.items.length}件` : undefined}
+              sublabel={tpl && tpl.items.length > 0 ? `追加した項目 ${tpl.items.length}つ` : undefined}
               onPress={() => openNew(lt)}
             />
           );
@@ -391,7 +391,7 @@ export default function LogbookPage() {
           <RecordTile
             key={tpl.templateKey}
             label={tpl.name}
-            sublabel={tpl.items.length > 0 ? `項目 ${tpl.items.length}件` : undefined}
+            sublabel={tpl.items.length > 0 ? `記録する項目 ${tpl.items.length}つ` : undefined}
             onPress={() => openNew(tpl.templateKey)}
           />
         ))}
@@ -406,7 +406,10 @@ export default function LogbookPage() {
             }}
             className="ui-card record-tile record-tile-new flex min-h-20 items-center gap-3 p-4 text-left"
           >
-            <span className="flex-1 text-lg font-bold leading-tight text-foreground-700">記録の種類を作る</span>
+            <span className="flex flex-1 flex-col gap-1">
+              <span className="text-lg font-bold leading-tight">日誌の種類を増やす</span>
+              <span className="text-sm text-foreground-600">例: 投錨・給油</span>
+            </span>
             <RecordMark />
           </button>
         ) : null}
@@ -579,18 +582,16 @@ export default function LogbookPage() {
                 onCancel={() => setEditing(null)}
               />
             ) : formItems.length > 0 || (canManageTemplates && !supersedes) ? (
-              <section aria-label="追加の記録項目" className="flex flex-col gap-2">
+              <section aria-label="この日誌で記録する項目" className="flex flex-col gap-2">
                 <div className="flex flex-wrap items-center gap-2">
-                  <h3 className="m-0 flex-1 text-sm font-bold text-foreground-600">
-                    追加の記録項目{formTemplate ? `（版 ${formTemplate.version}）` : ""}
-                  </h3>
+                  <h3 className="m-0 flex-1 text-base font-bold text-foreground-700">この日誌で記録する項目</h3>
                   {canManageTemplates && !supersedes && formItems.length > 0 ? (
                     <button
                       type="button"
                       className="ui-btn-quiet min-h-10 !text-base"
                       onClick={() => setEditing({ startWithNewRow: false })}
                     >
-                      項目を直す・外す・並べ替える
+                      項目を編集する
                     </button>
                   ) : null}
                 </div>
@@ -609,7 +610,7 @@ export default function LogbookPage() {
                     onClick={() => setEditing({ startWithNewRow: true })}
                   >
                     <LineIcon name="plus" size={20} />
-                    項目を足す
+                    記録する項目を増やす
                   </button>
                 ) : null}
               </section>
@@ -623,11 +624,12 @@ export default function LogbookPage() {
             />
             {error ? <p className="text-danger">✕ {error}</p> : null}
           </ModalBody>
-          <ModalFooter>
+          <ModalFooter className="flex-wrap items-center">
+            {/* 項目の編集中は記録しない（足しかけの項目が記録に入らないように）。止めている理由と次の一手を出す */}
+            {editing ? <span className="mr-auto text-base text-foreground-600">項目を保存すると記録できます</span> : null}
             <Button variant="bordered" onPress={modal.onClose}>
               キャンセル
             </Button>
-            {/* 項目の編集中は記録しない（足しかけの項目が記録に入らないように） */}
             <Button color="primary" isDisabled={Boolean(editing)} onPress={() => void submit()}>
               {supersedes ? "訂正記録を追記" : "記録する"}
             </Button>
@@ -637,11 +639,11 @@ export default function LogbookPage() {
 
       <Modal {...modalProps} isOpen={typeModal.isOpen} onOpenChange={typeModal.onOpenChange} placement="center">
         <ModalContent>
-          <ModalHeader>記録の種類を作る</ModalHeader>
+          <ModalHeader>日誌の種類を増やす</ModalHeader>
           <ModalBody className="flex flex-col gap-3">
             <Input
-              label="名前"
-              placeholder="例: 投錨・給油・荒天準備"
+              label="種類の名前"
+              description="札に表示されます。例: 投錨、給油、荒天準備"
               value={typeName}
               onValueChange={setTypeName}
               autoFocus
@@ -653,7 +655,7 @@ export default function LogbookPage() {
               キャンセル
             </Button>
             <Button color="primary" onPress={() => void createType()}>
-              作って項目を足す
+              作って記録する項目を決める
             </Button>
           </ModalFooter>
         </ModalContent>
