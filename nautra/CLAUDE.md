@@ -400,11 +400,20 @@
   （過去の記録は記録時点の `templateVersion` を持つため意味が変わらない）。
   - 解決は `src/lib/record-templates.ts`（`effectiveTemplates` / `buildTemplateWithAddedItem`）。
     画面・サーバの双方がこの純関数を使い、組み立てを二重に実装しない。
-  - 入力方法は `check`（良否）/ `number`（数値・単位付き）/ `text`。**数値は利用者が入力する**。
-    数値項目は未入力を許さず、良否項目とは別に「未入力」件数に数える。
+  - 入力方法は `check`（良否）/ `number`（数値・単位付き）/ `text` / `choice`（選択肢から1つ）/ `time`（時刻）。
+    **数値は利用者が入力する**。項目ごとに `required`（必須）を持ち、無い旧版は「数値だけ必須」と読む（`isItemRequired`）。
+    点検表は従来どおり数値の未入力を許さず、良否項目とは別に「未入力」件数に数える。
   - 航海日誌は `templateKey` = 記録種別（departure / arrival / position / remark）とし、
-    入力値は `extraValues` に保持する。点検は `checklist_result.items` に同じ形で保持する。
+    入力値は `extraValues` に保持する（値の検査は `collectTemplateValues`。任意の空欄は載せない）。点検は `checklist_result.items` に同じ形で保持する。
   - 追加の権限は `manage_record_templates`（船長のみ）。陸上は `/shore/templates` から配信する。
+  - **航海日誌の項目は記録の入力画面の中で直す**（利用者の依頼 2026-10-14「もっと直感的かつ自由に」）。船長には入力画面に
+    「＋ 項目を足す」「項目を直す・外す・並べ替える」が出て、その場の編集（`logbook/_components/template-items-editor.tsx`）を
+    「項目を配信する」で1つの新しい版にまとめる（`buildTemplateRevision`。既存の項目は key を引き継ぐ）。編集中は「記録する」を止める。
+    別画面の「日誌の記録項目を追加する」は廃止した。入力欄の描き分けは `_components/template-item-field.tsx`。
+  - **記録の種類も作れる**（投錨・給油など）。点線の札「記録の種類を作る」→ 名前 → そのまま項目を足す。テンプレートは
+    `templateKey = "custom:<ULID>"`、記録は `logType: "custom"` + `customTypeKey` + `customTypeName`（記録時点の名前の写し）。
+    作った種類は日時・足した項目・備考だけ。「この種類をしまう」で `retired` の版を配信すると札から消え（`effectiveTemplates` が除く）、
+    過去の記録は残る。種類の名前の表示は `src/lib/voyage-log.ts` の `voyageLogLabel` 1つ（船内・陸上で共用）。
 - **記録できるのはサインイン中の本人のみ**（打刻と同じ。共用端末で記録者を取り違えない）。
   航海日誌・点検・保守の画面から対象船員の切替（CrewPicker）は外し、`useSessionCrew()` を使う。
 - **記録の入口には線の絵を添える**（レビュー PUNCH-01 / TASKREC-02）。`@/ui` の `LineIcon`（`currentColor` の SVG。絵文字は端末で色付きになるので使わない）。

@@ -127,6 +127,7 @@ export const en = {
     arrival: "Arrival",
     position: "Position report",
     remark: "Remarks",
+    custom: "Other record",
   } as Record<string, string>,
 
   checklistTemplate: {

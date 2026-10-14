@@ -99,6 +99,7 @@ export const t = {
     arrival: "入港",
     position: "定時記録（船位）",
     remark: "特記事項",
+    custom: "その他の記録",
   } as Record<string, string>,
 
   /* ── 03 点検・操練・検知 ── */

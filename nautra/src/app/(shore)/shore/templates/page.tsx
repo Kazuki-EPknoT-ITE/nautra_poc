@@ -8,7 +8,7 @@ import { TemplateItemForm, type TemplateTargetOption } from "./_components/templ
 export const dynamic = "force-dynamic";
 
 const USAGE_LABEL = { checklist: "点検表", voyage_log: "航海日誌" } as const;
-const INPUT_LABEL = { check: "良否", number: "数値", text: "文章" } as const;
+const INPUT_LABEL = { check: "良否", number: "数値", text: "文章", choice: "選択肢", time: "時刻" } as const;
 
 /**
  * 記録項目の配信（S-10 の一部・PoC）。点検表と航海日誌の記録項目を陸上から追加する。

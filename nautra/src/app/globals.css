@@ -209,6 +209,13 @@ html {
   background-color: var(--accent-bg);
 }
 
+/** 記録の種類を作る札。紙を置かずブロンズの点線だけにして、記録を始める札と見分ける */
+.record-tile-new {
+  background-color: transparent;
+  border-style: dashed;
+  border-color: var(--accent);
+}
+
 .record-tile:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;

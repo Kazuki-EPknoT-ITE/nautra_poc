@@ -12,22 +12,30 @@ import {
   parseOptionalNumber,
   toLocalInputValue,
 } from "@/lib/format";
-import { buildTemplateWithAddedItem, draftTemplate } from "@/lib/record-templates";
+import {
+  buildTemplateRevision,
+  collectTemplateValues,
+  CUSTOM_LOG_PREFIX,
+  draftTemplate,
+  isCustomLogKey,
+  type DraftTemplateItem,
+} from "@/lib/record-templates";
 import { appendRecord, newRecordBase } from "@/lib/vessel-actions";
 import { usePermission, useRecords, useRecordTemplates, useSessionCrew } from "@/lib/vessel-hooks";
+import { voyageLogLabel } from "@/lib/voyage-log";
 import {
   latestBySupersedes,
   VOYAGE_LOG_TYPES,
-  type ChecklistItemResult,
   type RecordTemplatePayload,
-  type TemplateInputType,
+  type TemplateItem,
   type VoyageLogPayload,
   type VoyageLogType,
 } from "@/sync-protocol/records";
-import { useModalProps } from "@/ui";
-import { Button, Card, CardBody, Chip, Input, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, Radio, RadioGroup, Select, SelectItem, Textarea, useDisclosure } from "@/ui/heroui";
+import { LineIcon, useModalProps } from "@/ui";
+import { Button, Card, CardBody, Chip, Input, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, Select, SelectItem, Textarea, useDisclosure } from "@/ui/heroui";
 import { GroupHeader } from "../_components/group-header";
-import { RecordTile } from "../_components/record-tile";
+import { RecordMark, RecordTile } from "../_components/record-tile";
+import { TemplateItemField } from "../_components/template-item-field";
 import {
   PastEmpty,
   PastFilterBar,
@@ -37,6 +45,7 @@ import {
   type RecordMode,
 } from "../_components/record-mode";
 import { isFilterActive } from "@/lib/record-filter";
+import { TemplateItemsEditor } from "./_components/template-items-editor";
 
 const WEATHER = ["晴", "曇", "雨", "霧", "雪", "雷雨"];
 const WIND = ["静穏", "北 3m/s", "北東 3m/s", "東 5m/s", "南東 5m/s", "南 4m/s", "南西 5m/s", "西 8m/s", "北西 10m/s"];
@@ -44,7 +53,8 @@ const SEA = ["波高 0.3m", "波高 0.5m", "波高 1.0m", "波高 1.5m", "波高
 const VIS = ["良好", "やや不良（2〜5海里）", "不良（2海里未満）", "濃霧"];
 
 interface FormState {
-  logType: VoyageLogType;
+  /** 記録の種類。組み込みの4種は logType、船長・陸上が作った種類は "custom:…"（テンプレートのキー） */
+  kind: string;
   at: string;
   port: string;
   route: string;
@@ -59,9 +69,9 @@ interface FormState {
   remarks: string;
 }
 
-function emptyForm(logType: VoyageLogType): FormState {
+function emptyForm(kind: string): FormState {
   return {
-    logType,
+    kind,
     at: toLocalInputValue(new Date()),
     port: "",
     route: "",
@@ -79,7 +89,7 @@ function emptyForm(logType: VoyageLogType): FormState {
 
 function formFromRecord(r: VoyageLogPayload): FormState {
   return {
-    logType: r.logType,
+    kind: r.logType === "custom" ? (r.customTypeKey ?? CUSTOM_LOG_PREFIX) : r.logType,
     at: toLocalInputValue(new Date(r.occurredAt)),
     port: r.port ?? "",
     route: r.route ?? "",
@@ -95,9 +105,24 @@ function formFromRecord(r: VoyageLogPayload): FormState {
   };
 }
 
+/** 種類をしまった・項目を外したあとの訂正でも、元の記録に入っていた項目をそのまま直せるようにする */
+function itemsFromRecord(r: VoyageLogPayload): TemplateItem[] {
+  return (r.extraValues ?? []).map((v) => ({
+    key: v.key,
+    label: v.label,
+    group: v.group,
+    inputType: v.result !== "na" ? "check" : typeof v.value === "number" ? "number" : "text",
+    unit: v.unit,
+  }));
+}
+
 /**
  * V-05 航海日誌。出入港・船位・海象・特記の入力/一覧（要件定義書 3.3.1）。
  * 一次記録は追記のみ。訂正は supersedesId 付きの訂正記録を追記し、原本は「訂正済」として保持する。
+ *
+ * 記録項目は船長が**記録の入力画面の中で**足す・直す・外す・並べ替える（利用者の依頼 2026-10-14
+ * 「もっと直感的かつ自由に」）。投錨・給油など組み込み以外の**記録の種類**も作れる（logType = custom）。
+ * どちらも record_template の新しい版として配信され、過去の記録は当時の内容のまま残る。
  */
 export default function LogbookPage() {
   // 記入できるのはサインイン中の本人のみ（記録者の取り違えを防ぐ。基本設計書 11.3）
@@ -113,6 +138,10 @@ export default function LogbookPage() {
   const [extra, setExtra] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState<string | null>(null);
+  /** 入力画面の中で項目を編集しているか（「＋ 項目を足す」から開いたら空の行を足して始める） */
+  const [editing, setEditing] = useState<{ startWithNewRow: boolean } | null>(null);
+  /** 作ったばかりで、まだ一覧に届いていない種類（作ってすぐ項目を足せるように） */
+  const [created, setCreated] = useState<Record<string, RecordTemplatePayload>>({});
 
   const [pickedMode, setMode] = useState<RecordMode>("record");
   // 書けない人（甲板部員・機関長）には記録の入口を出さず、過去の日誌だけを見せる（レビュー 0-9: 権限のないものは出さない）
@@ -124,7 +153,7 @@ export default function LogbookPage() {
     (l) => l.occurredAt,
     (l) =>
       [
-        t.voyageLogType[l.logType],
+        voyageLogLabel(l),
         l.port,
         l.route,
         l.position,
@@ -152,71 +181,130 @@ export default function LogbookPage() {
     return [...map.entries()].sort((a, b) => b[0].localeCompare(a[0]));
   }, [past.shown]);
 
-  /** 記録種別ごとの追加項目テンプレート（上司・陸上が配信。templateKey = 記録種別） */
-  const templateFor = (logType: VoyageLogType): RecordTemplatePayload | undefined =>
-    templates.find((tpl) => tpl.templateKey === logType);
-  const formTemplate = templateFor(form.logType);
+  /** 記録の種類ごとの項目テンプレート（上司・陸上が配信。templateKey = 記録の種類） */
+  const templateFor = (kind: string): RecordTemplatePayload | undefined =>
+    templates.find((tpl) => tpl.templateKey === kind) ?? created[kind];
+  const customTypes = useMemo(() => {
+    const byKey = new Map<string, RecordTemplatePayload>();
+    for (const tpl of Object.values(created)) if (!tpl.retired) byKey.set(tpl.templateKey, tpl);
+    for (const tpl of templates) if (isCustomLogKey(tpl.templateKey)) byKey.set(tpl.templateKey, tpl);
+    for (const tpl of Object.values(created)) if (tpl.retired) byKey.delete(tpl.templateKey);
+    // 作った順（キーの ULID）に並べる。項目を直しても札の位置が動かないように
+    return [...byKey.values()].sort((a, b) => a.templateKey.localeCompare(b.templateKey));
+  }, [templates, created]);
 
-  function openNew(logType: VoyageLogType) {
+  const isCustom = isCustomLogKey(form.kind);
+  const formTemplate = templateFor(form.kind);
+  const kindLabel = isCustom
+    ? (formTemplate?.name ?? supersedes?.customTypeName ?? t.voyageLogType.custom)
+    : t.voyageLogType[form.kind];
+  // 訂正では、種類をしまった・項目を外した後でも元の記録の項目を落とさない（訂正で値が消えないように）
+  const formItems: TemplateItem[] = useMemo(() => {
+    const current = formTemplate?.items ?? [];
+    if (!supersedes) return current;
+    const keys = new Set(current.map((it) => it.key));
+    return [...current, ...itemsFromRecord(supersedes).filter((it) => !keys.has(it.key))];
+  }, [formTemplate, supersedes]);
+
+  function openNew(kind: string, startEditing = false) {
     setSupersedes(null);
-    setForm(emptyForm(logType));
+    setForm(emptyForm(kind));
     setExtra({});
     setError(null);
+    setEditing(startEditing ? { startWithNewRow: true } : null);
     modal.onOpen();
   }
 
   function openCorrection(r: VoyageLogPayload) {
     setSupersedes(r);
     setForm(formFromRecord(r));
-    setExtra(Object.fromEntries((r.extraValues ?? []).map((v) => [v.key, String(v.value ?? "")])));
+    setExtra(Object.fromEntries((r.extraValues ?? []).map((v) => [v.key, v.result !== "na" ? v.result : String(v.value ?? "")])));
     setError(null);
+    setEditing(null);
     modal.onOpen();
   }
 
-  // ── 記録項目の追加（船長。陸上からも配信される） ──
-  const itemModal = useDisclosure();
-  const [itemTarget, setItemTarget] = useState<VoyageLogType>("departure");
-  const [itemLabel, setItemLabel] = useState("");
-  const [itemType, setItemType] = useState<TemplateInputType>("number");
-  const [itemUnit, setItemUnit] = useState("");
-  const [itemError, setItemError] = useState<string | null>(null);
-
-  function openAddItem() {
-    setItemTarget(form.logType);
-    setItemLabel("");
-    setItemType("number");
-    setItemUnit("");
-    setItemError(null);
-    itemModal.onOpen();
+  /** 項目の編集を1つの新しい版として配信する（足す・直す・外す・並べ替え・種類の名前） */
+  async function saveItems(items: DraftTemplateItem[], name?: string) {
+    if (!session) throw new Error("サインインが必要です");
+    const b = await newRecordBase(session.id);
+    const current =
+      formTemplate ??
+      draftTemplate({
+        usage: "voyage_log",
+        templateKey: form.kind,
+        name: `航海日誌: ${kindLabel}`,
+        tenantId: b.tenantId,
+        vesselId: b.vesselId,
+      });
+    const next = buildTemplateRevision({
+      template: current,
+      items,
+      name,
+      id: b.id,
+      recordedBy: session.id,
+      deviceId: b.deviceId,
+      publishedBy: session.id,
+      group: name?.trim() || kindLabel,
+    });
+    await appendRecord("record_template", next);
+    if (isCustom) setCreated((c) => ({ ...c, [next.templateKey]: next }));
+    setEditing(null);
+    setDone(`「${isCustom ? next.name : kindLabel}」の記録項目を配信しました（${next.items.length}項目）`);
   }
 
-  async function submitAddItem() {
-    setItemError(null);
+  /** 船長・陸上が作った種類をしまう（新しい記録では選べなくなる。過去の記録は残る） */
+  async function retireType() {
+    if (!session || !formTemplate) return;
+    const b = await newRecordBase(session.id);
+    const next = buildTemplateRevision({
+      template: formTemplate,
+      items: formTemplate.items,
+      retired: true,
+      id: b.id,
+      recordedBy: session.id,
+      deviceId: b.deviceId,
+      publishedBy: session.id,
+      group: formTemplate.name,
+    });
+    await appendRecord("record_template", next);
+    setCreated((c) => ({ ...c, [next.templateKey]: next }));
+    setEditing(null);
+    modal.onClose();
+    setDone(`記録の種類「${formTemplate.name}」をしまいました（過去の記録は残ります）`);
+  }
+
+  // ── 記録の種類を作る（船長。陸上からも配信できる） ──
+  const typeModal = useDisclosure();
+  const [typeName, setTypeName] = useState("");
+  const [typeError, setTypeError] = useState<string | null>(null);
+
+  async function createType() {
+    setTypeError(null);
     try {
       if (!session) throw new Error("サインインが必要です");
+      const name = typeName.trim();
+      if (!name) throw new Error("名前を入力してください");
+      const taken = [...VOYAGE_LOG_TYPES.map((lt) => t.voyageLogType[lt]), ...customTypes.map((c) => c.name)];
+      if (taken.includes(name)) throw new Error(`「${name}」はもうあります`);
       const b = await newRecordBase(session.id);
-      const current =
-        templateFor(itemTarget) ??
-        draftTemplate({
-          usage: "voyage_log",
-          templateKey: itemTarget,
-          name: `航海日誌: ${t.voyageLogType[itemTarget]}`,
-          tenantId: b.tenantId,
-          vesselId: b.vesselId,
-        });
-      const next = buildTemplateWithAddedItem({
-        template: current,
-        item: { label: itemLabel, group: t.voyageLogType[itemTarget], inputType: itemType, unit: itemUnit },
+      const key = `${CUSTOM_LOG_PREFIX}${b.id}`;
+      const next = buildTemplateRevision({
+        template: draftTemplate({ usage: "voyage_log", templateKey: key, name, tenantId: b.tenantId, vesselId: b.vesselId }),
+        items: [],
         id: b.id,
         recordedBy: session.id,
         deviceId: b.deviceId,
         publishedBy: session.id,
+        group: name,
       });
       await appendRecord("record_template", next);
-      setDone(`「${t.voyageLogType[itemTarget]}」に記録項目「${itemLabel.trim()}」を追加しました`);
-      itemModal.onClose();
+      setCreated((c) => ({ ...c, [key]: next }));
+      typeModal.onClose();
+      // 作ったらそのまま、その種類の入力画面で項目を足せるようにする
+      openNew(key, true);
     } catch (e) {
-      setItemError(e instanceof Error ? e.message : String(e));
+      setTypeError(e instanceof Error ? e.message : String(e));
     }
   }
 
@@ -229,39 +317,30 @@ export default function LogbookPage() {
     try {
       const at = fromLocalInputValue(form.at);
       if (!at) throw new Error("日時を入力してください");
-      if ((form.logType === "departure" || form.logType === "arrival") && !form.port.trim()) {
+      if ((form.kind === "departure" || form.kind === "arrival") && !form.port.trim()) {
         throw new Error("港名を入力してください");
       }
-      if (form.logType === "remark" && !form.remarks.trim()) {
+      if (form.kind === "remark" && !form.remarks.trim()) {
         throw new Error("特記事項を入力してください");
       }
       if (!session) throw new Error("サインインが必要です");
-      const extraValues: ChecklistItemResult[] = (formTemplate?.items ?? []).map((it) => {
-        const raw = extra[it.key]?.trim() ?? "";
-        if (it.inputType === "number") {
-          const v = parseOptionalNumber(raw);
-          if (v === undefined) throw new Error(`「${it.label}」に数値を入力してください`);
-          return { key: it.key, label: it.label, group: it.group, result: "na", value: v, unit: it.unit };
-        }
-        if (it.inputType === "check") {
-          return { key: it.key, label: it.label, group: it.group, result: raw === "ng" ? "ng" : "ok" };
-        }
-        return { key: it.key, label: it.label, group: it.group, result: "na", value: raw || undefined };
-      });
+      const extraValues = collectTemplateValues(formItems, extra);
       const b = await newRecordBase(session.id, at, supersedes?.id);
       const payload: VoyageLogPayload = {
         ...b,
-        logType: form.logType,
+        logType: isCustom ? "custom" : (form.kind as VoyageLogType),
+        customTypeKey: isCustom ? form.kind : undefined,
+        customTypeName: isCustom ? kindLabel : undefined,
         port: form.port.trim() || undefined,
         route: form.route.trim() || undefined,
         position: form.position.trim() || undefined,
         courseDeg: parseOptionalNumber(form.courseDeg),
         speedKnots: parseOptionalNumber(form.speedKnots),
         engineRpm: parseOptionalNumber(form.engineRpm),
-        weather: form.weather || undefined,
-        wind: form.wind || undefined,
-        seaState: form.seaState || undefined,
-        visibility: form.visibility || undefined,
+        weather: showWeather ? form.weather || undefined : undefined,
+        wind: showWeather ? form.wind || undefined : undefined,
+        seaState: showWeather ? form.seaState || undefined : undefined,
+        visibility: showWeather ? form.visibility || undefined : undefined,
         remarks: form.remarks.trim() || undefined,
         extraValues: extraValues.length > 0 ? extraValues : undefined,
       };
@@ -269,7 +348,7 @@ export default function LogbookPage() {
       setDone(
         supersedes
           ? "訂正記録を追記しました（元の記録は訂正済として保持されます）"
-          : `${t.voyageLogType[form.logType]} を記録しました（${fmtTime(payload.occurredAt)}）`,
+          : `${kindLabel} を記録しました（${fmtTime(payload.occurredAt)}）`,
       );
       modal.onClose();
     } catch (e) {
@@ -277,9 +356,10 @@ export default function LogbookPage() {
     }
   }
 
-  const showNav = form.logType === "departure" || form.logType === "arrival";
-  const showPosition = form.logType === "position";
-  const showWeather = form.logType !== "remark";
+  const showNav = form.kind === "departure" || form.kind === "arrival";
+  const showPosition = form.kind === "position";
+  // 船長・陸上が作った種類は、日時・足した項目・備考だけ（要る項目は自由に足せる）
+  const showWeather = !isCustom && form.kind !== "remark";
 
   return (
     <div className="flex flex-col gap-4">
@@ -295,7 +375,6 @@ export default function LogbookPage() {
       ) : null}
 
       {mode === "record" ? (
-      <>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         {VOYAGE_LOG_TYPES.map((lt) => {
           const tpl = templateFor(lt);
@@ -308,18 +387,30 @@ export default function LogbookPage() {
             />
           );
         })}
+        {customTypes.map((tpl) => (
+          <RecordTile
+            key={tpl.templateKey}
+            label={tpl.name}
+            sublabel={tpl.items.length > 0 ? `項目 ${tpl.items.length}件` : undefined}
+            onPress={() => openNew(tpl.templateKey)}
+          />
+        ))}
+        {canManageTemplates ? (
+          // 種類を作る札は点線にして、記録を始める札と見分ける
+          <button
+            type="button"
+            onClick={() => {
+              setTypeName("");
+              setTypeError(null);
+              typeModal.onOpen();
+            }}
+            className="ui-card record-tile record-tile-new flex min-h-20 items-center gap-3 p-4 text-left"
+          >
+            <span className="flex-1 text-lg font-bold leading-tight text-foreground-700">記録の種類を作る</span>
+            <RecordMark />
+          </button>
+        ) : null}
       </div>
-      {canManageTemplates ? (
-        <Button
-          variant="bordered"
-          radius="lg"
-          className="min-h-12 self-start border-[var(--ui-hairline-strong)]"
-          onPress={openAddItem}
-        >
-          日誌の記録項目を追加する
-        </Button>
-      ) : null}
-      </>
       ) : null}
 
       {mode === "past" ? (
@@ -338,6 +429,8 @@ export default function LogbookPage() {
           {entries.map((r) => {
             const superseded = supersededIds.has(r.id);
             const isCorrection = Boolean(r.supersedesId);
+            // 任意の項目で空欄だったものは出さない（「該当なし」と読ませない）
+            const shownValues = (r.extraValues ?? []).filter((v) => v.result !== "na" || (v.value !== undefined && v.value !== ""));
             return (
               <Card key={r.id} shadow="none" className={cn("ui-card", superseded && "opacity-60")}>
                 <CardBody className="flex flex-col gap-2">
@@ -346,7 +439,7 @@ export default function LogbookPage() {
                       {fmtTime(r.occurredAt)}
                     </span>
                     <Chip size="sm" variant="flat" radius="sm">
-                      {t.voyageLogType[r.logType]}
+                      {voyageLogLabel(r)}
                     </Chip>
                     {isCorrection ? (
                       <Chip size="sm" variant="flat" color="warning" radius="sm">
@@ -380,9 +473,9 @@ export default function LogbookPage() {
                         海象: {[r.weather, r.wind, r.seaState, r.visibility ? `視程 ${r.visibility}` : null].filter(Boolean).join(" / ")}
                       </p>
                     ) : null}
-                    {r.extraValues && r.extraValues.length > 0 ? (
+                    {shownValues.length > 0 ? (
                       <p className="flex flex-wrap gap-x-4 gap-y-1 text-sm tabular-nums">
-                        {r.extraValues.map((v) => (
+                        {shownValues.map((v) => (
                           <span key={v.key}>
                             <span className="text-foreground-600">{v.label}: </span>
                             {v.value !== undefined && v.value !== ""
@@ -414,30 +507,18 @@ export default function LogbookPage() {
       </>
       ) : null}
 
-      <Modal {...modalProps} isOpen={modal.isOpen} onOpenChange={modal.onOpenChange} placement="center" scrollBehavior="inside">
+      <Modal {...modalProps} size="2xl" isOpen={modal.isOpen} onOpenChange={modal.onOpenChange} placement="center" scrollBehavior="inside">
         <ModalContent>
           <ModalHeader>
-            {supersedes ? "訂正記録の追記" : `航海日誌: ${t.voyageLogType[form.logType]}`}
+            {supersedes ? `訂正記録の追記: ${kindLabel}` : `航海日誌: ${kindLabel}`}
           </ModalHeader>
           <ModalBody className="flex flex-col gap-3">
             {supersedes ? (
               <p className="text-sm text-foreground-600">
-                {fmtTime(supersedes.occurredAt)} の「{t.voyageLogType[supersedes.logType]}」を訂正します。
+                {fmtTime(supersedes.occurredAt)} の「{voyageLogLabel(supersedes)}」を訂正します。
                 元の記録は訂正済として保持されます。
               </p>
             ) : null}
-            <Select
-              label="記録種別"
-              selectedKeys={[form.logType]}
-              onSelectionChange={(keys) => {
-                const k = [...keys][0];
-                if (k) set("logType", k as VoyageLogType);
-              }}
-            >
-              {VOYAGE_LOG_TYPES.map((lt) => (
-                <SelectItem key={lt}>{t.voyageLogType[lt]}</SelectItem>
-              ))}
-            </Select>
             <Input
               type="datetime-local"
               label="日時"
@@ -485,39 +566,57 @@ export default function LogbookPage() {
                 </Select>
               </div>
             ) : null}
-            {formTemplate && formTemplate.items.length > 0 ? (
-              <div className="flex flex-col gap-2">
-                <h3 className="text-sm font-bold text-foreground-600">追加の記録項目（版 {formTemplate.version}）</h3>
-                {formTemplate.items.map((it) => (
-                  <div key={it.key} className="ui-inset flex flex-wrap items-center justify-between gap-2 p-3">
-                    <span>{it.label}</span>
-                    {it.inputType === "check" ? (
-                      <RadioGroup
-                        orientation="horizontal"
-                        aria-label={it.label}
-                        value={extra[it.key] ?? "ok"}
-                        onValueChange={(v) => setExtra((e) => ({ ...e, [it.key]: v }))}
-                      >
-                        <Radio value="ok">良</Radio>
-                        <Radio value="ng">不良</Radio>
-                      </RadioGroup>
-                    ) : (
-                      <Input
-                        size="sm"
-                        type={it.inputType === "number" ? "number" : "text"}
-                        aria-label={it.label}
-                        className="max-w-44"
-                        endContent={it.unit ? <span className="text-sm text-foreground-600">{it.unit}</span> : null}
-                        value={extra[it.key] ?? ""}
-                        onValueChange={(v) => setExtra((e) => ({ ...e, [it.key]: v }))}
-                      />
-                    )}
-                  </div>
+
+            {editing ? (
+              <TemplateItemsEditor
+                // 種類・版が変わったら編集をやり直す
+                key={`${form.kind}|${formTemplate?.id ?? "draft"}`}
+                items={formTemplate?.items ?? []}
+                startWithNewRow={editing.startWithNewRow}
+                typeName={isCustom ? kindLabel : undefined}
+                onSave={saveItems}
+                onRetire={isCustom && formTemplate ? retireType : undefined}
+                onCancel={() => setEditing(null)}
+              />
+            ) : formItems.length > 0 || (canManageTemplates && !supersedes) ? (
+              <section aria-label="追加の記録項目" className="flex flex-col gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h3 className="m-0 flex-1 text-sm font-bold text-foreground-600">
+                    追加の記録項目{formTemplate ? `（版 ${formTemplate.version}）` : ""}
+                  </h3>
+                  {canManageTemplates && !supersedes && formItems.length > 0 ? (
+                    <button
+                      type="button"
+                      className="ui-btn-quiet min-h-10 !text-base"
+                      onClick={() => setEditing({ startWithNewRow: false })}
+                    >
+                      項目を直す・外す・並べ替える
+                    </button>
+                  ) : null}
+                </div>
+                {formItems.map((it) => (
+                  <TemplateItemField
+                    key={it.key}
+                    item={it}
+                    value={extra[it.key] ?? ""}
+                    onChange={(v) => setExtra((e) => ({ ...e, [it.key]: v }))}
+                  />
                 ))}
-              </div>
+                {canManageTemplates && !supersedes ? (
+                  <button
+                    type="button"
+                    className="ui-btn-ghost min-h-12 self-start px-4 text-lg"
+                    onClick={() => setEditing({ startWithNewRow: true })}
+                  >
+                    <LineIcon name="plus" size={20} />
+                    項目を足す
+                  </button>
+                ) : null}
+              </section>
             ) : null}
+
             <Textarea
-              label={form.logType === "remark" ? "特記事項（海難・故障・特別な操船等）" : "備考"}
+              label={form.kind === "remark" ? "特記事項（海難・故障・特別な操船等）" : "備考"}
               value={form.remarks}
               onValueChange={(v) => set("remarks", v)}
               minRows={2}
@@ -528,56 +627,33 @@ export default function LogbookPage() {
             <Button variant="bordered" onPress={modal.onClose}>
               キャンセル
             </Button>
-            <Button color="primary" onPress={() => void submit()}>
+            {/* 項目の編集中は記録しない（足しかけの項目が記録に入らないように） */}
+            <Button color="primary" isDisabled={Boolean(editing)} onPress={() => void submit()}>
               {supersedes ? "訂正記録を追記" : "記録する"}
             </Button>
           </ModalFooter>
         </ModalContent>
       </Modal>
 
-      <Modal {...modalProps} isOpen={itemModal.isOpen} onOpenChange={itemModal.onOpenChange} placement="center" scrollBehavior="inside">
+      <Modal {...modalProps} isOpen={typeModal.isOpen} onOpenChange={typeModal.onOpenChange} placement="center">
         <ModalContent>
-          <ModalHeader className="flex flex-col gap-1">
-            <span>航海日誌の記録項目を追加</span>
-            <span className="text-sm font-normal text-foreground-600">
-              追加した項目は次の記録から全員に表示されます（過去の記録は当時の内容のまま保持）
-            </span>
-          </ModalHeader>
+          <ModalHeader>記録の種類を作る</ModalHeader>
           <ModalBody className="flex flex-col gap-3">
-            <Select
-              label="追加先の記録種別"
-              selectedKeys={[itemTarget]}
-              onSelectionChange={(k) => {
-                const v = [...k][0];
-                if (v) setItemTarget(v as VoyageLogType);
-              }}
-            >
-              {VOYAGE_LOG_TYPES.map((lt) => (
-                <SelectItem key={lt}>{t.voyageLogType[lt]}</SelectItem>
-              ))}
-            </Select>
-            <Input label="項目名" value={itemLabel} onValueChange={setItemLabel} placeholder="例: 燃料残量" />
-            <RadioGroup
-              orientation="horizontal"
-              label="入力方法"
-              value={itemType}
-              onValueChange={(v) => setItemType(v as TemplateInputType)}
-            >
-              <Radio value="number">数値を入力</Radio>
-              <Radio value="text">文章を入力</Radio>
-              <Radio value="check">良否で答える</Radio>
-            </RadioGroup>
-            {itemType === "number" ? (
-              <Input label="単位" value={itemUnit} onValueChange={setItemUnit} placeholder="例: kL / t / hPa" />
-            ) : null}
-            {itemError ? <p className="text-danger">✕ {itemError}</p> : null}
+            <Input
+              label="名前"
+              placeholder="例: 投錨・給油・荒天準備"
+              value={typeName}
+              onValueChange={setTypeName}
+              autoFocus
+            />
+            {typeError ? <p className="text-danger">✕ {typeError}</p> : null}
           </ModalBody>
           <ModalFooter>
-            <Button variant="bordered" onPress={itemModal.onClose}>
+            <Button variant="bordered" onPress={typeModal.onClose}>
               キャンセル
             </Button>
-            <Button color="primary" onPress={() => void submitAddItem()}>
-              項目を追加して配信
+            <Button color="primary" onPress={() => void createType()}>
+              作って項目を足す
             </Button>
           </ModalFooter>
         </ModalContent>

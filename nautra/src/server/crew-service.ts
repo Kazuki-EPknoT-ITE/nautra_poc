@@ -2,6 +2,7 @@ import { evaluateWeekly, ymdLocal } from "@/domain/labor-law/evaluate";
 import type { CheckLevel } from "@/domain/labor-law/types";
 import { t } from "@/i18n/ja";
 import { latestByEquipment, openMaintenanceIssues } from "@/lib/maintenance-status";
+import { voyageLogLabel } from "@/lib/voyage-log";
 import { DEFAULT_LABOR_RULE_SET } from "@/rules/default-rule-set";
 import { resolveApproval } from "@/sync-protocol/events";
 import { latestBySupersedes, type ShiftPlanPayload } from "@/sync-protocol/records";
@@ -115,7 +116,7 @@ export function buildCrewKarte(crewMemberId: string, now = new Date()): CrewKart
   }
   for (const r of getRecordsOfKind("voyage_log")) {
     if (r.recordedBy !== crewMemberId) continue;
-    recent.push({ kind: "航海日誌", occurredAt: r.occurredAt, summary: t.voyageLogType[r.logType] ?? r.logType });
+    recent.push({ kind: "航海日誌", occurredAt: r.occurredAt, summary: voyageLogLabel(r) });
   }
   for (const r of getRecordsOfKind("drill_record")) {
     if (!r.participants.includes(crewMemberId)) continue;

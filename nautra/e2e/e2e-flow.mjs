@@ -238,6 +238,8 @@ check(
     (await v.getByRole("button", { name: /^出港/ }).count()) === 1 &&
     (await v.getByRole("button", { name: /過去の日誌を見る/ }).count()) === 1,
 );
+// 項目・種類を作れるのは船長だけ（航海士は記録はできるが、作る札は出ない）
+check("船内: 航海士には「記録の種類を作る」の札を出さない", (await v.getByRole("button", { name: /記録の種類を作る/ }).count()) === 0);
 const remarkWord = `E2E特記${Date.now()}`;
 await v.getByRole("button", { name: /特記事項/ }).first().click();
 await v.getByLabel(/特記事項（海難/).fill(remarkWord);
@@ -352,6 +354,85 @@ check("船内: 同期を実行できる", true);
   } else {
     check("船内: 承認待ちが無い（移動の確認は省略）", true, `待ち ${waiting0} / 済み ${approved0}`);
   }
+  await capCtx.close();
+}
+
+// 航海日誌の項目を自由に（船長。利用者の依頼 2026-10-14）: 記録の種類を作る → 入力画面の中で項目を足す
+// （時刻・選択肢・必須）→ 記録 → 過去に出る → 種類をしまうと札が消える
+{
+  const capCtx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const cp = await capCtx.newPage();
+  await cp.goto(`${BASE}/vessel/login`, { waitUntil: "networkidle" });
+  await cp.getByRole("radio", { name: /高松/ }).click();
+  for (const d of ["1", "1", "1", "1"]) await cp.getByRole("button", { name: d, exact: true }).click();
+  await cp.waitForURL(`${BASE}/vessel`, { timeout: 15000 });
+  await cp.goto(`${BASE}/vessel/logbook`, { waitUntil: "networkidle" });
+  await cp.waitForTimeout(800);
+  const typeName = `E2E種類${Date.now() % 100000}`;
+  await cp.getByRole("button", { name: /記録の種類を作る/ }).click();
+  await cp.getByLabel("名前").fill(typeName);
+  await cp.getByRole("button", { name: "作って項目を足す" }).click();
+  const dlg = cp.getByRole("dialog");
+  const editor = dlg.getByRole("region", { name: "記録項目の編集" });
+  await editor.waitFor({ timeout: 5000 });
+  await editor.getByLabel("1番目の項目名").fill("到着時刻");
+  await editor.getByRole("radio", { name: "時刻" }).first().click();
+  await editor.getByLabel("必須").first().check();
+  await editor.getByRole("button", { name: "項目を足す" }).click();
+  await editor.getByLabel("2番目の項目名").fill("天気");
+  await editor.getByRole("radio", { name: "選択肢" }).nth(1).click();
+  await editor.getByLabel("選択肢", { exact: true }).fill("晴、雨");
+  await editor.getByRole("button", { name: "項目を配信する" }).click();
+  await cp.waitForTimeout(800);
+  check(
+    "船内: 作った種類の入力画面の中で、時刻・選択肢の項目を足すとその場で入力欄になる",
+    (await dlg.getByRole("region", { name: "記録項目の編集" }).count()) === 0 &&
+      (await dlg.getByLabel("到着時刻").count()) === 1 &&
+      (await dlg.getByRole("radio", { name: "雨" }).count()) === 1,
+  );
+  await dlg.getByRole("button", { name: "記録する" }).click();
+  await cp.waitForTimeout(300);
+  check("船内: 必須の項目が空欄なら記録しない", /「到着時刻」を入力してください/.test(await dlg.innerText()));
+  await dlg.getByLabel("到着時刻").fill("09:15");
+  await dlg.getByRole("radio", { name: "晴" }).click();
+  await dlg.getByRole("button", { name: "記録する" }).click();
+  await cp.waitForTimeout(800);
+  check("船内: 作った種類で記録できる", new RegExp(`${typeName} を記録しました`).test(await cp.locator("main").innerText()));
+  await cp.getByRole("button", { name: /過去の日誌を見る/ }).click();
+  await cp.getByRole("searchbox", { name: "キーワード" }).fill(typeName);
+  await cp.waitForTimeout(400);
+  const customPast = await cp.locator("main").innerText();
+  check("船内: 作った種類の記録が過去の日誌に項目つきで出る", customPast.includes(typeName) && /到着時刻: 09:15/.test(customPast) && /天気: 晴/.test(customPast));
+  await cp.getByRole("button", { name: /記録に戻る/ }).click();
+  await cp.getByRole("button", { name: new RegExp(`^${typeName}`) }).click();
+  await dlg.getByRole("button", { name: "項目を直す・外す・並べ替える" }).click();
+  await dlg.getByRole("button", { name: "この種類をしまう" }).click();
+  await dlg.getByRole("button", { name: "しまう", exact: true }).click();
+  await cp.waitForTimeout(800);
+  check(
+    "船内: しまった種類は札が消え、過去の記録は残る",
+    (await cp.getByRole("button", { name: new RegExp(`^${typeName}`) }).count()) === 0 &&
+      /をしまいました/.test(await cp.locator("main").innerText()),
+  );
+  // しまった版がサーバへ届くのを待つ（送る前に閉じると、テストで作った種類がほかの端末に札として残る）
+  const serverRetired = async () => {
+    let since = 0;
+    let last = null;
+    for (let page = 0; page < 200; page++) {
+      const res = await cp.request.get(`${BASE}/api/v1/sync/pull?since=${since}`);
+      const body = await res.json();
+      for (const e of body.events) if (e.event.kind === "record_template" && e.event.payload.name === typeName) last = e.event.payload;
+      if (!body.hasMore || body.nextCursor === since) break;
+      since = body.nextCursor;
+    }
+    return Boolean(last?.retired);
+  };
+  let retiredOnServer = false;
+  for (let i = 0; i < 20 && !retiredOnServer; i++) {
+    await cp.waitForTimeout(500);
+    retiredOnServer = await serverRetired().catch(() => false);
+  }
+  check("船内: しまった種類は陸上（サーバ）にも届く", retiredOnServer);
   await capCtx.close();
 }
 
