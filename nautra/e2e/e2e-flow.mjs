@@ -379,7 +379,7 @@ check("船内: 同期を実行できる", true);
   check("船内: 項目が1つも無いまま進もうとすると、よく使う項目から選べることを示して止める", /記録する項目を1つ以上決めてください/.test(await dlg.innerText()));
   await dlg.getByRole("button", { name: "時刻", exact: true }).click();
   await dlg.getByLabel("1つ目の項目名").fill("到着時刻");
-  await dlg.getByLabel(/空欄では記録できないようにする/).first().check();
+  await dlg.getByRole("radio", { name: "必ず入れてもらう（必須）" }).first().click();
   await dlg.getByRole("button", { name: "自分で項目を作る" }).click();
   await dlg.getByLabel("2つ目の項目名").fill("天気");
   await dlg.getByRole("radio", { name: "選んで答える" }).nth(1).click();

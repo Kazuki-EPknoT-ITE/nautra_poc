@@ -17,6 +17,12 @@ export const INPUT_TYPES: { id: TemplateInputType; label: string }[] = [
   { id: "time", label: "時刻を入れる" },
 ];
 
+/** 空欄のときの扱い（チェックボックスではなく、答え方と同じ2択で見せる） */
+const REQUIRED_OPTIONS: { id: "optional" | "required"; label: string }[] = [
+  { id: "optional", label: "空欄でも記録できる" },
+  { id: "required", label: "必ず入れてもらう（必須）" },
+];
+
 /** 編集中の1行（画面の中だけの形） */
 export interface Row {
   /** 画面の中だけの行の識別子（並べ替えても入力中の欄がずれないように） */
@@ -89,6 +95,52 @@ export function FieldHint({ children, id }: { children: React.ReactNode; id?: st
     <span id={id} className="text-sm text-foreground-600">
       {children}
     </span>
+  );
+}
+
+/** 行の中の設定1つ分（区切り線 + 見出し + 中身）。どの設定も同じ形にそろえる */
+function Setting({ label, htmlFor, children }: { label: string; htmlFor?: string; children: React.ReactNode }) {
+  return (
+    <div className="flex flex-col gap-1 border-t border-[var(--ui-hairline)] pt-3">
+      {htmlFor ? (
+        <label htmlFor={htmlFor}>
+          <FieldLabel>{label}</FieldLabel>
+        </label>
+      ) : (
+        <FieldLabel>{label}</FieldLabel>
+      )}
+      {children}
+    </div>
+  );
+}
+
+/** 見出しの下に並べる選択ボタン（1つだけ選ぶ） */
+function Segmented<T extends string>({
+  label,
+  options,
+  value,
+  onChange,
+}: {
+  label: string;
+  options: { id: T; label: string }[];
+  value: T;
+  onChange: (v: T) => void;
+}) {
+  return (
+    <div role="radiogroup" aria-label={label} className="flex flex-wrap gap-1">
+      {options.map((x) => (
+        <button
+          key={x.id}
+          type="button"
+          role="radio"
+          aria-checked={value === x.id}
+          onClick={() => onChange(x.id)}
+          className={cn("ui-btn-quiet min-h-11 !px-3 !text-base", value === x.id && "ui-btn-selected")}
+        >
+          {x.label}
+        </button>
+      ))}
+    </div>
   );
 }
 
@@ -166,50 +218,40 @@ export function ItemRowsEditor({
             {/* 例は白紙の行にだけ出す（よく使う項目から増やした行に別の例が出ると紛らわしい） */}
             {!r.key && !r.label ? <FieldHint id={hintId}>例: 燃料残量、バラスト水量、水先人の乗船時刻</FieldHint> : null}
 
-            <div className="flex flex-col gap-1">
-              <FieldLabel>答え方</FieldLabel>
-              <div role="radiogroup" aria-label={`${i + 1}つ目の項目の答え方`} className="flex flex-wrap gap-1">
-                {INPUT_TYPES.map((x) => (
-                  <button
-                    key={x.id}
-                    type="button"
-                    role="radio"
-                    aria-checked={r.inputType === x.id}
-                    onClick={() => update(r.uid, { inputType: x.id })}
-                    className={cn("ui-btn-quiet min-h-11 !px-3 !text-base", r.inputType === x.id && "ui-btn-selected")}
-                  >
-                    {x.label}
-                  </button>
-                ))}
-              </div>
-            </div>
+            {/* 項目名・答え方・答え方ごとの設定・空欄のとき を区切り線で分け、どれも「見出し + 選ぶ／入れる」の同じ形にする
+                （利用者の指摘 2026-10-16: チェックボックスだけ形が違い、何を決める欄か分かりにくい） */}
+            <Setting label="答え方">
+              <Segmented
+                label={`${i + 1}つ目の項目の答え方`}
+                options={INPUT_TYPES}
+                value={r.inputType}
+                onChange={(v) => update(r.uid, { inputType: v })}
+              />
+            </Setting>
 
             {r.inputType === "number" ? (
-              <label className="flex flex-col gap-1">
-                <FieldLabel>単位（なければ空欄）</FieldLabel>
-                <input className="ui-field !w-40" value={r.unit} onChange={(e) => update(r.uid, { unit: e.target.value })} />
+              <Setting label="単位（なければ空欄）" htmlFor={`${r.uid}-unit`}>
+                <input id={`${r.uid}-unit`} className="ui-field !w-40" value={r.unit} onChange={(e) => update(r.uid, { unit: e.target.value })} />
                 <FieldHint>例: kL、t、hPa</FieldHint>
-              </label>
+              </Setting>
             ) : null}
 
             {r.inputType === "choice" ? (
-              <label className="flex flex-col gap-1">
-                <FieldLabel>選べる答え</FieldLabel>
-                <input className="ui-field" value={r.optionsText} onChange={(e) => update(r.uid, { optionsText: e.target.value })} />
+              <Setting label="選べる答え" htmlFor={`${r.uid}-options`}>
+                <input id={`${r.uid}-options`} className="ui-field" value={r.optionsText} onChange={(e) => update(r.uid, { optionsText: e.target.value })} />
                 <FieldHint>「、」で区切って2つ以上入れます。例: 満載、半載、空船</FieldHint>
-              </label>
+              </Setting>
             ) : null}
 
             {r.inputType !== "check" ? (
-              <label className="flex min-h-11 items-center gap-2 text-base">
-                <input
-                  type="checkbox"
-                  className="size-5 accent-[var(--accent)]"
-                  checked={r.required}
-                  onChange={(e) => update(r.uid, { required: e.target.checked })}
+              <Setting label="空欄のとき">
+                <Segmented
+                  label={`${i + 1}つ目の項目が空欄のとき`}
+                  options={REQUIRED_OPTIONS}
+                  value={r.required ? "required" : "optional"}
+                  onChange={(v) => update(r.uid, { required: v === "required" })}
                 />
-                空欄では記録できないようにする（必須）
-              </label>
+              </Setting>
             ) : null}
           </li>
         );
