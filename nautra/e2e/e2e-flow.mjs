@@ -369,26 +369,36 @@ check("船内: 同期を実行できる", true);
   await cp.goto(`${BASE}/vessel/logbook`, { waitUntil: "networkidle" });
   await cp.waitForTimeout(800);
   const typeName = `E2E種類${Date.now() % 100000}`;
+  // 手順つきの画面（利用者の指摘 2026-10-16: 初心者に分かりやすく）: ① 名前 → ② 記録する項目 → ③ 見え方を確かめる
   await cp.getByRole("button", { name: /日誌の種類を増やす/ }).click();
-  await cp.getByLabel("種類の名前").fill(typeName);
-  await cp.getByRole("button", { name: "作って記録する項目を決める" }).click();
   const dlg = cp.getByRole("dialog");
-  const editor = dlg.getByRole("region", { name: "記録する項目の編集" });
-  await editor.waitFor({ timeout: 5000 });
-  await editor.getByLabel("1つ目の項目名").fill("到着時刻");
-  await editor.getByRole("radio", { name: "時刻を入れる" }).first().click();
-  await editor.getByLabel(/空欄では記録できないようにする/).first().check();
-  await editor.getByRole("button", { name: "項目をもう1つ増やす" }).click();
-  await editor.getByLabel("2つ目の項目名").fill("天気");
-  await editor.getByRole("radio", { name: "選んで答える" }).nth(1).click();
-  await editor.getByLabel("選べる答え").fill("晴、雨");
-  await editor.getByRole("button", { name: "この内容で保存する" }).click();
-  await cp.waitForTimeout(800);
+  check("船内: 種類を増やす画面は手順の帯つきで、①名前から始まる", (await dlg.locator('[aria-current="step"]').innerText()).includes("名前を決める"));
+  await dlg.getByLabel("種類の名前").fill(typeName);
+  await dlg.getByRole("button", { name: "次へ: 記録する項目を決める" }).click();
+  await dlg.getByRole("button", { name: "次へ: 見え方を確かめる" }).click();
+  check("船内: 項目が1つも無いまま進もうとすると、よく使う項目から選べることを示して止める", /記録する項目を1つ以上決めてください/.test(await dlg.innerText()));
+  await dlg.getByRole("button", { name: "時刻", exact: true }).click();
+  await dlg.getByLabel("1つ目の項目名").fill("到着時刻");
+  await dlg.getByLabel(/空欄では記録できないようにする/).first().check();
+  await dlg.getByRole("button", { name: "自分で項目を作る" }).click();
+  await dlg.getByLabel("2つ目の項目名").fill("天気");
+  await dlg.getByRole("radio", { name: "選んで答える" }).nth(1).click();
+  await dlg.getByLabel("選べる答え").fill("晴、雨");
+  await dlg.getByRole("button", { name: "次へ: 見え方を確かめる" }).click();
+  const preview = dlg.getByRole("region", { name: "見え方を確かめる" });
   check(
-    "船内: 作った種類の入力画面の中で、時刻・選択肢の項目を足すとその場で入力欄になる",
-    (await dlg.getByRole("region", { name: "記録する項目の編集" }).count()) === 0 &&
-      (await dlg.getByLabel("到着時刻").count()) === 1 &&
-      (await dlg.getByRole("radio", { name: "雨" }).count()) === 1,
+    "船内: 保存の前に、記録するときの見え方を試せる（到着時刻・天気の選択肢）",
+    (await preview.getByLabel("到着時刻").count()) === 1 && (await preview.getByRole("radio", { name: "雨" }).count()) === 1,
+  );
+  await dlg.getByRole("button", { name: "この内容で作る" }).click();
+  await cp.waitForTimeout(800);
+  check("船内: 作ると札が増え、押すと記録できると知らせる", new RegExp(`「${typeName}」を作りました。札を押すと記録できます`).test(await cp.locator("main").innerText()));
+  await cp.getByRole("button", { name: new RegExp(`^${typeName}`) }).click();
+  check(
+    "船内: 記録の画面は書くことだけ（項目の編集は別の画面へ）",
+    (await dlg.getByLabel("到着時刻").count()) === 1 &&
+      (await dlg.getByLabel("1つ目の項目名").count()) === 0 &&
+      (await dlg.getByRole("button", { name: "記録する項目を増やす・直す" }).count()) === 1,
   );
   await dlg.getByRole("button", { name: "記録する", exact: true }).click();
   await cp.waitForTimeout(300);
@@ -405,7 +415,7 @@ check("船内: 同期を実行できる", true);
   check("船内: 作った種類の記録が過去の日誌に項目つきで出る", customPast.includes(typeName) && /到着時刻: 09:15/.test(customPast) && /天気: 晴/.test(customPast));
   await cp.getByRole("button", { name: /記録に戻る/ }).click();
   await cp.getByRole("button", { name: new RegExp(`^${typeName}`) }).click();
-  await dlg.getByRole("button", { name: "項目を編集する" }).click();
+  await dlg.getByRole("button", { name: "記録する項目を増やす・直す" }).click();
   await dlg.getByRole("button", { name: "この種類を使わなくする" }).click();
   await dlg.getByRole("button", { name: "使わなくする", exact: true }).click();
   await cp.waitForTimeout(800);
