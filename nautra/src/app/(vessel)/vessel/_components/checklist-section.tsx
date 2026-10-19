@@ -3,21 +3,26 @@
 import { useMemo, useState } from "react";
 import { cn } from "@/lib/cn";
 import { personName } from "@/lib/crew";
-import { fmtDateTime, parseOptionalNumber } from "@/lib/format";
-import { buildTemplateWithAddedItem } from "@/lib/record-templates";
+import { fmtDateTime } from "@/lib/format";
+import {
+  buildTemplateRevision,
+  collectTemplateValues,
+  CUSTOM_LOG_PREFIX,
+  draftTemplate,
+  isCustomLogKey,
+  isItemRequired,
+  type DraftTemplateItem,
+} from "@/lib/record-templates";
 import { useLocale } from "@/lib/use-locale";
 import { appendRecord, newRecordBase } from "@/lib/vessel-actions";
 import { usePermission, useRecordTemplates, useSessionCrew } from "@/lib/vessel-hooks";
-import type {
-  ChecklistItemResult,
-  ChecklistResultPayload,
-  RecordTemplatePayload,
-  TemplateInputType,
-} from "@/sync-protocol/records";
-import { TriStateToggle, useModalProps } from "@/ui";
-import { Accordion, AccordionItem, Button, Chip, Input, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, Radio, RadioGroup, Select, SelectItem, Textarea, useDisclosure } from "@/ui/heroui";
+import type { ChecklistItemResult, ChecklistResultPayload, RecordTemplatePayload } from "@/sync-protocol/records";
+import { useModalProps } from "@/ui";
+import { Accordion, AccordionItem, Button, Chip, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, Textarea, useDisclosure } from "@/ui/heroui";
 import type { TriState } from "@/ui/tri-state-toggle";
-import { RecordTile } from "./record-tile";
+import { CHECKLIST_FALLBACK_GROUP, ChecklistDesigner } from "./checklist-designer";
+import { ChecklistItemsForm, emptyChecklistAnswers, type ChecklistAnswers } from "./checklist-items-form";
+import { RecordMark, RecordTile } from "./record-tile";
 
 /**
  * 点検表（出港前点検・安全パトロール）の記録。
@@ -27,39 +32,53 @@ import { RecordTile } from "./record-tile";
  *
  * 項目は配信テンプレート（record_template）から組み立て、数値は利用者が入力する。
  * 記録者はサインイン中の本人に固定する（共用端末で取り違えない）。
+ *
+ * 点検表を作る・項目を直すのは記録の画面とは別の手順つきの画面（`ChecklistDesigner`）。
+ * 航海日誌の項目づくりと同じ形にそろえる（利用者の依頼 2026-10-19「初心者が分かりやすいフロー形式で」）。
  */
 export function ChecklistSection({ onDone }: { onDone?: (message: string) => void }) {
   const session = useSessionCrew();
   const { tr } = useLocale(); // 良否の表示言語（10.2）
   const canManageTemplates = usePermission("manage_record_templates");
-  const templates = useRecordTemplates("checklist");
+  const delivered = useRecordTemplates("checklist");
   const modalProps = useModalProps();
+
+  /** 作ったばかり・直したばかりで、まだ一覧に届いていない点検表（作ってすぐ点検できるように） */
+  const [local, setLocal] = useState<Record<string, RecordTemplatePayload>>({});
+  const templates = useMemo(() => {
+    const byKey = new Map<string, RecordTemplatePayload>();
+    for (const tpl of delivered) byKey.set(tpl.templateKey, tpl);
+    for (const tpl of Object.values(local)) {
+      const cur = byKey.get(tpl.templateKey);
+      if (cur && cur.publishedAt >= tpl.publishedAt) continue;
+      if (tpl.retired) byKey.delete(tpl.templateKey);
+      else byKey.set(tpl.templateKey, tpl);
+    }
+    // 組み込みの点検表を先に、作った点検表は作った順（キーの ULID）に並べる
+    return [...byKey.values()].sort(
+      (a, b) => Number(isCustomLogKey(a.templateKey)) - Number(isCustomLogKey(b.templateKey)) || a.templateKey.localeCompare(b.templateKey),
+    );
+  }, [delivered, local]);
+  const templateFor = (key: string) => templates.find((tpl) => tpl.templateKey === key);
 
   const checklistModal = useDisclosure();
   const [templateKey, setTemplateKey] = useState<string | null>(null);
-  const [answers, setAnswers] = useState<Record<string, TriState | null>>({});
-  const [values, setValues] = useState<Record<string, string>>({});
-  const [notes, setNotes] = useState<Record<string, string>>({});
+  const [input, setInput] = useState<ChecklistAnswers>(emptyChecklistAnswers);
   const [remarks, setRemarks] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  const template = templates.find((tpl) => tpl.templateKey === templateKey) ?? templates[0] ?? null;
-  const groups = useMemo(() => {
-    const m = new Map<string, RecordTemplatePayload["items"]>();
-    for (const it of template?.items ?? []) m.set(it.group, [...(m.get(it.group) ?? []), it]);
-    return [...m.entries()];
-  }, [template]);
-  const checkItems = (template?.items ?? []).filter((it) => it.inputType === "check");
-  // 未入力 = 未判定の良否項目 + 空欄の数値項目（自由記述は任意）
+  const template = (templateKey ? templateFor(templateKey) : undefined) ?? templates[0] ?? null;
+  const allItems = template?.items ?? [];
+  const checkItems = allItems.filter((it) => it.inputType === "check");
+  const otherItems = allItems.filter((it) => it.inputType !== "check");
+  // 未入力 = 未判定の良否項目 + 空欄の必須項目（任意の項目は空欄でよい）
   const unanswered =
-    checkItems.filter((it) => !answers[it.key]).length +
-    (template?.items ?? []).filter((it) => it.inputType === "number" && !values[it.key]?.trim()).length;
+    checkItems.filter((it) => !input.answers[it.key]).length +
+    otherItems.filter((it) => isItemRequired(it) && !input.values[it.key]?.trim()).length;
 
   function openChecklist(key: string) {
     setTemplateKey(key);
-    setAnswers({});
-    setValues({});
-    setNotes({});
+    setInput(emptyChecklistAnswers());
     setRemarks("");
     setError(null);
     checklistModal.onOpen();
@@ -70,25 +89,26 @@ export function ChecklistSection({ onDone }: { onDone?: (message: string) => voi
     try {
       if (!session) throw new Error("サインインが必要です");
       if (!template) throw new Error("点検表が配信されていません");
-      if (unanswered > 0) throw new Error(`未入力の項目が ${unanswered} 件あります`);
-      const items: ChecklistItemResult[] = template.items.map((it) => {
-        const note = notes[it.key]?.trim() || undefined;
+      const notJudged = checkItems.filter((it) => !input.answers[it.key]);
+      if (notJudged.length > 0) {
+        throw new Error(`未入力の項目が ${unanswered} 件あります（「${notJudged[0].label}」の良・不良を選んでください）`);
+      }
+      // 良否以外の値の検査（必須の空欄・数字・選択肢・時刻）は航海日誌と同じ関数で行う
+      const others = new Map(collectTemplateValues(otherItems, input.values).map((r) => [r.key, r]));
+      const items: ChecklistItemResult[] = allItems.flatMap((it): ChecklistItemResult[] => {
         if (it.inputType === "check") {
-          return { key: it.key, label: it.label, group: it.group, result: answers[it.key] as TriState, note };
+          const note = input.notes[it.key]?.trim() || undefined;
+          return [{ key: it.key, label: it.label, group: it.group, result: input.answers[it.key] as TriState, note }];
         }
-        const raw = values[it.key]?.trim() ?? "";
-        const value = it.inputType === "number" ? parseOptionalNumber(raw) : raw || undefined;
-        if (it.inputType === "number" && value === undefined) {
-          throw new Error(`「${it.label}」に数値を入力してください`);
-        }
-        // 良否で答えない項目は result="na"（値そのものが記録の中身）
-        return { key: it.key, label: it.label, group: it.group, result: "na", value, unit: it.unit, note };
+        const r = others.get(it.key);
+        return r ? [r] : [];
       });
       const overall = items.some((i) => i.result === "ng") ? "fail" : "pass";
       const b = await newRecordBase(session.id);
       await appendRecord("checklist_result", {
         ...b,
         templateId: template.templateKey,
+        templateName: template.name,
         templateVersion: template.version,
         items,
         overall,
@@ -101,47 +121,74 @@ export function ChecklistSection({ onDone }: { onDone?: (message: string) => voi
     }
   }
 
-  // ── 項目の追加（船長。陸上からも配信される） ──
-  const itemModal = useDisclosure();
-  const [itemTarget, setItemTarget] = useState<string | null>(null);
-  const [itemLabel, setItemLabel] = useState("");
-  const [itemGroup, setItemGroup] = useState("追加項目");
-  const [itemType, setItemType] = useState<TemplateInputType>("check");
-  const [itemUnit, setItemUnit] = useState("");
-  const [itemError, setItemError] = useState<string | null>(null);
-  const itemTemplate = templates.find((tpl) => tpl.templateKey === itemTarget) ?? templates[0] ?? null;
+  // ── 点検表を作る・項目を直す（船長。陸上からも配信される） ──
+  const designerModal = useDisclosure();
+  const [designer, setDesigner] = useState<{ mode: "create"; n: number } | { mode: "edit"; key: string; n: number }>({ mode: "create", n: 0 });
+  const takenNames = templates.map((tpl) => tpl.name);
 
-  function openAddItem() {
-    setItemTarget(template?.templateKey ?? templates[0]?.templateKey ?? null);
-    setItemLabel("");
-    setItemGroup("追加項目");
-    setItemType("check");
-    setItemUnit("");
-    setItemError(null);
-    itemModal.onOpen();
+  function openCreate() {
+    setDesigner((d) => ({ mode: "create", n: d.n + 1 }));
+    designerModal.onOpen();
   }
 
-  async function submitAddItem() {
-    setItemError(null);
-    try {
-      if (!session) throw new Error("サインインが必要です");
-      if (!itemTemplate) throw new Error("点検表が配信されていません");
-      const b = await newRecordBase(session.id);
-      const next = buildTemplateWithAddedItem({
-        template: itemTemplate,
-        item: { label: itemLabel, group: itemGroup, inputType: itemType, unit: itemUnit },
-        id: b.id,
-        recordedBy: session.id,
-        deviceId: b.deviceId,
-        publishedBy: session.id,
+  /** 点検の画面から項目を直しに行く（点検の画面は閉じ、保存したら戻ってくる） */
+  function openEditFromRecord() {
+    if (!template) return;
+    checklistModal.onClose();
+    setDesigner((d) => ({ mode: "edit", key: template.templateKey, n: d.n + 1 }));
+    designerModal.onOpen();
+  }
+
+  /** 点検表を作る、または項目の変更を1つの新しい版として全員の端末へ送る（足す・直す・外す・並べ替え・見出し・名前） */
+  async function saveDesign(items: DraftTemplateItem[], name?: string) {
+    if (!session) throw new Error("サインインが必要です");
+    const b = await newRecordBase(session.id);
+    const common = { items, id: b.id, recordedBy: session.id, deviceId: b.deviceId, publishedBy: session.id, group: CHECKLIST_FALLBACK_GROUP };
+    if (designer.mode === "create") {
+      const listName = name?.trim() ?? "";
+      const next = buildTemplateRevision({
+        ...common,
+        template: draftTemplate({ usage: "checklist", templateKey: `${CUSTOM_LOG_PREFIX}${b.id}`, name: listName, tenantId: b.tenantId, vesselId: b.vesselId }),
       });
       await appendRecord("record_template", next);
-      onDone?.(`${next.name} に「${itemLabel.trim()}」を追加しました（版 ${next.version}）`);
-      itemModal.onClose();
-    } catch (e) {
-      setItemError(e instanceof Error ? e.message : String(e));
+      setLocal((c) => ({ ...c, [next.templateKey]: next }));
+      designerModal.onClose();
+      onDone?.(`「${next.name}」を作りました。札を押すと点検を記録できます`);
+      return;
     }
+    const current = templateFor(designer.key);
+    if (!current) throw new Error("この点検表は見つかりません。画面を開き直してください");
+    const next = buildTemplateRevision({ ...common, template: current, name: isCustomLogKey(current.templateKey) ? name : undefined });
+    await appendRecord("record_template", next);
+    setLocal((c) => ({ ...c, [next.templateKey]: next }));
+    designerModal.onClose();
+    onDone?.(`「${next.name}」の点検する項目を保存しました（全員の端末に届きます）`);
+    openChecklist(next.templateKey);
   }
+
+  /** 船長・陸上が作った点検表を削除する（新しい点検では選べなくなる。過去の記録は残る） */
+  async function retireChecklist() {
+    if (!session || designer.mode !== "edit") return;
+    const tpl = templateFor(designer.key);
+    if (!tpl) return;
+    const b = await newRecordBase(session.id);
+    const next = buildTemplateRevision({
+      template: tpl,
+      items: tpl.items,
+      retired: true,
+      id: b.id,
+      recordedBy: session.id,
+      deviceId: b.deviceId,
+      publishedBy: session.id,
+      group: CHECKLIST_FALLBACK_GROUP,
+    });
+    await appendRecord("record_template", next);
+    setLocal((c) => ({ ...c, [next.templateKey]: next }));
+    designerModal.onClose();
+    onDone?.(`「${tpl.name}」を削除しました（これまでの点検の記録は残ります）`);
+  }
+
+  const editing = designer.mode === "edit" ? templateFor(designer.key) : undefined;
 
   return (
     <section aria-label="船の点検表" className="flex flex-col gap-2">
@@ -151,23 +198,27 @@ export function ChecklistSection({ onDone }: { onDone?: (message: string) => voi
           <RecordTile
             key={tpl.templateKey}
             label={tpl.name}
-            sublabel={`${tpl.items.length}項目 / 版 ${tpl.version}`}
+            sublabel={`点検する項目 ${tpl.items.length}つ`}
             onPress={() => openChecklist(tpl.templateKey)}
           />
         ))}
+        {canManageTemplates ? (
+          // 点検表を作る札は点線にして、点検を始める札と見分ける（航海日誌の「日誌の種類を増やす」と同じ）
+          <button
+            type="button"
+            onClick={openCreate}
+            className="ui-card record-tile record-tile-new flex min-h-20 items-center gap-3 p-4 text-left"
+          >
+            <span className="flex flex-1 flex-col gap-1">
+              <span className="text-lg font-bold leading-tight">点検表を増やす</span>
+              <span className="text-sm text-foreground-600">例: 入港前点検・荷役前点検</span>
+            </span>
+            <RecordMark />
+          </button>
+        ) : null}
       </div>
-      {canManageTemplates ? (
-        <Button
-          variant="bordered"
-          radius="lg"
-          className="min-h-12 self-start border-[var(--ui-hairline-strong)]"
-          onPress={openAddItem}
-        >
-          点検項目を追加する
-        </Button>
-      ) : null}
 
-      {/* 点検表の入力 */}
+      {/* 点検表の入力（書くことだけ。項目を決めるのは別の手順つきの画面） */}
       <Modal
         {...modalProps}
         isOpen={checklistModal.isOpen}
@@ -179,63 +230,37 @@ export function ChecklistSection({ onDone }: { onDone?: (message: string) => voi
         <ModalContent>
           <ModalHeader className="flex flex-col gap-1">
             <span>{template?.name ?? "点検表"}</span>
-            <span className="text-sm font-normal text-foreground-600">
-              {template?.description}（テンプレート版 {template?.version}）
-            </span>
+            {template?.description ? <span className="text-sm font-normal text-foreground-600">{template.description}</span> : null}
           </ModalHeader>
           <ModalBody className="flex flex-col gap-4">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               <span className="text-sm text-foreground-600">
-                未入力 {unanswered} / {template?.items.length ?? 0} 件
+                未入力 {unanswered} / {allItems.length} 件
               </span>
-              <Button
-                size="sm"
-                variant="bordered"
-                className="min-h-10 border-[var(--ui-hairline-strong)]"
-                onPress={() => setAnswers(Object.fromEntries(checkItems.map((it) => [it.key, "ok" as TriState])))}
-              >
-                未判定をすべて「良」にする
-              </Button>
+              {checkItems.length > 0 ? (
+                <Button
+                  size="sm"
+                  variant="bordered"
+                  className="min-h-10 border-[var(--ui-hairline-strong)]"
+                  onPress={() =>
+                    setInput((s) => ({
+                      ...s,
+                      answers: { ...Object.fromEntries(checkItems.map((it) => [it.key, "ok" as TriState])), ...pickJudged(s.answers) },
+                    }))
+                  }
+                >
+                  未判定をすべて「良」にする
+                </Button>
+              ) : null}
             </div>
-            {groups.map(([group, items]) => (
-              <div key={group} className="flex flex-col gap-2">
-                <h3 className="font-bold">{group}</h3>
-                {items.map((it) => (
-                  <div key={it.key} className="ui-inset flex flex-col gap-1 p-3">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <span className="text-base">{it.label}</span>
-                      {it.inputType === "check" ? (
-                        <TriStateToggle
-                          ariaLabel={it.label}
-                          value={answers[it.key] ?? null}
-                          onChange={(v) => setAnswers((a) => ({ ...a, [it.key]: v }))}
-                        />
-                      ) : (
-                        <Input
-                          size="sm"
-                          type={it.inputType === "number" ? "number" : "text"}
-                          aria-label={it.label}
-                          className="max-w-44"
-                          endContent={it.unit ? <span className="text-sm text-foreground-600">{it.unit}</span> : null}
-                          value={values[it.key] ?? ""}
-                          onValueChange={(v) => setValues((s) => ({ ...s, [it.key]: v }))}
-                        />
-                      )}
-                    </div>
-                    {answers[it.key] === "ng" ? (
-                      <Input
-                        size="sm"
-                        label="不良の内容・処置"
-                        value={notes[it.key] ?? ""}
-                        onValueChange={(v) => setNotes((n) => ({ ...n, [it.key]: v }))}
-                      />
-                    ) : null}
-                  </div>
-                ))}
-              </div>
-            ))}
+            <ChecklistItemsForm items={allItems} value={input} onChange={setInput} />
+            {canManageTemplates ? (
+              <button type="button" className="ui-btn-quiet min-h-11 self-start !text-base" onClick={openEditFromRecord}>
+                点検する項目を増やす・直す
+              </button>
+            ) : null}
             <Textarea label="所見・備考" value={remarks} onValueChange={setRemarks} minRows={2} />
-            {error ? <p className="text-danger">✕ {error}</p> : null}
+            {error ? <p role="alert" className="m-0 text-danger">✕ {error}</p> : null}
           </ModalBody>
           <ModalFooter>
             <Button variant="bordered" onPress={checklistModal.onClose}>
@@ -248,63 +273,39 @@ export function ChecklistSection({ onDone }: { onDone?: (message: string) => voi
         </ModalContent>
       </Modal>
 
-      {/* 点検項目の追加（船長。陸上からも配信される） */}
+      {/* 点検表を作る・項目を直す（手順つき） */}
       <Modal
         {...modalProps}
-        isOpen={itemModal.isOpen}
-        onOpenChange={itemModal.onOpenChange}
-        placement="center"
+        size="2xl"
+        isOpen={designerModal.isOpen}
+        onOpenChange={designerModal.onOpenChange}
+        // 項目が増えても画面が上下に動かないよう上に固定する（続けて押すボタンの位置がずれない）
+        placement="top"
         scrollBehavior="inside"
       >
-        <ModalContent>
-          <ModalHeader className="flex flex-col gap-1">
-            <span>点検項目の追加</span>
-            <span className="text-sm font-normal text-foreground-600">
-              追加した項目は次の点検から全員に表示されます（過去の記録は当時の版のまま保持）
-            </span>
-          </ModalHeader>
-          <ModalBody className="flex flex-col gap-3">
-            <Select
-              label="追加先の点検表"
-              selectedKeys={itemTemplate ? [itemTemplate.templateKey] : []}
-              onSelectionChange={(k) => {
-                const v = [...k][0];
-                if (v) setItemTarget(String(v));
-              }}
-            >
-              {templates.map((tpl) => (
-                <SelectItem key={tpl.templateKey}>{`${tpl.name}（版 ${tpl.version}）`}</SelectItem>
-              ))}
-            </Select>
-            <Input label="項目名" value={itemLabel} onValueChange={setItemLabel} placeholder="例: 燃料タンク残量" />
-            <Input label="区分（見出し）" value={itemGroup} onValueChange={setItemGroup} placeholder="例: 機関" />
-            <RadioGroup
-              orientation="horizontal"
-              label="入力方法"
-              value={itemType}
-              onValueChange={(v) => setItemType(v as TemplateInputType)}
-            >
-              <Radio value="check">良否で答える</Radio>
-              <Radio value="number">数値を入力</Radio>
-              <Radio value="text">文章を入力</Radio>
-            </RadioGroup>
-            {itemType === "number" ? (
-              <Input label="単位" value={itemUnit} onValueChange={setItemUnit} placeholder="例: L / °C / rpm" />
-            ) : null}
-            {itemError ? <p className="text-danger">✕ {itemError}</p> : null}
-          </ModalBody>
-          <ModalFooter>
-            <Button variant="bordered" onPress={itemModal.onClose}>
-              キャンセル
-            </Button>
-            <Button color="primary" onPress={() => void submitAddItem()}>
-              項目を追加して配信
-            </Button>
-          </ModalFooter>
-        </ModalContent>
+        {designer.mode === "create" ? (
+          <ChecklistDesigner key={designer.n} mode="create" items={[]} takenNames={takenNames} onSave={saveDesign} onClose={designerModal.onClose} />
+        ) : (
+          <ChecklistDesigner
+            key={designer.n}
+            mode="edit"
+            checklistName={editing && isCustomLogKey(editing.templateKey) ? editing.name : undefined}
+            fixedName={editing?.name}
+            items={editing?.items ?? []}
+            takenNames={takenNames.filter((n) => n !== editing?.name)}
+            onSave={saveDesign}
+            onRetire={editing && isCustomLogKey(editing.templateKey) ? retireChecklist : undefined}
+            onClose={designerModal.onClose}
+          />
+        )}
       </Modal>
     </section>
   );
+}
+
+/** すでに選んだ良否だけを残す（「未判定をすべて良にする」で不良を上書きしない） */
+function pickJudged(answers: Record<string, TriState | null>): Record<string, TriState> {
+  return Object.fromEntries(Object.entries(answers).filter((e): e is [string, TriState] => e[1] != null));
 }
 
 /** 点検表の結果1件（履歴の行）。機器の保守記録と同じ一覧に並べる */

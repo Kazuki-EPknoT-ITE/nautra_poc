@@ -69,7 +69,7 @@ export default function MaintenancePage() {
   /** 配信テンプレート名（過去の記録は当時のキーしか持たないため、無ければキーを出す） */
   const templateName = useMemo(() => {
     const m = new Map(templates.map((tpl) => [tpl.templateKey, tpl.name]));
-    return (key: string) => m.get(key) ?? t.checklistTemplate[key] ?? key;
+    return (key: string, recorded?: string) => m.get(key) ?? recorded ?? t.checklistTemplate[key] ?? key;
   }, [templates]);
 
   // 点検表の結果と機器の保守記録を1つの履歴にまとめる（同じ「点検」として並べて読む）
@@ -89,7 +89,7 @@ export default function MaintenancePage() {
       h.kind === "checklist"
         ? [
             "点検表",
-            templateName(h.r.templateId),
+            templateName(h.r.templateId, h.r.templateName),
             personName(h.r.recordedBy),
             ...h.r.items.map((it) => `${it.label} ${t.checkResult[it.result]} ${it.value ?? ""}`),
           ].join(" ")
@@ -244,7 +244,7 @@ export default function MaintenancePage() {
           h.kind === "checklist" ? (
             <Card key={h.r.id} shadow="none" className="ui-card">
               <CardBody>
-                <ChecklistResultRow r={h.r} name={templateName(h.r.templateId)} />
+                <ChecklistResultRow r={h.r} name={templateName(h.r.templateId, h.r.templateName)} />
               </CardBody>
             </Card>
           ) : (

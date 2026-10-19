@@ -172,6 +172,8 @@ export interface DraftTemplateItem {
   unit?: string;
   options?: string[];
   required?: boolean;
+  /** 見出し（点検表の「機関」「甲板」など。項目ごとに持つ）。無ければ版の group を使う */
+  group?: string;
 }
 
 /**
@@ -212,6 +214,7 @@ export interface ReviseTemplateInput {
   recordedBy: string;
   deviceId: string;
   publishedBy: string;
+  /** 見出しの既定（航海日誌は種類の名前。項目が見出しを持たないときに使う） */
   group: string;
   now?: Date;
 }
@@ -241,7 +244,7 @@ export function buildTemplateRevision(input: ReviseTemplateInput): RecordTemplat
     return {
       key,
       label,
-      group: input.group,
+      group: d.group?.trim() || input.group,
       inputType: d.inputType,
       unit: d.inputType === "number" ? d.unit?.trim() || undefined : undefined,
       options: options ? [...new Set(options)] : undefined,

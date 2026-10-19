@@ -101,7 +101,7 @@ export function buildCrewKarte(crewMemberId: string, now = new Date()): CrewKart
     recent.push({
       kind: "点検表",
       occurredAt: r.occurredAt,
-      summary: `${t.checklistTemplate[r.templateId] ?? r.templateId}（${
+      summary: `${r.templateName ?? t.checklistTemplate[r.templateId] ?? r.templateId}（${
         r.overall === "pass" ? "合格" : "不合格"
       } / 全${r.items.length}項目）`,
     });

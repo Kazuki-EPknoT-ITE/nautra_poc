@@ -177,6 +177,21 @@ describe("航海日誌の項目を自由に直す（足す・直す・外す・�
     ).toThrow("2つ以上");
   });
 
+  it("点検表は項目ごとの見出しを持てる（見出しが空なら版の既定を使う）", () => {
+    const next = buildTemplateRevision({
+      ...common,
+      template: tpl(),
+      items: [
+        { key: "hull", label: "船体外観", inputType: "check", group: "船体" },
+        { label: "冷却水温度", inputType: "number", unit: "°C", required: true, group: " 機関 " },
+        { label: "気付いたこと", inputType: "text", group: "" },
+      ],
+      group: "その他",
+    });
+    expect(next.items.map((it) => it.group)).toEqual(["船体", "機関", "その他"]);
+    expect(next.items[0].key).toBe("hull");
+  });
+
   it("船長が作った種類はしまうと有効な一覧から消える（旧版は入力配列に残る）", () => {
     const custom = buildTemplateRevision({
       ...common,

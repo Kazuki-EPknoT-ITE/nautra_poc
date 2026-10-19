@@ -4,7 +4,7 @@ import { useState } from "react";
 import type { TemplateItem } from "@/sync-protocol/records";
 import { LineIcon, StepBar, type Step } from "@/ui";
 import { Button, ModalBody, ModalContent, ModalFooter, ModalHeader } from "@/ui/heroui";
-import { INPUT_TYPES } from "./template-items-editor";
+import { INPUT_TYPES } from "../../_components/template-items-editor";
 
 /** 一覧に並べる日誌の種類（組み込みの4種と、船長・陸上が作った種類） */
 export interface ManagedLogType {
