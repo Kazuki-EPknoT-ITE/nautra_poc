@@ -164,9 +164,9 @@ export function LogTypeDesigner({
               <div className="flex flex-wrap items-center gap-2 border-t border-[var(--ui-hairline)] pt-3">
                 {confirmRetire ? (
                   <>
-                    <span>「{typeName}」を使わなくしますか（これまでの記録は残ります）</span>
+                    <span>「{typeName}」の種類を削除しますか（これまでの記録は残ります）</span>
                     <button type="button" className="ui-btn-danger min-h-11 px-3" disabled={busy} onClick={() => void onRetire()}>
-                      使わなくする
+                      削除する
                     </button>
                     <button type="button" className="ui-btn-quiet min-h-11 !text-base" onClick={() => setConfirmRetire(false)}>
                       やめる
@@ -174,7 +174,7 @@ export function LogTypeDesigner({
                   </>
                 ) : (
                   <button type="button" className="ui-btn-quiet min-h-11 !text-base" onClick={() => setConfirmRetire(true)}>
-                    この種類を使わなくする
+                    この種類を削除する
                   </button>
                 )}
               </div>

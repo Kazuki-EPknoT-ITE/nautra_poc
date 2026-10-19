@@ -18,7 +18,10 @@ export type LineIconName =
   | "calendar"
   | "plus"
   | "list"
-  | "back";
+  | "back"
+  | "next"
+  | "edit"
+  | "trash";
 
 const PATHS: Record<LineIconName, React.ReactNode> = {
   // 舵輪（航海当直）
@@ -85,6 +88,23 @@ const PATHS: Record<LineIconName, React.ReactNode> = {
   list: <path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01" />,
   // 戻る
   back: <path d="M15 5l-7 7 7 7" />,
+  // 進む（一覧の行を選ぶ）
+  next: <path d="M9 5l7 7-7 7" />,
+  // 鉛筆（編集する）
+  edit: (
+    <>
+      <path d="M4 20h4L19 9l-4-4L4 16z" />
+      <path d="M13.5 6.5l4 4" />
+    </>
+  ),
+  // くず入れ（削除する）
+  trash: (
+    <>
+      <path d="M4 7h16M9 7V4h6v3" />
+      <path d="M6 7l1 13h10l1-13" />
+      <path d="M10 11v6M14 11v6" />
+    </>
+  ),
 };
 
 export function LineIcon({ name, size = 32, className }: { name: LineIconName; size?: number; className?: string }) {

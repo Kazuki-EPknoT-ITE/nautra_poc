@@ -15,7 +15,7 @@ import { deflateSync } from "node:zlib";
  * 6. 多言語: 日本語 ⇄ English の切替が効く
  */
 
-const BASE = "http://localhost:3100";
+const BASE = process.env.NAUTRA_BASE ?? "http://localhost:3100"; // 別の作業が 3100 を使っているときは NAUTRA_BASE で変える
 const log = (...a) => console.log(...a);
 
 /** 指定した色の 1×1 PNG を組み立てる（画像ファイルを同梱せずに顔写真の登録を試すため） */
@@ -414,15 +414,56 @@ check("船内: 同期を実行できる", true);
   const customPast = await cp.locator("main").innerText();
   check("船内: 作った種類の記録が過去の日誌に項目つきで出る", customPast.includes(typeName) && /到着時刻: 09:15/.test(customPast) && /天気: 晴/.test(customPast));
   await cp.getByRole("button", { name: /記録に戻る/ }).click();
+  // 種類と項目を編集・削除する（利用者の依頼 2026-10-19）: ① 種類を選ぶ → ② することを選ぶ → ③ 確かめて削除する
+  const openManager = async () => {
+    await cp.getByRole("button", { name: /種類と項目を編集・削除する/ }).click();
+    await dlg.getByRole("region", { name: "種類を選ぶ" }).getByRole("button", { name: new RegExp(`^${typeName}`) }).click();
+  };
+  await cp.getByRole("button", { name: /種類と項目を編集・削除する/ }).click();
+  check("船内: 編集・削除の画面は手順の帯つきで、①種類を選ぶから始まる", (await dlg.locator('[aria-current="step"]').innerText()).includes("種類を選ぶ"));
+  const pickList = await dlg.getByRole("region", { name: "種類を選ぶ" }).innerText();
+  check("船内: ①には組み込みの種類と作った種類が、項目の名前つきで並ぶ", pickList.includes("出港") && pickList.includes(typeName) && pickList.includes("到着時刻・天気"));
+  await dlg.getByRole("region", { name: "種類を選ぶ" }).getByRole("button", { name: new RegExp(`^${typeName}`) }).click();
+  check(
+    "船内: ②で編集する・種類を削除する・項目を1つずつ削除するを選べる",
+    (await dlg.getByRole("button", { name: "名前と記録する項目を編集する" }).count()) === 1 &&
+      (await dlg.getByRole("button", { name: "この種類を削除する" }).count()) === 1 &&
+      (await dlg.getByRole("button", { name: "「天気」を削除する" }).count()) === 1,
+  );
+  // 編集は項目づくりの手順の画面へつながる
+  await dlg.getByRole("button", { name: "名前と記録する項目を編集する" }).click();
+  await cp.waitForTimeout(400);
+  check("船内: ②の「編集する」で、名前と項目を直す手順の画面が開く", (await dlg.getByLabel("種類の名前").inputValue()) === typeName);
+  await dlg.getByRole("button", { name: "やめる", exact: true }).click();
+  await cp.waitForTimeout(300);
+  // 項目を1つ削除 → 確かめる → 削除 → 元に戻す
+  await openManager();
+  await dlg.getByRole("button", { name: "「天気」を削除する" }).click();
+  const effects = await dlg.getByRole("list", { name: "削除するとどうなるか" }).innerText();
+  check("船内: ③で削除すると何がなくなり何が残るかを示す", /「天気」の欄が出なくなります/.test(effects) && /値は消えません/.test(effects));
+  await dlg.getByRole("button", { name: "削除する", exact: true }).click();
+  await cp.waitForTimeout(800);
+  check("船内: 項目を削除すると知らせが出て、元に戻すを押せる", /「天気」を削除しました/.test(await cp.locator("main").innerText()) && (await cp.getByRole("button", { name: "元に戻す" }).count()) === 1);
   await cp.getByRole("button", { name: new RegExp(`^${typeName}`) }).click();
-  await dlg.getByRole("button", { name: "記録する項目を増やす・直す" }).click();
-  await dlg.getByRole("button", { name: "この種類を使わなくする" }).click();
-  await dlg.getByRole("button", { name: "使わなくする", exact: true }).click();
+  check("船内: 削除した項目は記録の画面に出ない", (await dlg.getByRole("radio", { name: "晴" }).count()) === 0 && (await dlg.getByLabel("到着時刻").count()) === 1);
+  await dlg.getByRole("button", { name: "キャンセル" }).click();
+  await cp.waitForTimeout(300);
+  await cp.getByRole("button", { name: "元に戻す" }).click();
+  await cp.waitForTimeout(800);
+  await cp.getByRole("button", { name: new RegExp(`^${typeName}`) }).click();
+  check("船内: 元に戻すと削除した項目がまた出る", /を元に戻しました/.test(await cp.locator("main").innerText()) && (await dlg.getByRole("radio", { name: "晴" }).count()) === 1);
+  await dlg.getByRole("button", { name: "キャンセル" }).click();
+  await cp.waitForTimeout(300);
+  // 種類を削除
+  await openManager();
+  await dlg.getByRole("button", { name: "この種類を削除する" }).click();
+  check("船内: 種類の削除でも、これまでの記録は消えないと確かめてから削除する", /記録は消えません/.test(await dlg.getByRole("list", { name: "削除するとどうなるか" }).innerText()));
+  await dlg.getByRole("button", { name: "削除する", exact: true }).click();
   await cp.waitForTimeout(800);
   check(
-    "船内: 使わなくした種類は札が消え、過去の記録は残る",
+    "船内: 削除した種類は札が消え、過去の記録は残る",
     (await cp.getByRole("button", { name: new RegExp(`^${typeName}`) }).count()) === 0 &&
-      /を使わなくしました/.test(await cp.locator("main").innerText()),
+      /を削除しました（これまでの記録は残ります）/.test(await cp.locator("main").innerText()),
   );
   // しまった版がサーバへ届くのを待つ（送る前に閉じると、テストで作った種類がほかの端末に札として残る）
   const serverRetired = async () => {
@@ -442,7 +483,7 @@ check("船内: 同期を実行できる", true);
     await cp.waitForTimeout(500);
     retiredOnServer = await serverRetired().catch(() => false);
   }
-  check("船内: 使わなくした種類は陸上（サーバ）にも届く", retiredOnServer);
+  check("船内: 削除した種類は陸上（サーバ）にも届く", retiredOnServer);
   await capCtx.close();
 }
 

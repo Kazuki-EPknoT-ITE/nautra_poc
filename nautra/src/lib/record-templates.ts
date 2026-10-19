@@ -174,6 +174,21 @@ export interface DraftTemplateItem {
   required?: boolean;
 }
 
+/**
+ * いまの版の項目を、編集中の形へ写す（項目を削除する・元に戻すで、残す項目をそのまま次の版へ載せる）。
+ * key を引き継ぐので同じ項目として読める。必須は旧版の読み方（数値だけ必須）を保ったまま明示する
+ */
+export function itemsToDrafts(items: TemplateItem[]): DraftTemplateItem[] {
+  return items.map((it) => ({
+    key: it.key,
+    label: it.label,
+    inputType: it.inputType,
+    unit: it.unit,
+    options: it.options,
+    required: isItemRequired(it),
+  }));
+}
+
 /** 選択肢の入力（改行・読点・カンマ区切り）を、空と重複を除いた配列にする */
 export function parseChoiceOptions(raw: string): string[] {
   const out: string[] = [];

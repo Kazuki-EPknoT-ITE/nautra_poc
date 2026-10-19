@@ -18,6 +18,7 @@ import {
   CUSTOM_LOG_PREFIX,
   draftTemplate,
   isCustomLogKey,
+  itemsToDrafts,
   type DraftTemplateItem,
 } from "@/lib/record-templates";
 import { appendRecord, newRecordBase } from "@/lib/vessel-actions";
@@ -31,7 +32,7 @@ import {
   type VoyageLogPayload,
   type VoyageLogType,
 } from "@/sync-protocol/records";
-import { useModalProps } from "@/ui";
+import { LineIcon, useModalProps } from "@/ui";
 import { Button, Card, CardBody, Chip, Input, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, Select, SelectItem, Textarea, useDisclosure } from "@/ui/heroui";
 import { GroupHeader } from "../_components/group-header";
 import { RecordMark, RecordTile } from "../_components/record-tile";
@@ -46,6 +47,7 @@ import {
 } from "../_components/record-mode";
 import { isFilterActive } from "@/lib/record-filter";
 import { LogTypeDesigner } from "./_components/log-type-designer";
+import { LogTypeManager, type ManagedLogType } from "./_components/log-type-manager";
 
 const WEATHER = ["晴", "曇", "雨", "霧", "雪", "雷雨"];
 const WIND = ["静穏", "北 3m/s", "北東 3m/s", "東 5m/s", "南東 5m/s", "南 4m/s", "南西 5m/s", "西 8m/s", "北西 10m/s"];
@@ -148,6 +150,11 @@ export default function LogbookPage() {
     mode: "create",
     n: 0,
   });
+  /** 種類と項目を編集・削除する画面（手順つき。利用者の依頼 2026-10-19） */
+  const managerModal = useDisclosure();
+  const [managerN, setManagerN] = useState(0);
+  /** 直前の削除を元に戻すための、削除の前と後の版 */
+  const [undo, setUndo] = useState<{ before: RecordTemplatePayload; after: RecordTemplatePayload } | null>(null);
   /** 作ったばかりで、まだ一覧に届いていない種類（作ってすぐ項目を足せるように） */
   const [created, setCreated] = useState<Record<string, RecordTemplatePayload>>({});
 
@@ -264,6 +271,7 @@ export default function LogbookPage() {
       });
       await appendRecord("record_template", next);
       setCreated((c) => ({ ...c, [key]: next }));
+      setUndo(null);
       designerModal.onClose();
       setDone(`「${next.name}」を作りました。札を押すと記録できます`);
       return;
@@ -286,32 +294,92 @@ export default function LogbookPage() {
     });
     await appendRecord("record_template", next);
     if (custom) setCreated((c) => ({ ...c, [next.templateKey]: next }));
+    setUndo(null);
     designerModal.onClose();
     setDone(`「${custom ? next.name : label}」の記録する項目を保存しました（全員の端末に届きます）`);
     if (designer.fromRecord) openNew(kind);
   }
 
-  /** 船長・陸上が作った種類を使わなくする（新しい記録では選べなくなる。過去の記録は残る） */
-  async function retireType() {
-    if (!session || designer.mode !== "edit") return;
-    const tpl = templateFor(designer.kind);
-    if (!tpl) return;
+  /** いまの版を置き換える新しい版を1つ配信する（項目の削除・種類の削除・元に戻すで共用） */
+  async function publishRevision(
+    tpl: RecordTemplatePayload,
+    items: DraftTemplateItem[],
+    opts: { retired?: boolean; name?: string } = {},
+  ): Promise<RecordTemplatePayload> {
+    if (!session) throw new Error("サインインが必要です");
     const b = await newRecordBase(session.id);
+    const custom = isCustomLogKey(tpl.templateKey);
     const next = buildTemplateRevision({
       template: tpl,
-      items: tpl.items,
-      retired: true,
+      items,
+      name: opts.name,
+      retired: opts.retired,
       id: b.id,
       recordedBy: session.id,
       deviceId: b.deviceId,
       publishedBy: session.id,
-      group: tpl.name,
+      group: custom ? (opts.name ?? tpl.name) : kindName(tpl.templateKey),
     });
     await appendRecord("record_template", next);
-    setCreated((c) => ({ ...c, [next.templateKey]: next }));
-    designerModal.onClose();
-    setDone(`「${tpl.name}」を使わなくしました（これまでの記録は残ります）`);
+    if (custom) setCreated((c) => ({ ...c, [next.templateKey]: next }));
+    return next;
   }
+
+  /**
+   * 船長・陸上が作った種類を削除する（札から消え、新しい記録では選べなくなる）。
+   * 実体は消さず retired の版を追記する（ガードレール2）。これまでの記録は種類の名前を写して持つので残る
+   */
+  async function deleteType(kind: string) {
+    const tpl = templateFor(kind);
+    if (!tpl) return;
+    const next = await publishRevision(tpl, itemsToDrafts(tpl.items), { retired: true });
+    setUndo({ before: tpl, after: next });
+    designerModal.onClose();
+    managerModal.onClose();
+    setDone(`「${tpl.name}」を削除しました（これまでの記録は残ります）`);
+  }
+
+  /** 項目を削除する（その項目を載せない版を配信する。これまでの記録に入っている値は残る） */
+  async function deleteItems(kind: string, keys: string[]) {
+    const tpl = templateFor(kind);
+    if (!tpl) return;
+    const gone = tpl.items.filter((it) => keys.includes(it.key));
+    const next = await publishRevision(tpl, itemsToDrafts(tpl.items.filter((it) => !keys.includes(it.key))));
+    setUndo({ before: tpl, after: next });
+    managerModal.onClose();
+    setDone(
+      `「${kindName(kind)}」の${gone.length === 1 ? `「${gone[0].label}」` : `追加した項目${gone.length}つ`}を削除しました（これまでの記録は残ります）`,
+    );
+  }
+
+  /** 直前の削除を元に戻す（削除の前の項目・名前で、もう1つ新しい版を配信する） */
+  async function restoreDeleted() {
+    if (!undo) return;
+    const { before, after } = undo;
+    await publishRevision(after, itemsToDrafts(before.items), {
+      retired: false,
+      name: isCustomLogKey(before.templateKey) ? before.name : undefined,
+    });
+    setUndo(null);
+    setDone(`「${isCustomLogKey(before.templateKey) ? before.name : kindName(before.templateKey)}」を元に戻しました`);
+  }
+
+  function openManager() {
+    setManagerN((n) => n + 1);
+    managerModal.onOpen();
+  }
+
+  /** 編集・削除の画面から、項目を直す手順の画面へ */
+  function editFromManager(kind: string) {
+    managerModal.onClose();
+    setDesigner((d) => ({ mode: "edit", kind, fromRecord: false, n: d.n + 1 }));
+    designerModal.onOpen();
+  }
+
+  const managedTypes: ManagedLogType[] = [
+    ...VOYAGE_LOG_TYPES.map((lt) => ({ kind: lt, name: t.voyageLogType[lt], builtIn: true, items: templateFor(lt)?.items ?? [] })),
+    ...customTypes.map((tpl) => ({ kind: tpl.templateKey, name: tpl.name, builtIn: false, items: tpl.items })),
+  ];
 
   function set<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((f) => ({ ...f, [key]: value }));
@@ -350,6 +418,7 @@ export default function LogbookPage() {
         extraValues: extraValues.length > 0 ? extraValues : undefined,
       };
       await appendRecord("voyage_log", payload);
+      setUndo(null);
       setDone(
         supersedes
           ? "訂正記録を追記しました（元の記録は訂正済として保持されます）"
@@ -370,13 +439,32 @@ export default function LogbookPage() {
     <div className="flex flex-col gap-4">
       <GroupHeader group="03" />
       {canWrite ? (
-        <RecordModeSwitch mode={mode} onChange={setMode} pastLabel="過去の日誌" />
+        <RecordModeSwitch
+          mode={mode}
+          onChange={setMode}
+          pastLabel="過去の日誌"
+          actions={
+            canManageTemplates ? (
+              <button type="button" className="ui-btn-ghost min-h-12 px-4 text-lg" onClick={openManager}>
+                <LineIcon name="edit" size={20} />
+                種類と項目を編集・削除する
+              </button>
+            ) : null
+          }
+        />
       ) : null}
 
       {done ? (
-        <Chip variant="flat" radius="sm" className="h-auto whitespace-normal py-1">
-          ✓ {done}
-        </Chip>
+        <div className="flex flex-wrap items-center gap-2">
+          <Chip variant="flat" radius="sm" className="h-auto whitespace-normal py-1">
+            ✓ {done}
+          </Chip>
+          {undo ? (
+            <button type="button" className="ui-btn-quiet min-h-11 !text-base" onClick={() => void restoreDeleted()}>
+              元に戻す
+            </button>
+          ) : null}
+        </div>
       ) : null}
 
       {mode === "record" ? (
@@ -631,10 +719,21 @@ export default function LogbookPage() {
             items={templateFor(designer.kind)?.items ?? []}
             takenNames={takenNames}
             onSave={saveDesign}
-            onRetire={isCustomLogKey(designer.kind) && templateFor(designer.kind) ? retireType : undefined}
+            onRetire={isCustomLogKey(designer.kind) && templateFor(designer.kind) ? () => deleteType(designer.kind) : undefined}
             onClose={designerModal.onClose}
           />
         )}
+      </Modal>
+
+      <Modal {...modalProps} size="2xl" isOpen={managerModal.isOpen} onOpenChange={managerModal.onOpenChange} placement="top" scrollBehavior="inside">
+        <LogTypeManager
+          key={managerN}
+          types={managedTypes}
+          onEdit={editFromManager}
+          onDeleteType={deleteType}
+          onDeleteItems={deleteItems}
+          onClose={managerModal.onClose}
+        />
       </Modal>
     </div>
   );

@@ -8,6 +8,7 @@ import {
   effectiveTemplates,
   isCustomLogKey,
   isItemRequired,
+  itemsToDrafts,
   nextTemplateVersion,
   parseChoiceOptions,
 } from "../record-templates";
@@ -213,5 +214,44 @@ describe("航海日誌の項目を自由に直す（足す・直す・外す・�
     expect(isItemRequired({ inputType: "number" })).toBe(true);
     expect(isItemRequired({ inputType: "number", required: false })).toBe(false);
     expect(isItemRequired({ inputType: "check", required: true })).toBe(false);
+  });
+});
+
+describe("日誌の種類と項目を削除する・元に戻す（利用者の依頼 2026-10-19）", () => {
+  const base = tpl({
+    usage: "voyage_log",
+    templateKey: "departure",
+    name: "航海日誌: 出港",
+    version: "3",
+    items: [
+      // required の無い旧版の数値項目は「必須」と読む
+      { key: "fuel", label: "燃料残量", group: "出港", inputType: "number", unit: "kL" },
+      { key: "wx", label: "天候", group: "出港", inputType: "choice", options: ["晴", "雨"], required: false },
+    ],
+  });
+  const common = { recordedBy: "crew-takamatsu", deviceId: "dev", publishedBy: "crew-takamatsu", group: "出港", now: new Date("2026-10-19T05:00:00Z") };
+
+  it("項目を1つ削除すると、その項目を載せない新しい版になり、残す項目は key・必須・選択肢を保つ", () => {
+    const next = buildTemplateRevision({ ...common, id: "01JB0000000000000000000001", template: base, items: itemsToDrafts(base.items.filter((it) => it.key !== "wx")) });
+    expect(next.supersedesId).toBe("tpl-1");
+    expect(next.items).toEqual([expect.objectContaining({ key: "fuel", unit: "kL", required: true })]);
+    expect(next.changeNote).toContain("外した: 天候");
+  });
+
+  it("削除のあと元に戻すと、同じ key の項目が戻る（これまでの記録の値と同じ項目として読める）", () => {
+    const removed = buildTemplateRevision({ ...common, id: "01JB0000000000000000000002", template: base, items: [] });
+    const restored = buildTemplateRevision({ ...common, id: "01JB0000000000000000000003", template: removed, items: itemsToDrafts(base.items), retired: false });
+    expect(restored.supersedesId).toBe(removed.id);
+    expect(restored.items.map((it) => it.key)).toEqual(["fuel", "wx"]);
+    expect(restored.items[1].options).toEqual(["晴", "雨"]);
+  });
+
+  it("作った種類を削除すると retired の版になって選べなくなり、元に戻すとまた選べる", () => {
+    const custom = tpl({ id: "tpl-c", usage: "voyage_log", templateKey: `${CUSTOM_LOG_PREFIX}01JB`, name: "投錨", version: "1", items: [] });
+    const retired = buildTemplateRevision({ ...common, id: "01JB0000000000000000000004", template: custom, items: [], retired: true });
+    expect(effectiveTemplates([custom, retired], "voyage_log")).toEqual([]);
+    const back = buildTemplateRevision({ ...common, id: "01JB0000000000000000000005", template: retired, items: [], retired: false, name: "投錨" });
+    expect(back.retired).toBeUndefined();
+    expect(effectiveTemplates([custom, retired, back], "voyage_log").map((x) => x.name)).toEqual(["投錨"]);
   });
 });

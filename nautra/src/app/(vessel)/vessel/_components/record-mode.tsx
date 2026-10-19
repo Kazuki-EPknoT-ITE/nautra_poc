@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { EMPTY_PAST_FILTER, filterPast, isFilterActive, type PastFilter } from "@/lib/record-filter";
 import { LineIcon, SearchField } from "@/ui";
 
@@ -19,14 +19,18 @@ export function RecordModeSwitch({
   mode,
   onChange,
   pastLabel,
+  actions,
 }: {
   mode: RecordMode;
   onChange: (m: RecordMode) => void;
   pastLabel: string;
+  /** 記録の面で「過去を見る」の左に並べる操作（航海日誌の「種類と項目を編集・削除する」など） */
+  actions?: ReactNode;
 }) {
   if (mode === "record") {
     return (
-      <div className="flex justify-end">
+      <div className="flex flex-wrap justify-end gap-2">
+        {actions}
         <button type="button" className="ui-btn-ghost min-h-12 px-4 text-lg" onClick={() => onChange("past")}>
           <LineIcon name="list" size={20} />
           {pastLabel}を見る

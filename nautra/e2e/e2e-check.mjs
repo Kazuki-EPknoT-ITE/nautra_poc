@@ -5,7 +5,7 @@ import { chromium } from "playwright";
  * ref/E2E_TESTING.md の「主要フローをブラウザで検証する」に対応。
  */
 
-const BASE = "http://localhost:3100";
+const BASE = process.env.NAUTRA_BASE ?? "http://localhost:3100"; // 別の作業が 3100 を使っているときは NAUTRA_BASE で変える
 
 const SHORE = [
   "/shore",
