@@ -34,8 +34,9 @@ export function StepBar({
             key={s.no}
             aria-current={active ? "step" : undefined}
             className={cn(
-              "flex min-w-0 flex-1 items-center gap-2.5 border-r border-[var(--ui-hairline)] px-4 py-3.5 last:border-r-0",
-              active && "bg-warning-100",
+              "flex min-w-0 items-center gap-2.5 border-r border-[var(--ui-hairline)] px-3 py-3.5 last:border-r-0 sm:flex-1 sm:px-4",
+              // 狭い画面では、いまの手順だけ名前を出して幅を譲る（ほかは番号だけ。名前は読み上げには残す）
+              active ? "flex-1 bg-warning-100" : "flex-none",
             )}
           >
             <span
@@ -48,10 +49,10 @@ export function StepBar({
             >
               {done ? "✓" : s.no}
             </span>
-            <span className="flex min-w-0 flex-col items-start gap-0.5">
+            <span className={cn("min-w-0 flex-col items-start gap-0.5", active ? "flex" : "sr-only sm:not-sr-only sm:flex")}>
               <span
                 className={cn(
-                  "truncate text-base font-bold",
+                  "max-w-full truncate text-base font-bold",
                   active || done ? "text-foreground-900" : "text-foreground-500",
                 )}
               >

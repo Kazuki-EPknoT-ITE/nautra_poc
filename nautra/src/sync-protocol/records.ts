@@ -100,6 +100,11 @@ export const checklistResultPayloadSchema = z
     ...recordBase,
     /** 配信テンプレートの templateKey（既定は pre_departure / safety_patrol） */
     templateId: z.string(),
+    /**
+     * 記録した時点の点検表の名前の写し。船長・陸上が作った点検表（templateId = "custom:…"）は
+     * あとで使わなくすると一覧から消えるため、過去の記録が名前を失わないように持つ（任意。旧記録には無い）
+     */
+    templateName: z.string().optional(),
     /** テンプレート版（テンプレート変更後も結果の意味が追えるように保持） */
     templateVersion: z.string(),
     items: z.array(checklistItemResultSchema),

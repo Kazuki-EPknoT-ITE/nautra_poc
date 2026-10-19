@@ -322,6 +322,10 @@ check("船内: 同期を実行できる", true);
     (await rp.getByRole("button", { name: /過去の点検を見る/ }).count()) === 1 && eqButtons === 0 && /機器の状態/.test(mText) && !/参照のみ/.test(mText),
     `機器のボタン ${eqButtons}`,
   );
+  check(
+    "船内: 甲板員には「点検表を増やす」の札も「点検する項目を増やす・直す」も出さない",
+    (await rp.getByRole("button", { name: /点検表を増やす/ }).count()) === 0,
+  );
   await rCtx.close();
 }
 
@@ -443,6 +447,117 @@ check("船内: 同期を実行できる", true);
     retiredOnServer = await serverRetired().catch(() => false);
   }
   check("船内: 使わなくした種類は陸上（サーバ）にも届く", retiredOnServer);
+  await capCtx.close();
+}
+
+// 点検表の項目づくり（船長。利用者の依頼 2026-10-19「日誌の項目追加を参考に、初心者が分かりやすいフロー形式で」）:
+// 点検表を増やす（① 名前 → ② 点検する項目（見出しつき）→ ③ 見え方）→ 点検を記録 → 項目を直す → 使わなくする
+{
+  const capCtx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const cp = await capCtx.newPage();
+  await cp.goto(`${BASE}/vessel/login`, { waitUntil: "networkidle" });
+  await cp.getByRole("radio", { name: /高松/ }).click();
+  for (const d of ["1", "1", "1", "1"]) await cp.getByRole("button", { name: d, exact: true }).click();
+  await cp.waitForURL(`${BASE}/vessel`, { timeout: 15000 });
+  await cp.goto(`${BASE}/vessel/maintenance`, { waitUntil: "networkidle" });
+  await cp.waitForTimeout(800);
+  const listName = `E2E点検${Date.now() % 100000}`;
+  const tile = () => cp.getByRole("region", { name: "船の点検表" }).getByRole("button", { name: new RegExp(`^${listName}`) });
+  await cp.getByRole("button", { name: /点検表を増やす/ }).click();
+  const dlg = cp.getByRole("dialog");
+  check("船内: 点検表を増やす画面は手順の帯つきで、①名前から始まる", (await dlg.locator('[aria-current="step"]').innerText()).includes("名前を決める"));
+  await dlg.getByLabel("点検表の名前").fill(listName);
+  await dlg.getByRole("button", { name: "次へ: 点検する項目を決める" }).click();
+  await dlg.getByRole("button", { name: "次へ: 見え方を確かめる" }).click();
+  check("船内: 点検する項目が無いまま進もうとすると、よく使う点検項目から選べることを示して止める", /点検する項目を1つ以上決めてください/.test(await dlg.innerText()));
+  await dlg.getByRole("button", { name: "主機の運転状態", exact: true }).click();
+  await dlg.getByRole("button", { name: "冷却水温度", exact: true }).click();
+  await dlg.getByRole("button", { name: "自分で項目を作る" }).click();
+  await dlg.getByLabel("3つ目の項目名").fill("係船索の摩耗");
+  check(
+    "船内: 自分で作った項目は、直前の項目と同じ見出し・良否の答え方から始まる",
+    (await dlg.getByLabel("見出し（どこの点検か）").nth(2).inputValue()) === "機関" &&
+      (await dlg.getByRole("radiogroup", { name: "3つ目の項目の答え方" }).getByRole("radio", { name: "良・不良で答える" }).getAttribute("aria-checked")) === "true",
+  );
+  await dlg.getByRole("radiogroup", { name: "3つ目の項目の見出し" }).getByRole("radio", { name: "甲板" }).click();
+  await dlg.getByRole("button", { name: "次へ: 見え方を確かめる" }).click();
+  const preview = dlg.getByRole("region", { name: "見え方を確かめる" });
+  check(
+    "船内: 保存の前に、点検するときの見え方を見出しごとに試せる",
+    (await preview.getByRole("heading", { name: "機関" }).count()) === 1 &&
+      (await preview.getByRole("heading", { name: "甲板" }).count()) === 1 &&
+      (await preview.getByLabel("冷却水温度").count()) === 1,
+  );
+  await dlg.getByRole("button", { name: "この内容で作る" }).click();
+  await cp.waitForTimeout(800);
+  check("船内: 点検表を作ると札が増え、押すと点検を記録できると知らせる", new RegExp(`「${listName}」を作りました`).test(await cp.locator("main").innerText()) && (await tile().count()) === 1);
+
+  await tile().click();
+  check(
+    "船内: 点検の画面は書くことだけ（項目の編集は別の画面へ）",
+    (await dlg.getByLabel("冷却水温度").count()) === 1 &&
+      (await dlg.getByLabel("1つ目の項目名").count()) === 0 &&
+      (await dlg.getByRole("button", { name: "点検する項目を増やす・直す" }).count()) === 1,
+  );
+  await dlg.getByRole("button", { name: "点検結果を記録" }).click();
+  await cp.waitForTimeout(300);
+  check("船内: 良・不良を選んでいない項目があれば記録しない", /未入力の項目が 3 件あります/.test(await dlg.innerText()));
+  await dlg.getByRole("button", { name: /未判定をすべて「良」にする/ }).click();
+  await dlg.getByRole("button", { name: "点検結果を記録" }).click();
+  await cp.waitForTimeout(300);
+  check("船内: 必須の数字が空欄なら、何が空欄かを出して記録しない", /「冷却水温度」が空欄です/.test(await dlg.innerText()));
+  await dlg.getByLabel("冷却水温度").fill("82");
+  await dlg.getByRole("button", { name: "点検結果を記録" }).click();
+  await cp.waitForTimeout(800);
+  check("船内: 作った点検表で点検を記録できる", new RegExp(`${listName} を記録しました`).test(await cp.locator("main").innerText()));
+
+  // 項目を直す: 点検の画面から手順の画面へ → 1項目外して保存 → 点検の画面へ戻る
+  await tile().click();
+  await dlg.getByRole("button", { name: "点検する項目を増やす・直す" }).click();
+  check("船内: 作った点検表は名前の手順から直せる", (await dlg.locator('[aria-current="step"]').innerText()).includes("名前を決める"));
+  await dlg.getByRole("button", { name: "次へ: 点検する項目を決める" }).click();
+  await dlg.getByRole("button", { name: "この項目を外す" }).nth(2).click();
+  await dlg.getByRole("button", { name: "次へ: 見え方を確かめる" }).click();
+  await dlg.getByRole("button", { name: "この内容で保存する" }).click();
+  await cp.waitForTimeout(800);
+  const backToRecord = (await dlg.getByLabel("冷却水温度").count()) === 1 && !/係船索の摩耗/.test(await dlg.innerText());
+  await dlg.getByRole("button", { name: "キャンセル" }).click();
+  await cp.waitForTimeout(400);
+  check(
+    "船内: 項目を直して保存すると点検の画面へ戻り、外した項目は出ない（札の項目数も変わる）",
+    backToRecord && (await tile().innerText()).includes("2つ"),
+  );
+
+  // 使わなくする: 札が消え、過去の点検には名前つきで残る
+  await tile().click();
+  await dlg.getByRole("button", { name: "点検する項目を増やす・直す" }).click();
+  await dlg.getByRole("button", { name: "この点検表を使わなくする" }).click();
+  await dlg.getByRole("button", { name: "使わなくする", exact: true }).click();
+  await cp.waitForTimeout(800);
+  check("船内: 使わなくした点検表は札が消える", (await tile().count()) === 0 && /を使わなくしました/.test(await cp.locator("main").innerText()));
+  await cp.getByRole("button", { name: /過去の点検を見る/ }).click();
+  await cp.getByRole("searchbox", { name: "キーワード" }).fill(listName);
+  await cp.waitForTimeout(400);
+  check("船内: 使わなくした点検表の記録も、過去の点検に名前つきで残る", (await cp.locator("main").innerText()).includes(listName));
+  // しまった版がサーバへ届くのを待つ（テストで作った点検表がほかの端末に札として残らないように）
+  const serverRetired = async () => {
+    let since = 0;
+    let last = null;
+    for (let page = 0; page < 200; page++) {
+      const res = await cp.request.get(`${BASE}/api/v1/sync/pull?since=${since}`);
+      const body = await res.json();
+      for (const e of body.events) if (e.event.kind === "record_template" && e.event.payload.name === listName) last = e.event.payload;
+      if (!body.hasMore || body.nextCursor === since) break;
+      since = body.nextCursor;
+    }
+    return Boolean(last?.retired);
+  };
+  let retiredOnServer = false;
+  for (let i = 0; i < 20 && !retiredOnServer; i++) {
+    await cp.waitForTimeout(500);
+    retiredOnServer = await serverRetired().catch(() => false);
+  }
+  check("船内: 使わなくした点検表は陸上（サーバ）にも届く", retiredOnServer);
   await capCtx.close();
 }
 

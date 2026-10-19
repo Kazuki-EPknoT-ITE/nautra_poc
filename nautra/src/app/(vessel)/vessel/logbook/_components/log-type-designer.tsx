@@ -7,7 +7,7 @@ import type { TemplateItem } from "@/sync-protocol/records";
 import { LineIcon, StepBar, type Step } from "@/ui";
 import { Button, ModalBody, ModalContent, ModalFooter, ModalHeader } from "@/ui/heroui";
 import { TemplateItemField } from "../../_components/template-item-field";
-import { blankRow, FieldHint, FieldLabel, ItemRowsEditor, rowsToDrafts, rowsToPreviewItems, toRow, type Row } from "./template-items-editor";
+import { blankRow, FieldHint, FieldLabel, ItemRowsEditor, rowsToDrafts, rowsToPreviewItems, toRow, type Row } from "../../_components/template-items-editor";
 
 /**
  * よく使う項目。押すだけで行が1つ増え、名前と答え方が入った状態から直せる（白紙から考えさせない）。

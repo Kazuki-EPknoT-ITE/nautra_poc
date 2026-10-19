@@ -33,6 +33,8 @@ export interface Row {
   unit: string;
   optionsText: string;
   required: boolean;
+  /** 見出し（点検表の「機関」「甲板」など。航海日誌では使わない） */
+  group: string;
 }
 
 let seq = 0;
@@ -43,6 +45,7 @@ export const blankRow = (patch: Partial<Row> = {}): Row => ({
   unit: "",
   optionsText: "",
   required: false,
+  group: "",
   ...patch,
 });
 
@@ -55,10 +58,12 @@ export function toRow(it: TemplateItem): Row {
     unit: it.unit ?? "",
     optionsText: (it.options ?? []).join("、"),
     required: isItemRequired(it),
+    group: it.group,
   };
 }
 
-export function rowsToDrafts(rows: Row[]): DraftTemplateItem[] {
+/** withGroup: 行ごとの見出しを版に載せる（点検表）。航海日誌は種類の名前を見出しにするので載せない */
+export function rowsToDrafts(rows: Row[], withGroup = false): DraftTemplateItem[] {
   return rows.map((r) => ({
     key: r.key,
     label: r.label,
@@ -66,17 +71,18 @@ export function rowsToDrafts(rows: Row[]): DraftTemplateItem[] {
     unit: r.unit,
     options: r.inputType === "choice" ? parseChoiceOptions(r.optionsText) : undefined,
     required: r.required,
+    group: withGroup ? r.group : undefined,
   }));
 }
 
 /** 見え方を確かめる画面で使う、行から組み立てた仮の項目 */
-export function rowsToPreviewItems(rows: Row[]): TemplateItem[] {
+export function rowsToPreviewItems(rows: Row[], fallbackGroup = ""): TemplateItem[] {
   return rows
     .filter((r) => r.label.trim())
     .map((r) => ({
       key: r.uid,
       label: r.label.trim(),
-      group: "",
+      group: r.group.trim() || fallbackGroup,
       inputType: r.inputType,
       unit: r.inputType === "number" ? r.unit.trim() || undefined : undefined,
       options: r.inputType === "choice" ? parseChoiceOptions(r.optionsText) : undefined,
@@ -152,16 +158,27 @@ export function ItemRowsEditor({
   rows,
   onChange,
   focusUid,
+  groups,
+  inputTypes = INPUT_TYPES,
+  example = "例: 燃料残量、バラスト水量、水先人の乗船時刻",
 }: {
   rows: Row[];
   onChange: (rows: Row[]) => void;
   /** 増やしたばかりの行。項目名の欄にすぐ打ち込めるようにする */
   focusUid?: string;
+  /** 渡すと行ごとに「見出し」を決める欄を出す（点検表）。中身はよく使う見出しの候補 */
+  groups?: string[];
+  /** 答え方の並び（よく使うものを左に） */
+  inputTypes?: { id: TemplateInputType; label: string }[];
+  /** 白紙の行に出す入力例 */
+  example?: string;
 }) {
   const focusRef = useRef<HTMLInputElement | null>(null);
   useEffect(() => {
     focusRef.current?.focus();
   }, [focusUid]);
+  // 見出しの候補 = 決まった候補 + いま使っている見出し（打ち直さずに押して選べるように）
+  const groupChoices = groups ? [...new Set([...groups, ...rows.map((r) => r.group.trim()).filter(Boolean)])] : [];
 
   const update = (uid: string, patch: Partial<Row>) => onChange(rows.map((r) => (r.uid === uid ? { ...r, ...patch } : r)));
   const move = (i: number, d: -1 | 1) => {
@@ -216,14 +233,34 @@ export function ItemRowsEditor({
               </button>
             </div>
             {/* 例は白紙の行にだけ出す（よく使う項目から増やした行に別の例が出ると紛らわしい） */}
-            {!r.key && !r.label ? <FieldHint id={hintId}>例: 燃料残量、バラスト水量、水先人の乗船時刻</FieldHint> : null}
+            {!r.key && !r.label ? <FieldHint id={hintId}>{example}</FieldHint> : null}
+
+            {groups ? (
+              <Setting label="見出し（どこの点検か）" htmlFor={`${r.uid}-group`}>
+                {groupChoices.length > 0 ? (
+                  <Segmented
+                    label={`${i + 1}つ目の項目の見出し`}
+                    options={groupChoices.map((g) => ({ id: g, label: g }))}
+                    value={r.group.trim()}
+                    onChange={(v) => update(r.uid, { group: v })}
+                  />
+                ) : null}
+                <input
+                  id={`${r.uid}-group`}
+                  className="ui-field !w-60 max-w-full"
+                  value={r.group}
+                  onChange={(e) => update(r.uid, { group: e.target.value })}
+                />
+                <FieldHint>同じ見出しの項目は、点検するときにまとめて並びます。新しい見出しは欄に入れます</FieldHint>
+              </Setting>
+            ) : null}
 
             {/* 項目名・答え方・答え方ごとの設定・空欄のとき を区切り線で分け、どれも「見出し + 選ぶ／入れる」の同じ形にする
                 （利用者の指摘 2026-10-16: チェックボックスだけ形が違い、何を決める欄か分かりにくい） */}
             <Setting label="答え方">
               <Segmented
                 label={`${i + 1}つ目の項目の答え方`}
-                options={INPUT_TYPES}
+                options={inputTypes}
                 value={r.inputType}
                 onChange={(v) => update(r.uid, { inputType: v })}
               />
