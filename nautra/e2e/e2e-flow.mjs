@@ -240,6 +240,7 @@ check(
 );
 // 項目・種類を作れるのは船長だけ（航海士は記録はできるが、作る札は出ない）
 check("船内: 航海士には「日誌の種類を増やす」の札を出さない", (await v.getByRole("button", { name: /日誌の種類を増やす/ }).count()) === 0);
+check("船内: 航海士には札の「編集」「削除」を出さない", (await v.getByRole("button", { name: /を編集する$|を削除する$/ }).count()) === 0);
 const remarkWord = `E2E特記${Date.now()}`;
 await v.getByRole("button", { name: /特記事項/ }).first().click();
 await v.getByLabel(/特記事項（海難/).fill(remarkWord);
@@ -458,9 +459,22 @@ check("船内: 同期を実行できる", true);
   check("船内: 元に戻すと削除した項目がまた出る", /を元に戻しました/.test(await cp.locator("main").innerText()) && (await dlg.getByRole("radio", { name: "晴" }).count()) === 1);
   await dlg.getByRole("button", { name: "キャンセル" }).click();
   await cp.waitForTimeout(300);
-  // 種類を削除
-  await openManager();
-  await dlg.getByRole("button", { name: "この種類を削除する" }).click();
+  // 札の下の「編集」「削除」（利用者の依頼 2026-10-19「日誌の項目に編集や削除ボタンを」）
+  check(
+    "船内: 札の下に「編集」「削除」が並ぶ（組み込みの種類にも編集）",
+    (await cp.getByRole("button", { name: `「${typeName}」を編集する` }).count()) === 1 &&
+      (await cp.getByRole("button", { name: `「${typeName}」を削除する` }).count()) === 1 &&
+      (await cp.getByRole("button", { name: "「出港」を編集する" }).count()) === 1,
+  );
+  await cp.getByRole("button", { name: `「${typeName}」を編集する` }).click();
+  await cp.waitForTimeout(400);
+  check("船内: 札の「編集」で、その種類を直す手順の画面が開く", (await dlg.getByLabel("種類の名前").inputValue()) === typeName);
+  await dlg.getByRole("button", { name: "やめる", exact: true }).click();
+  await cp.waitForTimeout(300);
+  // 種類を削除（札の「削除」から。③の確かめる画面から始まる）
+  await cp.getByRole("button", { name: `「${typeName}」を削除する` }).click();
+  await cp.waitForTimeout(300);
+  check("船内: 札の「削除」は③の確かめる画面から始まる", (await dlg.locator('[aria-current="step"]').innerText()).includes("確かめて削除する"));
   check("船内: 種類の削除でも、これまでの記録は消えないと確かめてから削除する", /記録は消えません/.test(await dlg.getByRole("list", { name: "削除するとどうなるか" }).innerText()));
   await dlg.getByRole("button", { name: "削除する", exact: true }).click();
   await cp.waitForTimeout(800);

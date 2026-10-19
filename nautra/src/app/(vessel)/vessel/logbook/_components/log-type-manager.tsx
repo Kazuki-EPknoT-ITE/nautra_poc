@@ -41,16 +41,25 @@ export function LogTypeManager({
   onDeleteType,
   onDeleteItems,
   onClose,
+  deleteKind,
 }: {
   types: ManagedLogType[];
   onEdit: (kind: string) => void;
   onDeleteType: (kind: string) => Promise<void>;
   onDeleteItems: (kind: string, keys: string[]) => Promise<void>;
   onClose: () => void;
+  /**
+   * 札の「削除」から開いたとき、その種類の③（確かめて削除する）から始める（利用者の依頼 2026-10-19
+   * 「日誌の項目に編集や削除ボタンを」）。作った種類は種類ごと、組み込みの種類は追加した項目をすべて削除する
+   */
+  deleteKind?: string;
 }) {
-  const [step, setStep] = useState(1);
-  const [kind, setKind] = useState<string | null>(null);
-  const [target, setTarget] = useState<Target | null>(null);
+  const startType = types.find((x) => x.kind === deleteKind);
+  const [step, setStep] = useState(startType ? 3 : 1);
+  const [kind, setKind] = useState<string | null>(startType?.kind ?? null);
+  const [target, setTarget] = useState<Target | null>(
+    startType ? (startType.builtIn ? { what: "allItems" } : { what: "type" }) : null,
+  );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const picked = types.find((x) => x.kind === kind);

@@ -364,10 +364,47 @@ export default function LogbookPage() {
     setDone(`「${isCustomLogKey(before.templateKey) ? before.name : kindName(before.templateKey)}」を元に戻しました`);
   }
 
-  function openManager() {
+  /** 削除の対象（札の「削除」から開いたときだけ。③の確かめる画面から始める） */
+  const [managerDelete, setManagerDelete] = useState<string | undefined>();
+
+  function openManager(deleteKind?: string) {
+    setManagerDelete(deleteKind);
     setManagerN((n) => n + 1);
     managerModal.onOpen();
   }
+
+  /** 札の「編集」: その種類の項目を直す手順の画面を開く */
+  function openEditTile(kind: string) {
+    setDesigner((d) => ({ mode: "edit", kind, fromRecord: false, n: d.n + 1 }));
+    designerModal.onOpen();
+  }
+
+  /** 札の下の「編集」「削除」（船長だけ。札そのものは記録を始めるボタンなので、中に入れずに下へ並べる） */
+  const tileActions = (kind: string, name: string, deletable: boolean) =>
+    canManageTemplates ? (
+      <div className="flex gap-1.5">
+        <button
+          type="button"
+          aria-label={`「${name}」を編集する`}
+          onClick={() => openEditTile(kind)}
+          className="ui-btn-quiet min-h-11 flex-1 gap-1.5 !px-2 !text-base"
+        >
+          <LineIcon name="edit" size={16} />
+          編集
+        </button>
+        {deletable ? (
+          <button
+            type="button"
+            aria-label={`「${name}」を削除する`}
+            onClick={() => openManager(kind)}
+            className="ui-btn-quiet min-h-11 flex-1 gap-1.5 !px-2 !text-base"
+          >
+            <LineIcon name="trash" size={16} />
+            削除
+          </button>
+        ) : null}
+      </div>
+    ) : null;
 
   /** 編集・削除の画面から、項目を直す手順の画面へ */
   function editFromManager(kind: string) {
@@ -445,7 +482,7 @@ export default function LogbookPage() {
           pastLabel="過去の日誌"
           actions={
             canManageTemplates ? (
-              <button type="button" className="ui-btn-ghost min-h-12 px-4 text-lg" onClick={openManager}>
+              <button type="button" className="ui-btn-ghost min-h-12 px-4 text-lg" onClick={() => openManager()}>
                 <LineIcon name="edit" size={20} />
                 種類と項目を編集・削除する
               </button>
@@ -471,22 +508,28 @@ export default function LogbookPage() {
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         {VOYAGE_LOG_TYPES.map((lt) => {
           const tpl = templateFor(lt);
+          const hasItems = Boolean(tpl && tpl.items.length > 0);
           return (
-            <RecordTile
-              key={lt}
-              label={t.voyageLogType[lt]}
-              sublabel={tpl && tpl.items.length > 0 ? `追加した項目 ${tpl.items.length}つ` : undefined}
-              onPress={() => openNew(lt)}
-            />
+            <div key={lt} className="grid grid-rows-[1fr_auto] gap-1.5">
+              <RecordTile
+                label={t.voyageLogType[lt]}
+                sublabel={hasItems ? `追加した項目 ${tpl!.items.length}つ` : undefined}
+                onPress={() => openNew(lt)}
+              />
+              {/* 組み込みの種類は種類そのものは消せない。追加した項目があるときだけ削除を出す */}
+              {tileActions(lt, t.voyageLogType[lt], hasItems)}
+            </div>
           );
         })}
         {customTypes.map((tpl) => (
-          <RecordTile
-            key={tpl.templateKey}
-            label={tpl.name}
-            sublabel={tpl.items.length > 0 ? `記録する項目 ${tpl.items.length}つ` : undefined}
-            onPress={() => openNew(tpl.templateKey)}
-          />
+          <div key={tpl.templateKey} className="grid grid-rows-[1fr_auto] gap-1.5">
+            <RecordTile
+              label={tpl.name}
+              sublabel={tpl.items.length > 0 ? `記録する項目 ${tpl.items.length}つ` : undefined}
+              onPress={() => openNew(tpl.templateKey)}
+            />
+            {tileActions(tpl.templateKey, tpl.name, true)}
+          </div>
         ))}
         {canManageTemplates ? (
           // 種類を作る札は点線にして、記録を始める札と見分ける
@@ -733,6 +776,7 @@ export default function LogbookPage() {
           onDeleteType={deleteType}
           onDeleteItems={deleteItems}
           onClose={managerModal.onClose}
+          deleteKind={managerDelete}
         />
       </Modal>
     </div>
