@@ -1,51 +1,50 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { cn } from "@/lib/cn";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { EMPTY_PAST_FILTER, filterPast, isFilterActive, type PastFilter } from "@/lib/record-filter";
-import { SearchField } from "@/ui";
+import { LineIcon, SearchField } from "@/ui";
 
 /**
- * 記録画面の「記録する ／ 過去を見る」の切り替え（レビュー 0-4 / LOG-02 / INSP-02 / TASKREC-03 / SAFE-02）。
+ * 記録画面の「記録する ／ 過去を見る」の行き来（レビュー 0-4 / LOG-02 / INSP-02 / TASKREC-03 / SAFE-02）。
  *
  * 記録の入口と過去の一覧を1枚に縦に並べると、記録のたびに一覧ぶんスクロールさせることになる
- * （0-3）。目的が違う2つをタブで分け、開いた直後はいつも「記録する」にする。
+ * （0-3）ので、過去は別の面に分け、開いた直後はいつも記録の面にする。
+ * 以前は2つを同じ大きさのタブで並べていたが、塗られた「＋ 日誌を記録する」が記録を始める
+ * ボタンに見え、押しても入力が開かなかった（利用者の指摘 2026-10-14）。記録を始めるのは
+ * 下の札（`RecordTile`）だけにし、ここは「過去を見る ／ 記録に戻る」の控えめな行き来にする。
  */
 export type RecordMode = "record" | "past";
 
-export function RecordModeTabs({
+export function RecordModeSwitch({
   mode,
   onChange,
-  recordLabel,
   pastLabel,
+  actions,
 }: {
   mode: RecordMode;
   onChange: (m: RecordMode) => void;
-  recordLabel: string;
   pastLabel: string;
+  /** 記録の面で「過去を見る」の左に並べる操作（航海日誌の「種類と項目を編集・削除する」など） */
+  actions?: ReactNode;
 }) {
-  const items: { id: RecordMode; label: string; icon: string }[] = [
-    { id: "record", label: recordLabel, icon: "＋" },
-    { id: "past", label: pastLabel, icon: "☰" },
-  ];
+  if (mode === "record") {
+    return (
+      <div className="flex flex-wrap justify-end gap-2">
+        {actions}
+        <button type="button" className="ui-btn-ghost min-h-12 px-4 text-lg" onClick={() => onChange("past")}>
+          <LineIcon name="list" size={20} />
+          {pastLabel}を見る
+        </button>
+      </div>
+    );
+  }
   return (
-    <div role="tablist" aria-label="記録と過去の切り替え" className="ui-card flex gap-2 p-2">
-      {items.map((x) => {
-        const active = mode === x.id;
-        return (
-          <button
-            key={x.id}
-            type="button"
-            role="tab"
-            aria-selected={active}
-            onClick={() => onChange(x.id)}
-            className={cn("ui-btn-quiet min-h-14 flex-1 !px-4 !text-xl", active && "ui-btn-selected")}
-          >
-            <span aria-hidden="true">{x.icon}</span>
-            {x.label}
-          </button>
-        );
-      })}
+    <div className="flex flex-wrap items-center gap-3">
+      <button type="button" className="ui-btn-ghost min-h-12 px-4 text-lg" onClick={() => onChange("record")}>
+        <LineIcon name="back" size={20} />
+        記録に戻る
+      </button>
+      <h2 className="m-0 text-xl font-bold">{pastLabel}</h2>
     </div>
   );
 }

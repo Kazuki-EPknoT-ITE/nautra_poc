@@ -51,11 +51,22 @@ export type ChecklistItemResult = z.infer<typeof checklistItemResultSchema>;
 
 export const VOYAGE_LOG_TYPES = ["departure", "arrival", "position", "remark"] as const;
 export type VoyageLogType = (typeof VOYAGE_LOG_TYPES)[number];
+/**
+ * 記録の種類として保存できる値。組み込みの4種に加え、船長・陸上が作った種類（投錨・給油など）は
+ * "custom" とし、どの種類かを customTypeKey（= テンプレートの templateKey）で、名前を
+ * customTypeName（記録した時点の名前の写し）で持つ。種類をあとで改名・しまっても過去の記録の意味が変わらない。
+ */
+export const VOYAGE_LOG_KINDS = [...VOYAGE_LOG_TYPES, "custom"] as const;
+export type VoyageLogKind = (typeof VOYAGE_LOG_KINDS)[number];
 
 export const voyageLogPayloadSchema = z
   .object({
     ...recordBase,
-    logType: z.enum(VOYAGE_LOG_TYPES),
+    logType: z.enum(VOYAGE_LOG_KINDS),
+    /** logType = custom のとき: 種類のテンプレート（templateKey = "custom:…"） */
+    customTypeKey: z.string().optional(),
+    /** logType = custom のとき: 記録した時点の種類の名前 */
+    customTypeName: z.string().optional(),
     port: z.string().optional(),
     route: z.string().optional(),
     /** 船位（緯度経度または地点名） */
@@ -71,7 +82,12 @@ export const voyageLogPayloadSchema = z
     /** 配信テンプレート（usage=voyage_log）で追加された項目の入力値 */
     extraValues: z.array(checklistItemResultSchema).optional(),
   })
-  .passthrough();
+  .passthrough()
+  // 作った種類の記録は、どの種類かが分からないと読めない（端末だけでなくサーバでも止める）
+  .refine((v) => v.logType !== "custom" || Boolean(v.customTypeKey && v.customTypeName), {
+    message: "logType=custom requires customTypeKey and customTypeName",
+    path: ["customTypeKey"],
+  });
 export type VoyageLogPayload = z.infer<typeof voyageLogPayloadSchema>;
 
 /* ─────────────── 03 チェックリスト・点検・操練・アルコール検知（V-06） ─────────────── */
@@ -84,6 +100,11 @@ export const checklistResultPayloadSchema = z
     ...recordBase,
     /** 配信テンプレートの templateKey（既定は pre_departure / safety_patrol） */
     templateId: z.string(),
+    /**
+     * 記録した時点の点検表の名前の写し。船長・陸上が作った点検表（templateId = "custom:…"）は
+     * あとで使わなくすると一覧から消えるため、過去の記録が名前を失わないように持つ（任意。旧記録には無い）
+     */
+    templateName: z.string().optional(),
     /** テンプレート版（テンプレート変更後も結果の意味が追えるように保持） */
     templateVersion: z.string(),
     items: z.array(checklistItemResultSchema),
@@ -237,8 +258,11 @@ export type ShiftPlanPayload = z.infer<typeof shiftPlanPayloadSchema>;
 
 /* ─────────────── 記録項目テンプレート（上司・陸上が配信する定義） ─────────────── */
 
-/** 項目の入力方法。number は利用者が数値を入力する（要件: 数字はユーザー入力） */
-export const TEMPLATE_INPUT_TYPES = ["check", "number", "text"] as const;
+/**
+ * 項目の入力方法。number は利用者が数値を入力する（要件: 数字はユーザー入力）。
+ * choice は配信した選択肢から1つ選ぶ、time は時刻（HH:MM）。
+ */
+export const TEMPLATE_INPUT_TYPES = ["check", "number", "text", "choice", "time"] as const;
 export type TemplateInputType = (typeof TEMPLATE_INPUT_TYPES)[number];
 
 /** テンプレートを使う画面 */
@@ -253,6 +277,10 @@ export const templateItemSchema = z
     inputType: z.enum(TEMPLATE_INPUT_TYPES),
     /** 数値項目の単位（例: L, °C, rpm） */
     unit: z.string().optional(),
+    /** choice の選択肢（2つ以上） */
+    options: z.array(z.string()).min(2).optional(),
+    /** 空欄では記録できない項目か。未指定は従来どおり（数値だけ必須） */
+    required: z.boolean().optional(),
   })
   .passthrough();
 export type TemplateItem = z.infer<typeof templateItemSchema>;
@@ -276,6 +304,8 @@ export const recordTemplatePayloadSchema = z
     publishedAt: z.string(),
     publishedBy: z.string(),
     changeNote: z.string().optional(),
+    /** しまった（もう使わない）記録の種類。船長・陸上が作った種類だけに付く。過去の記録は残る */
+    retired: z.boolean().optional(),
   })
   .passthrough();
 export type RecordTemplatePayload = z.infer<typeof recordTemplatePayloadSchema>;

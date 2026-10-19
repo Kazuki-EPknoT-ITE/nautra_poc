@@ -154,6 +154,9 @@ export const SYNC_ENTITY_REGISTRY = {
     payload: RECORD_PAYLOAD_SCHEMAS.record_template,
     policy: "append_only",
     origin: "both",
+    // 船内から項目・記録の種類を配信できるのは船長だけ（manage_record_templates）。画面で隠すだけでなく
+    // サーバも記録した時点の船員マスタで確かめ、違えば隔離する（checkVesselAuthorPolicy）
+    vesselAuthorRole: "captain",
   },
 
   /* ── マスタ・計画（要件定義書 12.5「船員・船舶マスター/配乗計画は陸上を優先」） ──

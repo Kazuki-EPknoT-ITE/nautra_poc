@@ -5,7 +5,7 @@ import { chromium } from "playwright";
  * 印刷ビューに中身が描かれることを確かめる。
  * 帳票の画面は「作った書類／書類を作る／待機・荷役の実績」のタブ（レビュー FORM-02/04/05/06）。
  */
-const BASE = "http://localhost:3100";
+const BASE = process.env.NAUTRA_BASE ?? "http://localhost:3100"; // 別の作業が 3100 を使っているときは NAUTRA_BASE で変える
 const results = [];
 const check = (name, ok, detail = "") => {
   results.push({ name, ok });

@@ -101,6 +101,46 @@ describe("エンティティレジストリ（基本設計書 8.6）", () => {
     expect(state.events.filter((e) => e.event.kind === "voyage_log")).toHaveLength(1);
   });
 
+  it("航海日誌の作った種類（custom）は種類のキーと名前つきで受理し、キーの無いものは隔離する。再送は冪等", () => {
+    const state = createEmptyStoreState("store-test", 1);
+    const ok = { ...base("vl-c1"), logType: "custom", customTypeKey: "custom:01JA", customTypeName: "投錨" } as VoyageLogPayload;
+    const broken = { ...base("vl-c2"), logType: "custom" } as VoyageLogPayload;
+    const evOk = makeRecordEvent("voyage_log", ok, "dev-1");
+    const evBroken = makeRecordEvent("voyage_log", broken, "dev-1");
+    const r = applyPush(state, "dev-1", [evOk, evBroken], new Date("2026-10-14T07:00:00Z"));
+    expect(r.accepted).toEqual(["dev-1:vl-c1"]);
+    expect(r.quarantined).toEqual([evBroken.eventId]);
+    expect(state.quarantine[0].raw).toEqual(evBroken); // 原文保持
+    const again = applyPush(state, "dev-1", [evOk], new Date("2026-10-14T07:01:00Z"));
+    expect(again.duplicates).toEqual(["dev-1:vl-c1"]);
+  });
+
+  it("記録項目テンプレート: 選択肢・時刻・必須・しまうを受理し、選択肢1つは隔離。船内からは船長の配信だけ受理する", () => {
+    const tplBase = {
+      ...base("tpl-v1"),
+      recordedBy: "c-cap",
+      usage: "voyage_log",
+      templateKey: "custom:01JA",
+      name: "投錨",
+      version: "1",
+      publishedAt: "2026-10-14T00:00:00.000Z",
+      publishedBy: "c-cap",
+      items: [
+        { key: "item_a_1", label: "天気", group: "投錨", inputType: "choice", options: ["晴", "雨"], required: true },
+        { key: "item_a_2", label: "投錨時刻", group: "投錨", inputType: "time" },
+      ],
+      retired: true,
+    };
+    const good = makeRecordEvent("record_template", tplBase as never, "shore-planner-device");
+    expect(knownSyncEventSchema.safeParse(good).success).toBe(true);
+    const oneOption = { ...tplBase, id: "tpl-v2", items: [{ key: "k", label: "風", group: "x", inputType: "choice", options: ["北"] }] };
+    expect(knownSyncEventSchema.safeParse(makeRecordEvent("record_template", oneOption as never, "shore-planner-device")).success).toBe(false);
+    expect(SYNC_ENTITY_REGISTRY.record_template.vesselAuthorRole).toBe("captain");
+    expect(checkVesselAuthorPolicy("record_template", "dev-01abc", { recordedBy: "c-cap" }, () => "captain")).toBeNull();
+    expect(checkVesselAuthorPolicy("record_template", "dev-01abc", { recordedBy: "c-x" }, () => "deck_officer")).toMatch(/author policy/);
+    expect(checkVesselAuthorPolicy("record_template", "shore-planner-device", { recordedBy: "shore-x" }, () => undefined)).toBeNull();
+  });
+
   it("未知フィールドは破棄されず往復保全される（passthrough）", () => {
     const log = { ...base("vl-3"), logType: "remark", remarks: "x", futureField: { nested: true } };
     const ev = makeRecordEvent("voyage_log", log as VoyageLogPayload, "dev-1");

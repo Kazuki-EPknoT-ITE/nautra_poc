@@ -15,7 +15,7 @@ import { deflateSync } from "node:zlib";
  * 6. 多言語: 日本語 ⇄ English の切替が効く
  */
 
-const BASE = "http://localhost:3100";
+const BASE = process.env.NAUTRA_BASE ?? "http://localhost:3100"; // 別の作業が 3100 を使っているときは NAUTRA_BASE で変える
 const log = (...a) => console.log(...a);
 
 /** 指定した色の 1×1 PNG を組み立てる（画像ファイルを同梱せずに顔写真の登録を試すため） */
@@ -180,7 +180,7 @@ await v.waitForTimeout(600);
 await v.goto(`${BASE}/vessel/work`, { waitUntil: "networkidle" });
 check("船内: 作業記録の入口は絵のタイル（4つ）", (await v.locator("main button svg").count()) >= 4);
 // 過去の記録の待機時間（レビュー TASKREC-02・photo_6）: 文の説明を置かず、絵と数字と7日の棒で
-await v.getByRole("tab", { name: /過去の記録/ }).click().catch(() => v.getByRole("button", { name: /過去の記録/ }).click());
+await v.getByRole("button", { name: /過去の記録を見る/ }).click();
 await v.waitForTimeout(400);
 {
   const card = v.getByRole("region", { name: /スタンバイ待機時間/ });
@@ -216,11 +216,31 @@ check(
   const w = ledgerText.indexOf("働いた時間");
   check("船内: 労働は「まとめて見る」をいちばん上に置き、その下に判定と残り時間", firstRegion === "まとめて見る" && m >= 0 && m < w, String(firstRegion));
 }
-check("船内: 作業ごとの時間の下に合計が出る（説明の文は置かない。レビュー WORK-05）", /合計/.test(ledgerText) && !/名前を押すと/.test(ledgerText));
+{
+  // 内訳は今日の労働が1分以上あるときだけ出る（日付が変わった直後は、打ったばかりの打刻しかなく 0 分）
+  const breakdown = v.getByRole("region", { name: "作業種別ごとの内訳" });
+  const shown = (await breakdown.count()) > 0;
+  const bdText = shown ? await breakdown.innerText() : "";
+  check(
+    "船内: 作業ごとの時間の下に合計が出る（説明の文は置かない。レビュー WORK-05）",
+    (!shown || /合計/.test(bdText)) && !/名前を押すと/.test(ledgerText),
+    shown ? "内訳あり" : "今日の労働が0分のため内訳なし",
+  );
+}
 
-// 航海日誌: 「日誌を記録する」で書き、「過去の日誌」でキーワードと期間で探せる（レビュー LOG-02/03）
+// 航海日誌: 記録の札で書き、「過去の日誌を見る」でキーワードと期間で探せる（レビュー LOG-02/03）
 await v.goto(`${BASE}/vessel/logbook`, { waitUntil: "networkidle" });
 await v.waitForTimeout(600);
+// 記録を始めるのは札だけ。「記録する／過去」の塗りのタブは置かない（利用者の指摘 2026-10-14: タブを押して入力を探していた）
+check(
+  "船内: 日誌の記録は札から始め、記録する／過去のタブを置かない",
+  (await v.locator("main").getByRole("tab").count()) === 0 &&
+    (await v.getByRole("button", { name: /^出港/ }).count()) === 1 &&
+    (await v.getByRole("button", { name: /過去の日誌を見る/ }).count()) === 1,
+);
+// 項目・種類を作れるのは船長だけ（航海士は記録はできるが、作る札は出ない）
+check("船内: 航海士には「日誌の種類を増やす」の札を出さない", (await v.getByRole("button", { name: /日誌の種類を増やす/ }).count()) === 0);
+check("船内: 航海士には札の「編集」「削除」を出さない", (await v.getByRole("button", { name: /を編集する$|を削除する$/ }).count()) === 0);
 const remarkWord = `E2E特記${Date.now()}`;
 await v.getByRole("button", { name: /特記事項/ }).first().click();
 await v.getByLabel(/特記事項（海難/).fill(remarkWord);
@@ -228,14 +248,19 @@ await v.getByRole("button", { name: /^記録する$/ }).click();
 await v.waitForTimeout(800);
 const logRecordText = await v.locator("main").innerText();
 check(
-  "船内: 日誌を記録するタブには過去の一覧を出さない",
+  "船内: 日誌の記録の面には過去の一覧を出さない",
   /特記事項 を記録しました/.test(logRecordText) && !/訂正記録を追記/.test(logRecordText),
 );
-await v.getByRole("tab", { name: /過去の日誌/ }).click();
+await v.getByRole("button", { name: /過去の日誌を見る/ }).click();
 await v.getByRole("searchbox", { name: "キーワード" }).fill(remarkWord);
 await v.waitForTimeout(400);
 const logPastText = await v.locator("main").innerText();
 check("船内: 過去の日誌をキーワードで探せる", logPastText.includes(remarkWord) && /\b1件/.test(logPastText));
+await v.getByRole("button", { name: /記録に戻る/ }).click();
+check("船内: 過去の日誌から「記録に戻る」で記録の札へ戻れる", (await v.getByRole("button", { name: /^特記事項/ }).count()) === 1);
+await v.getByRole("button", { name: /過去の日誌を見る/ }).click();
+await v.getByRole("searchbox", { name: "キーワード" }).fill(remarkWord);
+await v.waitForTimeout(400);
 const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 const yesterday = new Date(Date.now() - 86400000);
 await v.getByLabel("いつまで").fill(ymd(yesterday));
@@ -271,6 +296,40 @@ if (await syncBtn.count()) {
 }
 check("船内: 同期を実行できる", true);
 
+// 書けない人には記録の入口を出さない（レビュー 0-9）: 甲板員は航海日誌を見るだけ、機器の保守は状態を見るだけ
+{
+  const rCtx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const rp = await rCtx.newPage();
+  await rp.goto(`${BASE}/vessel/login`, { waitUntil: "networkidle" });
+  await rp.getByRole("radio", { name: /大城/ }).click();
+  for (const d of ["4", "4", "4", "4"]) await rp.getByRole("button", { name: d, exact: true }).click();
+  await rp.waitForURL(`${BASE}/vessel`, { timeout: 30000 });
+  await rp.goto(`${BASE}/vessel/logbook`, { waitUntil: "networkidle" });
+  await rp.waitForTimeout(800);
+  const logText = await rp.locator("main").innerText();
+  const logTabs = await rp.getByRole("button", { name: /過去の日誌を見る|記録に戻る/ }).count();
+  const logTiles = await rp.getByRole("button", { name: /特記事項|出港|入港/ }).count();
+  const logSearch = await rp.getByRole("searchbox", { name: "キーワード" }).count();
+  check(
+    "船内: 甲板員の航海日誌は過去の日誌だけ（記録のタブ・入口・「参照のみ」の案内を出さない）",
+    logTabs === 0 && logTiles === 0 && logSearch === 1 && !/参照のみ|権限がありません/.test(logText),
+  );
+  await rp.goto(`${BASE}/vessel/maintenance`, { waitUntil: "networkidle" });
+  await rp.waitForTimeout(800);
+  const mText = await rp.locator("main").innerText();
+  const eqButtons = await rp.getByRole("region", { name: "機器別の最新状態" }).getByRole("button").count();
+  check(
+    "船内: 甲板員の点検は出港前点検などを記録でき、機器は状態を見るだけ（押せる札にしない）",
+    (await rp.getByRole("button", { name: /過去の点検を見る/ }).count()) === 1 && eqButtons === 0 && /機器の状態/.test(mText) && !/参照のみ/.test(mText),
+    `機器のボタン ${eqButtons}`,
+  );
+  check(
+    "船内: 甲板員には「点検表を増やす」の札も「点検する項目を増やす・直す」も出さない",
+    (await rp.getByRole("button", { name: /点検表を増やす/ }).count()) === 0,
+  );
+  await rCtx.close();
+}
+
 // 船内承認（船長）: 「承認待ち」と「承認済み」に分かれ、承認すると承認済みへ移る（レビュー APPR-04）
 {
   const capCtx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
@@ -300,6 +359,260 @@ check("船内: 同期を実行できる", true);
   } else {
     check("船内: 承認待ちが無い（移動の確認は省略）", true, `待ち ${waiting0} / 済み ${approved0}`);
   }
+  await capCtx.close();
+}
+
+// 航海日誌の項目を自由に（船長。利用者の依頼 2026-10-14）: 記録の種類を作る → 入力画面の中で項目を足す
+// （時刻・選択肢・必須）→ 記録 → 過去に出る → 種類をしまうと札が消える
+{
+  const capCtx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const cp = await capCtx.newPage();
+  await cp.goto(`${BASE}/vessel/login`, { waitUntil: "networkidle" });
+  await cp.getByRole("radio", { name: /高松/ }).click();
+  for (const d of ["1", "1", "1", "1"]) await cp.getByRole("button", { name: d, exact: true }).click();
+  await cp.waitForURL(`${BASE}/vessel`, { timeout: 15000 });
+  await cp.goto(`${BASE}/vessel/logbook`, { waitUntil: "networkidle" });
+  await cp.waitForTimeout(800);
+  const typeName = `E2E種類${Date.now() % 100000}`;
+  // 手順つきの画面（利用者の指摘 2026-10-16: 初心者に分かりやすく）: ① 名前 → ② 記録する項目 → ③ 見え方を確かめる
+  await cp.getByRole("button", { name: /日誌の種類を増やす/ }).click();
+  const dlg = cp.getByRole("dialog");
+  check("船内: 種類を増やす画面は手順の帯つきで、①名前から始まる", (await dlg.locator('[aria-current="step"]').innerText()).includes("名前を決める"));
+  await dlg.getByLabel("種類の名前").fill(typeName);
+  await dlg.getByRole("button", { name: "次へ: 記録する項目を決める" }).click();
+  await dlg.getByRole("button", { name: "次へ: 見え方を確かめる" }).click();
+  check("船内: 項目が1つも無いまま進もうとすると、よく使う項目から選べることを示して止める", /記録する項目を1つ以上決めてください/.test(await dlg.innerText()));
+  await dlg.getByRole("button", { name: "時刻", exact: true }).click();
+  await dlg.getByLabel("1つ目の項目名").fill("到着時刻");
+  await dlg.getByRole("radio", { name: "必ず入れてもらう（必須）" }).first().click();
+  await dlg.getByRole("button", { name: "自分で項目を作る" }).click();
+  await dlg.getByLabel("2つ目の項目名").fill("天気");
+  await dlg.getByRole("radio", { name: "選んで答える" }).nth(1).click();
+  await dlg.getByLabel("選べる答え").fill("晴、雨");
+  await dlg.getByRole("button", { name: "次へ: 見え方を確かめる" }).click();
+  const preview = dlg.getByRole("region", { name: "見え方を確かめる" });
+  check(
+    "船内: 保存の前に、記録するときの見え方を試せる（到着時刻・天気の選択肢）",
+    (await preview.getByLabel("到着時刻").count()) === 1 && (await preview.getByRole("radio", { name: "雨" }).count()) === 1,
+  );
+  await dlg.getByRole("button", { name: "この内容で作る" }).click();
+  await cp.waitForTimeout(800);
+  check("船内: 作ると札が増え、押すと記録できると知らせる", new RegExp(`「${typeName}」を作りました。札を押すと記録できます`).test(await cp.locator("main").innerText()));
+  await cp.getByRole("button", { name: new RegExp(`^${typeName}`) }).click();
+  check(
+    "船内: 記録の画面は書くことだけ（項目の編集は別の画面へ）",
+    (await dlg.getByLabel("到着時刻").count()) === 1 &&
+      (await dlg.getByLabel("1つ目の項目名").count()) === 0 &&
+      (await dlg.getByRole("button", { name: "記録する項目を増やす・直す" }).count()) === 1,
+  );
+  await dlg.getByRole("button", { name: "記録する", exact: true }).click();
+  await cp.waitForTimeout(300);
+  check("船内: 必須の項目が空欄なら記録しない（何が空欄で、どうすればよいかを出す）", /「到着時刻」が空欄です。入れてから記録してください/.test(await dlg.innerText()));
+  await dlg.getByLabel("到着時刻").fill("09:15");
+  await dlg.getByRole("radio", { name: "晴" }).click();
+  await dlg.getByRole("button", { name: "記録する", exact: true }).click();
+  await cp.waitForTimeout(800);
+  check("船内: 作った種類で記録できる", new RegExp(`${typeName} を記録しました`).test(await cp.locator("main").innerText()));
+  await cp.getByRole("button", { name: /過去の日誌を見る/ }).click();
+  await cp.getByRole("searchbox", { name: "キーワード" }).fill(typeName);
+  await cp.waitForTimeout(400);
+  const customPast = await cp.locator("main").innerText();
+  check("船内: 作った種類の記録が過去の日誌に項目つきで出る", customPast.includes(typeName) && /到着時刻: 09:15/.test(customPast) && /天気: 晴/.test(customPast));
+  await cp.getByRole("button", { name: /記録に戻る/ }).click();
+  // 種類と項目を編集・削除する（利用者の依頼 2026-10-19）: ① 種類を選ぶ → ② することを選ぶ → ③ 確かめて削除する
+  const openManager = async () => {
+    await cp.getByRole("button", { name: /種類と項目を編集・削除する/ }).click();
+    await dlg.getByRole("region", { name: "種類を選ぶ" }).getByRole("button", { name: new RegExp(`^${typeName}`) }).click();
+  };
+  await cp.getByRole("button", { name: /種類と項目を編集・削除する/ }).click();
+  check("船内: 編集・削除の画面は手順の帯つきで、①種類を選ぶから始まる", (await dlg.locator('[aria-current="step"]').innerText()).includes("種類を選ぶ"));
+  const pickList = await dlg.getByRole("region", { name: "種類を選ぶ" }).innerText();
+  check("船内: ①には組み込みの種類と作った種類が、項目の名前つきで並ぶ", pickList.includes("出港") && pickList.includes(typeName) && pickList.includes("到着時刻・天気"));
+  await dlg.getByRole("region", { name: "種類を選ぶ" }).getByRole("button", { name: new RegExp(`^${typeName}`) }).click();
+  check(
+    "船内: ②で編集する・種類を削除する・項目を1つずつ削除するを選べる",
+    (await dlg.getByRole("button", { name: "名前と記録する項目を編集する" }).count()) === 1 &&
+      (await dlg.getByRole("button", { name: "この種類を削除する" }).count()) === 1 &&
+      (await dlg.getByRole("button", { name: "「天気」を削除する" }).count()) === 1,
+  );
+  // 編集は項目づくりの手順の画面へつながる
+  await dlg.getByRole("button", { name: "名前と記録する項目を編集する" }).click();
+  await cp.waitForTimeout(400);
+  check("船内: ②の「編集する」で、名前と項目を直す手順の画面が開く", (await dlg.getByLabel("種類の名前").inputValue()) === typeName);
+  await dlg.getByRole("button", { name: "やめる", exact: true }).click();
+  await cp.waitForTimeout(300);
+  // 項目を1つ削除 → 確かめる → 削除 → 元に戻す
+  await openManager();
+  await dlg.getByRole("button", { name: "「天気」を削除する" }).click();
+  const effects = await dlg.getByRole("list", { name: "削除するとどうなるか" }).innerText();
+  check("船内: ③で削除すると何がなくなり何が残るかを示す", /「天気」の欄が出なくなります/.test(effects) && /値は消えません/.test(effects));
+  await dlg.getByRole("button", { name: "削除する", exact: true }).click();
+  await cp.waitForTimeout(800);
+  check("船内: 項目を削除すると知らせが出て、元に戻すを押せる", /「天気」を削除しました/.test(await cp.locator("main").innerText()) && (await cp.getByRole("button", { name: "元に戻す" }).count()) === 1);
+  await cp.getByRole("button", { name: new RegExp(`^${typeName}`) }).click();
+  check("船内: 削除した項目は記録の画面に出ない", (await dlg.getByRole("radio", { name: "晴" }).count()) === 0 && (await dlg.getByLabel("到着時刻").count()) === 1);
+  await dlg.getByRole("button", { name: "キャンセル" }).click();
+  await cp.waitForTimeout(300);
+  await cp.getByRole("button", { name: "元に戻す" }).click();
+  await cp.waitForTimeout(800);
+  await cp.getByRole("button", { name: new RegExp(`^${typeName}`) }).click();
+  check("船内: 元に戻すと削除した項目がまた出る", /を元に戻しました/.test(await cp.locator("main").innerText()) && (await dlg.getByRole("radio", { name: "晴" }).count()) === 1);
+  await dlg.getByRole("button", { name: "キャンセル" }).click();
+  await cp.waitForTimeout(300);
+  // 札の下の「編集」「削除」（利用者の依頼 2026-10-19「日誌の項目に編集や削除ボタンを」）
+  check(
+    "船内: 札の下に「編集」「削除」が並ぶ（組み込みの種類にも編集）",
+    (await cp.getByRole("button", { name: `「${typeName}」を編集する` }).count()) === 1 &&
+      (await cp.getByRole("button", { name: `「${typeName}」を削除する` }).count()) === 1 &&
+      (await cp.getByRole("button", { name: "「出港」を編集する" }).count()) === 1,
+  );
+  await cp.getByRole("button", { name: `「${typeName}」を編集する` }).click();
+  await cp.waitForTimeout(400);
+  check("船内: 札の「編集」で、その種類を直す手順の画面が開く", (await dlg.getByLabel("種類の名前").inputValue()) === typeName);
+  await dlg.getByRole("button", { name: "やめる", exact: true }).click();
+  await cp.waitForTimeout(300);
+  // 種類を削除（札の「削除」から。③の確かめる画面から始まる）
+  await cp.getByRole("button", { name: `「${typeName}」を削除する` }).click();
+  await cp.waitForTimeout(300);
+  check("船内: 札の「削除」は③の確かめる画面から始まる", (await dlg.locator('[aria-current="step"]').innerText()).includes("確かめて削除する"));
+  check("船内: 種類の削除でも、これまでの記録は消えないと確かめてから削除する", /記録は消えません/.test(await dlg.getByRole("list", { name: "削除するとどうなるか" }).innerText()));
+  await dlg.getByRole("button", { name: "削除する", exact: true }).click();
+  await cp.waitForTimeout(800);
+  check(
+    "船内: 削除した種類は札が消え、過去の記録は残る",
+    (await cp.getByRole("button", { name: new RegExp(`^${typeName}`) }).count()) === 0 &&
+      /を削除しました（これまでの記録は残ります）/.test(await cp.locator("main").innerText()),
+  );
+  // しまった版がサーバへ届くのを待つ（送る前に閉じると、テストで作った種類がほかの端末に札として残る）
+  const serverRetired = async () => {
+    let since = 0;
+    let last = null;
+    for (let page = 0; page < 200; page++) {
+      const res = await cp.request.get(`${BASE}/api/v1/sync/pull?since=${since}`);
+      const body = await res.json();
+      for (const e of body.events) if (e.event.kind === "record_template" && e.event.payload.name === typeName) last = e.event.payload;
+      if (!body.hasMore || body.nextCursor === since) break;
+      since = body.nextCursor;
+    }
+    return Boolean(last?.retired);
+  };
+  let retiredOnServer = false;
+  for (let i = 0; i < 20 && !retiredOnServer; i++) {
+    await cp.waitForTimeout(500);
+    retiredOnServer = await serverRetired().catch(() => false);
+  }
+  check("船内: 削除した種類は陸上（サーバ）にも届く", retiredOnServer);
+  await capCtx.close();
+}
+
+// 点検表の項目づくり（船長。利用者の依頼 2026-10-19「日誌の項目追加を参考に、初心者が分かりやすいフロー形式で」）:
+// 点検表を増やす（① 名前 → ② 点検する項目（見出しつき）→ ③ 見え方）→ 点検を記録 → 項目を直す → 削除する
+{
+  const capCtx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const cp = await capCtx.newPage();
+  await cp.goto(`${BASE}/vessel/login`, { waitUntil: "networkidle" });
+  await cp.getByRole("radio", { name: /高松/ }).click();
+  for (const d of ["1", "1", "1", "1"]) await cp.getByRole("button", { name: d, exact: true }).click();
+  await cp.waitForURL(`${BASE}/vessel`, { timeout: 15000 });
+  await cp.goto(`${BASE}/vessel/maintenance`, { waitUntil: "networkidle" });
+  await cp.waitForTimeout(800);
+  const listName = `E2E点検${Date.now() % 100000}`;
+  const tile = () => cp.getByRole("region", { name: "船の点検表" }).getByRole("button", { name: new RegExp(`^${listName}`) });
+  await cp.getByRole("button", { name: /点検表を増やす/ }).click();
+  const dlg = cp.getByRole("dialog");
+  check("船内: 点検表を増やす画面は手順の帯つきで、①名前から始まる", (await dlg.locator('[aria-current="step"]').innerText()).includes("名前を決める"));
+  await dlg.getByLabel("点検表の名前").fill(listName);
+  await dlg.getByRole("button", { name: "次へ: 点検する項目を決める" }).click();
+  await dlg.getByRole("button", { name: "次へ: 見え方を確かめる" }).click();
+  check("船内: 点検する項目が無いまま進もうとすると、よく使う点検項目から選べることを示して止める", /点検する項目を1つ以上決めてください/.test(await dlg.innerText()));
+  await dlg.getByRole("button", { name: "主機の運転状態", exact: true }).click();
+  await dlg.getByRole("button", { name: "冷却水温度", exact: true }).click();
+  await dlg.getByRole("button", { name: "自分で項目を作る" }).click();
+  await dlg.getByLabel("3つ目の項目名").fill("係船索の摩耗");
+  check(
+    "船内: 自分で作った項目は、直前の項目と同じ見出し・良否の答え方から始まる",
+    (await dlg.getByLabel("見出し（どこの点検か）").nth(2).inputValue()) === "機関" &&
+      (await dlg.getByRole("radiogroup", { name: "3つ目の項目の答え方" }).getByRole("radio", { name: "良・不良で答える" }).getAttribute("aria-checked")) === "true",
+  );
+  await dlg.getByRole("radiogroup", { name: "3つ目の項目の見出し" }).getByRole("radio", { name: "甲板" }).click();
+  await dlg.getByRole("button", { name: "次へ: 見え方を確かめる" }).click();
+  const preview = dlg.getByRole("region", { name: "見え方を確かめる" });
+  check(
+    "船内: 保存の前に、点検するときの見え方を見出しごとに試せる",
+    (await preview.getByRole("heading", { name: "機関" }).count()) === 1 &&
+      (await preview.getByRole("heading", { name: "甲板" }).count()) === 1 &&
+      (await preview.getByLabel("冷却水温度").count()) === 1,
+  );
+  await dlg.getByRole("button", { name: "この内容で作る" }).click();
+  await cp.waitForTimeout(800);
+  check("船内: 点検表を作ると札が増え、押すと点検を記録できると知らせる", new RegExp(`「${listName}」を作りました`).test(await cp.locator("main").innerText()) && (await tile().count()) === 1);
+
+  await tile().click();
+  check(
+    "船内: 点検の画面は書くことだけ（項目の編集は別の画面へ）",
+    (await dlg.getByLabel("冷却水温度").count()) === 1 &&
+      (await dlg.getByLabel("1つ目の項目名").count()) === 0 &&
+      (await dlg.getByRole("button", { name: "点検する項目を増やす・直す" }).count()) === 1,
+  );
+  await dlg.getByRole("button", { name: "点検結果を記録" }).click();
+  await cp.waitForTimeout(300);
+  check("船内: 良・不良を選んでいない項目があれば記録しない", /未入力の項目が 3 件あります/.test(await dlg.innerText()));
+  await dlg.getByRole("button", { name: /未判定をすべて「良」にする/ }).click();
+  await dlg.getByRole("button", { name: "点検結果を記録" }).click();
+  await cp.waitForTimeout(300);
+  check("船内: 必須の数字が空欄なら、何が空欄かを出して記録しない", /「冷却水温度」が空欄です/.test(await dlg.innerText()));
+  await dlg.getByLabel("冷却水温度").fill("82");
+  await dlg.getByRole("button", { name: "点検結果を記録" }).click();
+  await cp.waitForTimeout(800);
+  check("船内: 作った点検表で点検を記録できる", new RegExp(`${listName} を記録しました`).test(await cp.locator("main").innerText()));
+
+  // 項目を直す: 点検の画面から手順の画面へ → 1項目外して保存 → 点検の画面へ戻る
+  await tile().click();
+  await dlg.getByRole("button", { name: "点検する項目を増やす・直す" }).click();
+  check("船内: 作った点検表は名前の手順から直せる", (await dlg.locator('[aria-current="step"]').innerText()).includes("名前を決める"));
+  await dlg.getByRole("button", { name: "次へ: 点検する項目を決める" }).click();
+  await dlg.getByRole("button", { name: "この項目を外す" }).nth(2).click();
+  await dlg.getByRole("button", { name: "次へ: 見え方を確かめる" }).click();
+  await dlg.getByRole("button", { name: "この内容で保存する" }).click();
+  await cp.waitForTimeout(800);
+  const backToRecord = (await dlg.getByLabel("冷却水温度").count()) === 1 && !/係船索の摩耗/.test(await dlg.innerText());
+  await dlg.getByRole("button", { name: "キャンセル" }).click();
+  await cp.waitForTimeout(400);
+  check(
+    "船内: 項目を直して保存すると点検の画面へ戻り、外した項目は出ない（札の項目数も変わる）",
+    backToRecord && (await tile().innerText()).includes("2つ"),
+  );
+
+  // 削除する: 札が消え、過去の点検には名前つきで残る
+  await tile().click();
+  await dlg.getByRole("button", { name: "点検する項目を増やす・直す" }).click();
+  await dlg.getByRole("button", { name: "この点検表を削除する" }).click();
+  await dlg.getByRole("button", { name: "削除する", exact: true }).click();
+  await cp.waitForTimeout(800);
+  check("船内: 削除した点検表は札が消える", (await tile().count()) === 0 && /を削除しました/.test(await cp.locator("main").innerText()));
+  await cp.getByRole("button", { name: /過去の点検を見る/ }).click();
+  await cp.getByRole("searchbox", { name: "キーワード" }).fill(listName);
+  await cp.waitForTimeout(400);
+  check("船内: 削除した点検表の記録も、過去の点検に名前つきで残る", (await cp.locator("main").innerText()).includes(listName));
+  // しまった版がサーバへ届くのを待つ（テストで作った点検表がほかの端末に札として残らないように）
+  const serverRetired = async () => {
+    let since = 0;
+    let last = null;
+    for (let page = 0; page < 200; page++) {
+      const res = await cp.request.get(`${BASE}/api/v1/sync/pull?since=${since}`);
+      const body = await res.json();
+      for (const e of body.events) if (e.event.kind === "record_template" && e.event.payload.name === listName) last = e.event.payload;
+      if (!body.hasMore || body.nextCursor === since) break;
+      since = body.nextCursor;
+    }
+    return Boolean(last?.retired);
+  };
+  let retiredOnServer = false;
+  for (let i = 0; i < 20 && !retiredOnServer; i++) {
+    await cp.waitForTimeout(500);
+    retiredOnServer = await serverRetired().catch(() => false);
+  }
+  check("船内: 削除した点検表は陸上（サーバ）にも届く", retiredOnServer);
   await capCtx.close();
 }
 

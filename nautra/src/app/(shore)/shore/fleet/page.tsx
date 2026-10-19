@@ -627,7 +627,7 @@ export default async function ShoreFleetPage({
             {board.recentChecklists.map((c) => (
               <li key={c.id} className="flex flex-wrap gap-2">
                 <span className="tabular-nums text-foreground-500">{fmtDateTime(c.occurredAt)}</span>
-                <span className="font-semibold">{t.checklistTemplate[c.templateId] ?? c.templateId}</span>
+                <span className="font-semibold">{c.templateName ?? t.checklistTemplate[c.templateId] ?? c.templateId}</span>
                 <span className={c.overall === "pass" ? "text-success" : "text-danger"}>
                   {c.overall === "pass" ? "✓ 合格" : "✕ 不合格"}
                 </span>

@@ -11,7 +11,7 @@ import { chromium } from "playwright";
  *   node e2e/text-audit.mjs          … 画面ごとの件数と、引っかかった文の先頭
  *   node e2e/text-audit.mjs --max=2  … 1枚に 2 件を超える画面があれば終了コード 1
  */
-const BASE = "http://localhost:3100";
+const BASE = process.env.NAUTRA_BASE ?? "http://localhost:3100"; // 別の作業が 3100 を使っているときは NAUTRA_BASE で変える
 const max = Number(process.argv.find((a) => a.startsWith("--max="))?.split("=")[1] ?? NaN);
 
 const SHORE = [

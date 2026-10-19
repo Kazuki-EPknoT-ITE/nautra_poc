@@ -7,7 +7,7 @@ import { join } from "node:path";
  * 全画面のサーバ HTML を取得し、<p> の中に置けない要素が無いか一括で調べる。
  * ブラウザは <p> を勝手に閉じるため、これがあると必ずハイドレーションが壊れる。
  */
-const BASE = "http://localhost:3100";
+const BASE = process.env.NAUTRA_BASE ?? "http://localhost:3100"; // 別の作業が 3100 を使っているときは NAUTRA_BASE で変える
 const PATHS = [
   "/", "/shore", "/shore/login", "/shore/crew", "/shore/crew/crew-nakahara",
   "/shore/crew/crew-nakahara/edit", "/shore/crew/crew-nakahara/credentials",

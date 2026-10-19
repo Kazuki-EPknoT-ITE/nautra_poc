@@ -39,17 +39,3 @@ export function PermissionGate({
     </SurfaceCard>
   );
 }
-
-/** 記録の作成権限がない場合に添える案内（画面自体は参照できる） */
-export function ReadOnlyNote({ note }: { note: string }) {
-  return (
-    <SurfaceCard>
-      <CardBody className="p-4">
-        <p className="text-pretty text-foreground-600">
-          <span aria-hidden="true">🔒 </span>
-          参照のみ（記録の作成権限がありません）。{note}
-        </p>
-      </CardBody>
-    </SurfaceCard>
-  );
-}

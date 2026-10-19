@@ -4,7 +4,7 @@ import { chromium } from "playwright";
  * 全画面の描画後の高さを測る。
  * 一覧を全件出している画面は極端に縦長になるため、閾値を超えたものを洗い出す。
  */
-const BASE = "http://localhost:3100";
+const BASE = process.env.NAUTRA_BASE ?? "http://localhost:3100"; // 別の作業が 3100 を使っているときは NAUTRA_BASE で変える
 const THRESHOLD = 3000; // これを超えたら「読むのに延々とめくる」状態
 
 const SHORE = [

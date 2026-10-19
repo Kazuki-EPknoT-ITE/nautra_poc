@@ -26,12 +26,12 @@ import {
 import { useModalProps } from "@/ui";
 import { Button, Card, CardBody, Chip, Input, Modal, ModalBody, ModalContent, ModalFooter, ModalHeader, Radio, RadioGroup, Textarea, useDisclosure } from "@/ui/heroui";
 import { ChecklistResultRow, ChecklistSection } from "../_components/checklist-section";
+import { RecordMark } from "../_components/record-tile";
 import { GroupHeader } from "../_components/group-header";
-import { ReadOnlyNote } from "../_components/permission-gate";
 import {
   PastEmpty,
   PastFilterBar,
-  RecordModeTabs,
+  RecordModeSwitch,
   ShowMoreButton,
   usePastList,
   type RecordMode,
@@ -69,7 +69,7 @@ export default function MaintenancePage() {
   /** 配信テンプレート名（過去の記録は当時のキーしか持たないため、無ければキーを出す） */
   const templateName = useMemo(() => {
     const m = new Map(templates.map((tpl) => [tpl.templateKey, tpl.name]));
-    return (key: string) => m.get(key) ?? t.checklistTemplate[key] ?? key;
+    return (key: string, recorded?: string) => m.get(key) ?? recorded ?? t.checklistTemplate[key] ?? key;
   }, [templates]);
 
   // 点検表の結果と機器の保守記録を1つの履歴にまとめる（同じ「点検」として並べて読む）
@@ -89,7 +89,7 @@ export default function MaintenancePage() {
       h.kind === "checklist"
         ? [
             "点検表",
-            templateName(h.r.templateId),
+            templateName(h.r.templateId, h.r.templateName),
             personName(h.r.recordedBy),
             ...h.r.items.map((it) => `${it.label} ${t.checkResult[it.result]} ${it.value ?? ""}`),
           ].join(" ")
@@ -175,7 +175,7 @@ export default function MaintenancePage() {
         }
       />
 
-      <RecordModeTabs mode={mode} onChange={setMode} recordLabel="点検を記録する" pastLabel="過去の点検" />
+      <RecordModeSwitch mode={mode} onChange={setMode} pastLabel="過去の点検" />
 
       {done ? (
         <Chip variant="flat" radius="sm" className="h-auto whitespace-normal py-1">
@@ -188,27 +188,31 @@ export default function MaintenancePage() {
       {/* 船の点検表（出港前点検・安全パトロール）。項目は上司・陸上から配信される */}
       <ChecklistSection onDone={setDone} />
 
-      <h2 className="text-base font-bold text-foreground-600">機器の日常点検・保守</h2>
-      {canWrite ? null : <ReadOnlyNote note="機器の日常点検・保守の記録は船長・機関長が行います。" />}
+      <h2 className="text-base font-bold text-foreground-600">{canWrite ? "機器の日常点検・保守" : "機器の状態"}</h2>
 
       <section aria-label="機器別の最新状態" className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         {EQUIPMENT_KINDS.map((eq) => {
           const latest = latestMap.get(eq);
           const style = latest ? COND_STYLE[latest.condition] : null;
+          // 書けない人には押せる見た目にしない（押しても何も起きないボタンを置かない）
+          const Tag = canWrite ? "button" : "div";
           return (
-            <button
+            <Tag
               key={eq}
-              type="button"
-              onClick={() => open(eq)}
+              {...(canWrite ? { type: "button" as const, onClick: () => open(eq) } : {})}
               className={cn(
-                "ui-card flex min-h-24 flex-col items-start gap-1 border-2 p-3 text-left",
+                "ui-card relative flex min-h-24 flex-col items-start gap-1 border-2 p-3 text-left",
+                canWrite && "record-tile pr-14",
                 latest?.condition === "defect"
-                  ? "border-danger"
+                  ? "!border-danger"
                   : latest?.condition === "attention"
-                    ? "border-warning"
-                    : "border-transparent",
+                    ? "!border-warning"
+                    : canWrite
+                      ? null
+                      : "border-transparent",
               )}
             >
+              {canWrite ? <RecordMark className="absolute right-2 top-2" /> : null}
               <span className="text-balance font-bold leading-tight">{tr("equipment", eq)}</span>
               {latest && style ? (
                 <>
@@ -222,7 +226,7 @@ export default function MaintenancePage() {
               ) : (
                 <span className="text-xs text-foreground-600">記録なし</span>
               )}
-            </button>
+            </Tag>
           );
         })}
       </section>
@@ -240,7 +244,7 @@ export default function MaintenancePage() {
           h.kind === "checklist" ? (
             <Card key={h.r.id} shadow="none" className="ui-card">
               <CardBody>
-                <ChecklistResultRow r={h.r} name={templateName(h.r.templateId)} />
+                <ChecklistResultRow r={h.r} name={templateName(h.r.templateId, h.r.templateName)} />
               </CardBody>
             </Card>
           ) : (

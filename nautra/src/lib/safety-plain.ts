@@ -2,6 +2,7 @@ import type { CheckLevel } from "@/domain/labor-law/types";
 import { t } from "@/i18n/ja";
 import type { IncidentReportPayload, SmsDocumentPayload } from "@/sync-protocol/masters";
 import type { VoyageLogPayload } from "@/sync-protocol/records";
+import { voyageLogLabel } from "./voyage-log";
 
 /**
  * 安全管理・事故報告の導出と言い換え（純関数。UI・DB 非依存）。
@@ -146,7 +147,7 @@ function fmtStamp(iso: string): string {
 /** 航海日誌1件を報告書に引用できる1行にする */
 export function quoteVoyageLog(log: VoyageLogPayload, nameOf: (id: string) => string): string {
   const bits: string[] = [
-    `${fmtStamp(log.occurredAt)}　${t.voyageLogType[log.logType] ?? log.logType}`,
+    `${fmtStamp(log.occurredAt)}　${voyageLogLabel(log)}`,
   ];
   if (log.port) bits.push(`港: ${log.port}`);
   if (log.position) bits.push(`船位: ${log.position}`);
